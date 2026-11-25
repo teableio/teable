@@ -12,6 +12,7 @@ import {
   NoopTableSchemaCoordination,
   registerAfterCommit,
   Table,
+  TableActionTriggerRequested,
   TableByIdSpec,
   TableId,
   tableDataSafetyLimitErrors,
@@ -105,7 +106,13 @@ import {
 } from '../outbox/ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from '../outbox/ComputedUpdateSeedPayload';
 import { buildSeedTaskChunk, deserializeSeedPayload } from '../outbox/ComputedUpdateSeedPayload';
-import { buildFieldBackfillTaskInput } from '../outbox/FieldBackfillOutboxPayload';
+import {
+  buildFieldBackfillTaskInput,
+  mergeStageNotificationTargets,
+  takeNextValidBackfillStage,
+  type FieldBackfillPeriodicRefreshMeta,
+  type FieldBackfillStageEntry,
+} from '../outbox/FieldBackfillOutboxPayload';
 import type {
   AnyOutboxItem,
   ComputedTaskFailureDiagnostics,
@@ -115,6 +122,10 @@ import type {
   IComputedUpdateOutbox,
 } from '../outbox/IComputedUpdateOutbox';
 import { isFieldBackfillOutboxItem, isSeedOutboxItem } from '../outbox/IComputedUpdateOutbox';
+import {
+  noopPeriodicFieldRefreshLifecycleSink,
+  type IPeriodicFieldRefreshLifecycleSink,
+} from '../PeriodicFieldRefreshLifecycleSink';
 import { pushAll } from '../pushAll';
 
 /**
@@ -930,7 +941,9 @@ export class ComputedUpdateWorker {
     @inject(v2CoreTokens.tableSchemaCoordination)
     private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
     @inject(v2CoreTokens.sameTxProjectionDispatcher)
-    private readonly sameTxProjectionDispatcher: ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher()
+    private readonly sameTxProjectionDispatcher: ISameTxProjectionDispatcher = new NoopSameTxProjectionDispatcher(),
+    @inject(v2RecordRepositoryPostgresTokens.periodicFieldRefreshLifecycleSink)
+    private readonly periodicRefreshLifecycleSink: IPeriodicFieldRefreshLifecycleSink = noopPeriodicFieldRefreshLifecycleSink
   ) {}
 
   private async maintainValueFrontier(context: IExecutionContext): Promise<void> {
@@ -2486,6 +2499,49 @@ export class ComputedUpdateWorker {
     return ok(true);
   }
 
+  private async notifyPeriodicRefreshCompleted(
+    task: FieldBackfillOutboxItem,
+    meta: FieldBackfillPeriodicRefreshMeta
+  ): Promise<void> {
+    try {
+      await this.periodicRefreshLifecycleSink.onCompleted({
+        ...meta,
+        baseId: task.baseId,
+        taskId: task.id,
+        completedAt: new Date(),
+      });
+    } catch (error) {
+      this.logger.warn('computed:worker:periodic_refresh_lifecycle_complete_failed', {
+        taskId: task.id,
+        fieldId: meta.sourceFieldId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  private async notifyPeriodicRefreshFailed(
+    task: FieldBackfillOutboxItem,
+    message: string
+  ): Promise<void> {
+    const meta = task.stageChain?.periodicRefresh;
+    if (!meta) return;
+    try {
+      await this.periodicRefreshLifecycleSink.onFailed({
+        ...meta,
+        baseId: task.baseId,
+        taskId: task.id,
+        message,
+        failedAt: new Date(),
+      });
+    } catch (error) {
+      this.logger.warn('computed:worker:periodic_refresh_lifecycle_fail_failed', {
+        taskId: task.id,
+        fieldId: meta.sourceFieldId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
   /**
    * Process a field backfill task.
    * Loads the table, resolves field IDs, and executes the backfill.
@@ -2531,7 +2587,10 @@ export class ComputedUpdateWorker {
         error: fieldIdsResult.error.message,
         ...runLogContext,
       });
-      await this.handleTaskFailure(task, fieldIdsResult.error.message, context);
+      const marked = await this.handleTaskFailure(task, fieldIdsResult.error.message, context);
+      if (marked && task.attempts + 1 >= task.maxAttempts) {
+        await this.notifyPeriodicRefreshFailed(task, fieldIdsResult.error.message);
+      }
       return err(fieldIdsResult.error);
     }
 
@@ -2543,7 +2602,10 @@ export class ComputedUpdateWorker {
         error: tableIdResult.error.message,
         ...runLogContext,
       });
-      await this.handleTaskFailure(task, tableIdResult.error.message, context);
+      const marked = await this.handleTaskFailure(task, tableIdResult.error.message, context);
+      if (marked && task.attempts + 1 >= task.maxAttempts) {
+        await this.notifyPeriodicRefreshFailed(task, tableIdResult.error.message);
+      }
       return err(tableIdResult.error);
     }
 
@@ -2551,7 +2613,13 @@ export class ComputedUpdateWorker {
     if (baseIdResult.isErr()) return err(baseIdResult.error);
     let fieldCount = 0;
     const stagedContinuations: ContinuationRef[] = [];
+    let committedNotifyTargets: FieldBackfillStageEntry[] | undefined;
+    let committedPeriodicRefreshMeta: FieldBackfillPeriodicRefreshMeta | undefined;
+    let abandonedPeriodicRefreshReason: string | undefined;
     const transactionOutcome = await this.runComputationTransaction(cancellation, async () => {
+      committedNotifyTargets = undefined;
+      committedPeriodicRefreshMeta = undefined;
+      abandonedPeriodicRefreshReason = undefined;
       const preparedResult = await this.acquireSharedSchemaLease<LoadTaskTableResult>(
         context,
         baseIdResult.value,
@@ -2570,7 +2638,12 @@ export class ComputedUpdateWorker {
       if (preparedResult.isErr()) return err(preparedResult.error);
       const { lease, value: prepared } = preparedResult.value;
       try {
-        if (prepared.status !== 'loaded') return ok(prepared.status === 'completed');
+        if (prepared.status !== 'loaded') {
+          if (prepared.status === 'completed' && task.stageChain?.periodicRefresh) {
+            abandonedPeriodicRefreshReason = 'Target table unavailable or inactive during backfill';
+          }
+          return ok(prepared.status === 'completed');
+        }
         const table = prepared.table;
         const fieldsToBackfill: Field[] = [];
         for (const fieldId of fieldIdsResult.value) {
@@ -2578,7 +2651,7 @@ export class ComputedUpdateWorker {
           if (fieldResult.isOk()) fieldsToBackfill.push(fieldResult.value);
         }
         fieldCount = fieldsToBackfill.length;
-        if (fieldCount === 0) {
+        if (fieldCount === 0 && !task.stageChain) {
           this.logger.warn('computed:worker:field_backfill_no_fields', {
             taskId: task.id,
             ...runLogContext,
@@ -2586,22 +2659,34 @@ export class ComputedUpdateWorker {
           return this.markTaskDone(task, context);
         }
         return await this.unitOfWork.withTransaction(context, async (txContext) => {
-          const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
-          if (timeoutResult.isErr()) return err(timeoutResult.error);
+          let batch:
+            | {
+                recordCount: number;
+                lastRecordId?: string;
+                hasMore: boolean;
+              }
+            | undefined;
 
-          // Execute sync backfill for all fields
-          const backfillResult = await this.backfillService.executeSyncMany(txContext, {
-            table,
-            fields: fieldsToBackfill,
-            recordBatch: {
-              cursor: task.cursor,
-              size: this.outboxConfig.fieldBackfillBatchSize,
-            },
-          });
-          if (backfillResult.isErr()) return err(backfillResult.error);
+          if (fieldsToBackfill.length > 0) {
+            const timeoutResult = await this.applyTaskStatementTimeout(txContext, runLogContext);
+            if (timeoutResult.isErr()) return err(timeoutResult.error);
 
-          const batch = backfillResult.value.batch;
+            // Execute sync backfill for all fields
+            const backfillResult = await this.backfillService.executeSyncMany(txContext, {
+              table,
+              fields: fieldsToBackfill,
+              recordBatch: {
+                cursor: task.cursor,
+                size: this.outboxConfig.fieldBackfillBatchSize,
+              },
+            });
+            if (backfillResult.isErr()) return err(backfillResult.error);
+            batch = backfillResult.value.batch;
+          }
+
           let pendingContinuation: ContinuationRef | undefined;
+          let stageNotifyTargetsOnCommit: FieldBackfillStageEntry[] | undefined;
+          let periodicRefreshMetaOnCommit: FieldBackfillPeriodicRefreshMeta | undefined;
           if (batch?.hasMore && batch.lastRecordId) {
             const continuation = buildFieldBackfillTaskInput({
               baseId: table.baseId(),
@@ -2611,6 +2696,7 @@ export class ComputedUpdateWorker {
               runId: task.runId,
               estimatedRowCount: task.estimatedRowCount,
               cursor: batch.lastRecordId,
+              ...(task.stageChain ? { stageChain: task.stageChain } : {}),
               sourceChangedAt: task.sourceChangedAt,
               stageDepth: (task.stageDepth ?? 0) + 1,
               predecessorTaskId: task.id,
@@ -2629,6 +2715,58 @@ export class ComputedUpdateWorker {
               taskId: enqueueResult.value.taskId,
               ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
             };
+          } else if (task.stageChain) {
+            const currentTarget: FieldBackfillStageEntry | undefined =
+              fieldsToBackfill.length > 0
+                ? {
+                    tableId: table.id().toString(),
+                    fieldIds: fieldsToBackfill.map((field) => field.id().toString()),
+                  }
+                : undefined;
+            const accumulatedTargets = mergeStageNotificationTargets(
+              task.stageChain.notifyTargets,
+              currentTarget
+            );
+            const { nextStage, remainingStages } = takeNextValidBackfillStage(
+              task.stageChain.remainingStages
+            );
+            if (nextStage) {
+              const nextStageTask = buildFieldBackfillTaskInput({
+                baseId: table.baseId(),
+                tableId: nextStage.tableId,
+                fieldIds: nextStage.fieldIds,
+                hasher: this.hasher,
+                runId: task.runId,
+                estimatedRowCount: task.estimatedRowCount,
+                stageChain: {
+                  remainingStages,
+                  notifyTargets: accumulatedTargets,
+                  ...(task.stageChain.periodicRefresh
+                    ? { periodicRefresh: task.stageChain.periodicRefresh }
+                    : {}),
+                },
+                sourceChangedAt: task.sourceChangedAt,
+                stageDepth: (task.stageDepth ?? 0) + 1,
+                predecessorTaskId: task.id,
+                traceparent: task.traceparent,
+                tracestate: task.tracestate,
+              });
+              const enqueueResult = await this.outbox.enqueueFieldBackfill(
+                nextStageTask,
+                txContext,
+                relayWorkerId
+                  ? { relayClaim: { workerId: relayWorkerId, predecessorTaskId: task.id } }
+                  : undefined
+              );
+              if (enqueueResult.isErr()) return err(enqueueResult.error);
+              pendingContinuation = {
+                taskId: enqueueResult.value.taskId,
+                ...(enqueueResult.value.claimed ? { claimed: enqueueResult.value.claimed } : {}),
+              };
+            } else {
+              stageNotifyTargetsOnCommit = accumulatedTargets;
+              periodicRefreshMetaOnCommit = task.stageChain.periodicRefresh;
+            }
           }
 
           const doneResult = await this.markTaskDone(task, txContext);
@@ -2641,6 +2779,8 @@ export class ComputedUpdateWorker {
           if (pendingContinuation) {
             stagedContinuations.push(pendingContinuation);
           }
+          committedNotifyTargets = stageNotifyTargetsOnCommit;
+          committedPeriodicRefreshMeta = periodicRefreshMetaOnCommit;
 
           return ok(true);
         });
@@ -2649,6 +2789,9 @@ export class ComputedUpdateWorker {
       }
     });
     if (transactionOutcome.status === 'cancelled') {
+      committedNotifyTargets = undefined;
+      committedPeriodicRefreshMeta = undefined;
+      abandonedPeriodicRefreshReason = undefined;
       for (const continuation of stagedContinuations) {
         if (continuation.claimed) {
           await this.releaseClaimedTaskForHandoff(
@@ -2675,7 +2818,12 @@ export class ComputedUpdateWorker {
         context,
         runLogContext,
       });
-      if (obsoleteCompletion) return obsoleteCompletion;
+      if (obsoleteCompletion) {
+        if (obsoleteCompletion.isOk() && obsoleteCompletion.value) {
+          await this.notifyPeriodicRefreshFailed(task, 'Target fields removed during backfill');
+        }
+        return obsoleteCompletion;
+      }
 
       const error = normalizeComputedTaskError(executeResult.error);
       const classified = classifyComputedTaskFailure(error);
@@ -2700,12 +2848,56 @@ export class ComputedUpdateWorker {
         ...(missingColumn ? { retryAgainstFreshSnapshot: true } : {}),
         ...runLogContext,
       });
-      await this.handleTaskFailure(task, error.message, context, {
+      const isTerminalFailure = !failure.retryable || task.attempts + 1 >= task.maxAttempts;
+      const marked = await this.handleTaskFailure(task, error.message, context, {
         forceDeadLetter: !failure.retryable,
         failure,
         diagnostics: buildFailureDiagnostics(task, error, failure, 'execute_backfill'),
       });
+      if (marked && isTerminalFailure) {
+        await this.notifyPeriodicRefreshFailed(task, error.message);
+      }
       return err(error);
+    }
+
+    if (abandonedPeriodicRefreshReason && executeResult.value) {
+      await this.notifyPeriodicRefreshFailed(task, abandonedPeriodicRefreshReason);
+    }
+
+    if (committedNotifyTargets && committedNotifyTargets.length > 0) {
+      const triggerEvents: TableActionTriggerRequested[] = [];
+      for (const target of committedNotifyTargets) {
+        const targetTableIdResult = TableId.create(target.tableId);
+        if (targetTableIdResult.isErr() || target.fieldIds.length === 0) continue;
+        triggerEvents.push(
+          TableActionTriggerRequested.create({
+            baseId: baseIdResult.value,
+            tableId: targetTableIdResult.value,
+            actionKey: 'setField',
+            payload: {
+              tableId: target.tableId,
+              fieldIds: target.fieldIds,
+            },
+          })
+        );
+      }
+      if (triggerEvents.length > 0) {
+        const publishResult = await this.eventBus.publishMany(
+          withoutTransaction(context),
+          triggerEvents
+        );
+        if (publishResult.isErr()) {
+          this.logger.warn('computed:worker:periodic_refresh_trigger_failed', {
+            taskId: task.id,
+            error: publishResult.error.message,
+            ...runLogContext,
+          });
+        }
+      }
+    }
+
+    if (committedPeriodicRefreshMeta) {
+      await this.notifyPeriodicRefreshCompleted(task, committedPeriodicRefreshMeta);
     }
 
     this.logger.debug('computed:worker:field_backfill_done', {

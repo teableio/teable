@@ -60,6 +60,7 @@ export interface IRecordCreationResult {
   events: ReadonlyArray<IDomainEvent>;
   fieldKeyMapping: Map<string, string>;
   computedChanges?: ReadonlyMap<string, unknown>;
+  recordActors?: TableRecordRepositoryPort.RecordActorAttribution;
 }
 
 @injectable()
@@ -276,6 +277,7 @@ export class RecordCreationService {
           events,
           fieldKeyMapping,
           computedChanges: mutationResult?.computedChanges,
+          recordActors: mutationResult?.recordActors,
         });
       } finally {
         createRecordSpan?.end();

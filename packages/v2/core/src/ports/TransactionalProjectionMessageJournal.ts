@@ -1,12 +1,15 @@
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../domain/shared/DomainError';
+import type { RecordInitiator } from '../domain/shared/RecordInitiator';
 import type { DurableProjectionTarget } from './DurableSubscriptionCatalog';
 import type { IExecutionContext } from './ExecutionContext';
 import type { ProjectionMessageJson, ProjectionMessageRoute } from './ProjectionMessage';
 
 export type StoredProjectionMessageContext = Readonly<{
   actorId: string;
+  initiator?: RecordInitiator;
+  operationAttribution?: IExecutionContext['operationAttribution'];
   requestId?: string;
   windowId?: string;
   undoRedoMode?: 'undo' | 'redo' | 'normal';

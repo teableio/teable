@@ -108,6 +108,10 @@ class InMemoryTableRepository implements ITableRepository {
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   lastMutateSpec: ISpecification<Table, ITableSpecVisitor> | undefined;
 
+  async ensureActorColumns(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table) {
     return ok(undefined);
   }
@@ -542,8 +546,24 @@ describe('CreateFieldsHandler', () => {
     const mapper = new CountingTableMapper();
     const snapshotService = createSnapshotService(
       [
-        { id: `rec${'m'.repeat(16)}`, fields: { [numberFieldId]: 42 }, version: 1 },
-        { id: `rec${'n'.repeat(16)}`, fields: {}, version: 1 },
+        {
+          id: `rec${'m'.repeat(16)}`,
+          fields: { [numberFieldId]: 42 },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
+        {
+          id: `rec${'n'.repeat(16)}`,
+          fields: {},
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
       ],
       mapper
     );

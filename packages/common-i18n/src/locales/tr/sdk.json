@@ -304,6 +304,14 @@
     "addRecordComment": "Yorum ekle",
     "viewRecordHistory": "Kayıt geçmişini görüntüle",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Platform kullanıcısı",
+        "appUser": "Uygulama kullanıcısı",
+        "automation": "Otomasyon",
+        "system": "Sistem"
+      },
+      "actor": "Başlatıcı",
+      "actorUnknown": "Bilinmiyor",
       "hiddenRecordHistory": "Kayıt geçmişini gizle",
       "showRecordHistory": "Kayıt geçmişini göster",
       "createdTime": "Değiştirilme zamanı",
@@ -464,6 +472,8 @@
       "appDelete": "Uygulama sil",
       "appRead": "Uygulama oku",
       "appUpdate": "Uygulama güncelle",
+      "appReadUsers": "Uygulama kullanıcılarını ve kimlik meta verilerini oku",
+      "appReadUserPii": "Uygulama kimliklerinin kişisel bilgilerini oku",
       "userEmailRead": "Kullanıcı e-postası oku",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Kullanıcının alanlarını oku (ad, plan ve kullanıcı sayısı)",
@@ -488,6 +498,7 @@
     "routine": "Rutin",
     "app": "Uygulama",
     "user": "Kullanıcı",
+    "appUser": "Uygulama kullanıcısı",
     "recordHistory": "Kayıt geçmişi",
     "you": "Sen",
     "instance": "Örnek",
@@ -1732,7 +1743,11 @@
         "signInStateInvalid": "Oturum açma oturumu geçersiz veya süresi dolmuş. Lütfen tekrar oturum açın.",
         "domainNotAllowed": "Kayıt, belirli e-posta alan adlarıyla sınırlıdır. E-posta alan adınız izin verilenler listesinde değil.",
         "inviteOnly": "Bu uygulama yalnızca davetliler içindir. Erişim istemek için uygulama yöneticisiyle iletişime geçin.",
-        "emailMissing": "E-posta adresiniz alınamadı"
+        "emailMissing": "E-posta adresiniz alınamadı",
+        "accountExists": "Bu e-posta adresinin zaten bir giriş yöntemi var. Bu yöntemle giriş yapın, ardından Hesap ayarlarından yeni yöntemi bağlayın.",
+        "accountExistsWithProviders": "Bu e-posta zaten {{providers}} ile giriş yapıyor. Mevcut yöntemle giriş yapın, ardından Hesap ayarlarından yeni yöntemi bağlayın.",
+        "userTableLocked": "Bu uygulamada zaten App kullanıcıları var, bu nedenle kullanıcı tablosu değiştirilemez.",
+        "emailAmbiguous": "Bu e-postayı birden fazla profil kullanıyor"
       },
       "previewOriginNotReady": "Önizleme uygulaması hazır değil. Önizlemeyi yenileyip tekrar deneyin.",
       "publishedOriginNotReady": "Yayımlanan uygulama hazır değil. Uygulamayı yayımlayıp tekrar deneyin.",
@@ -1742,6 +1757,8 @@
       },
       "customDomainNotConfigured": "Özel alan adı yapılandırılmamış",
       "vercelTokenNotConfigured": "App Builder ayarlarında Vercel tokenı yapılandırılmamış",
+      "managedFieldReadOnly": "Bu sütun Uygulama oturum açması tarafından yönetilir ve burada düzenlenemez",
+      "managedRecordReadOnly": "Oturum açma profili satırları Uygulama oturum açması tarafından yönetilir ve burada eklenemez veya silinemez",
       "deleteSandboxCloseFailed": "Sanal alan kapatılamadı. Hiçbir şey silinmedi, tekrar deneyin"
     },
     "reward": {

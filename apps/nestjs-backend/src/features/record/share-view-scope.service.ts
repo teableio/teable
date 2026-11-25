@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { FieldKeyType, IFieldVo, IFilter, IViewVo } from '@teable/core';
+import type { FieldKeyType, IFieldVo, IViewVo } from '@teable/core';
 import { HttpErrorCode, isAnonymous } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type {
@@ -16,7 +16,7 @@ import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { createViewVoByRaw } from '../view/model/factory';
-import { RecordService } from './record.service';
+import { RecordOpenApiV2Service } from './open-api/record-open-api-v2.service';
 
 type IShareViewScope = {
   shareId: string;
@@ -60,7 +60,7 @@ type ISelectionIdScopeRo = ISelectionScopeQuery & {
 export class ShareViewScopeService {
   constructor(
     private readonly prismaService: PrismaService,
-    private readonly recordService: RecordService,
+    private readonly recordOpenApiV2Service: RecordOpenApiV2Service,
     private readonly cls: ClsService<IClsStore>
   ) {}
 
@@ -188,10 +188,10 @@ export class ShareViewScopeService {
       throw this.restricted(`Share view ${scope.shareId} does not expose records`);
     }
 
-    const deniedIds = await this.recordService.getDiffIdsByIdAndFilter(
+    const deniedIds = await this.recordOpenApiV2Service.getDiffIdsByIdAndFilter(
       scope.tableId,
       ids,
-      scope.view.filter as IFilter | undefined
+      scope.view.filter
     );
     if (deniedIds.length) {
       throw this.restricted(

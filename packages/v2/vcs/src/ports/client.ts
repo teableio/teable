@@ -57,6 +57,10 @@ export interface IVcsRemoteGateway {
   ): Promise<
     Result<{ snapshot: IBaseVcsSnapshot; remoteMode: IVcsHeadInfo['remoteMode'] }, DomainError>
   >;
+  checkoutRevision?(
+    baseId: string,
+    revision: number
+  ): Promise<Result<{ snapshot: IBaseVcsSnapshot; remoteMode: 'v2-vcs' }, DomainError>>;
   cloneTableRecordsChunk?(
     baseId: string,
     tableId: string,

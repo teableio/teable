@@ -12,6 +12,7 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import { mapRecordActors, type RecordActorDto } from './recordActorDto';
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
@@ -43,7 +44,8 @@ export const createRecordsOkResponseSchema = apiOkResponseDtoSchema(
 export { apiErrorResponseDtoSchema as createRecordsErrorResponseSchema } from '../shared/http';
 
 export const mapCreateRecordsResultToDto = (
-  result: CreateRecordsResult
+  result: CreateRecordsResult,
+  actorsByRecordId: ReadonlyMap<string, RecordActorDto> | undefined
 ): Result<ICreateRecordsResponseDataDto, DomainError> => {
   const { fieldKeyMapping, computedChangesByRecord } = result;
 
@@ -81,6 +83,7 @@ export const mapCreateRecordsResultToDto = (
     return {
       id: recordId,
       fields,
+      ...mapRecordActors(actorsByRecordId?.get(recordId)),
     };
   });
 

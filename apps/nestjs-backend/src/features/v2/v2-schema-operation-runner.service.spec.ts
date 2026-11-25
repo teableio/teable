@@ -1,6 +1,8 @@
+import type { ConfigService } from '@nestjs/config';
+import { metrics } from '@opentelemetry/api';
+import * as sdkMetrics from '@opentelemetry/sdk-metrics';
 import 'reflect-metadata';
 
-import type { ConfigService } from '@nestjs/config';
 import * as Sentry from '@sentry/nestjs';
 import {
   domainError,
@@ -30,11 +32,12 @@ vi.mock('@sentry/nestjs', () => ({
 
 const operation = (
   id: string,
-  baseId: string | null = 'bseSchemaOpRunner'
+  baseId: string | null = 'bseSchemaOpRunner',
+  type: SchemaOperationRecord['type'] = 'table.create'
 ): SchemaOperationRecord =>
   ({
     id,
-    type: 'table.create',
+    type,
     status: 'running',
     phase: 'running',
     target: {
@@ -145,8 +148,44 @@ const createService = ({
   };
 };
 
+class CollectingMetricReader extends sdkMetrics.MetricReader {
+  private latest: sdkMetrics.CollectionResult | undefined;
+
+  constructor() {
+    super({
+      aggregationTemporalitySelector: () => sdkMetrics.AggregationTemporality.CUMULATIVE,
+    });
+  }
+
+  protected async onShutdown(): Promise<void> {
+    this.latest = undefined;
+  }
+
+  protected async onForceFlush(): Promise<void> {
+    this.latest = await this.collect();
+  }
+
+  async dataPoints(name: string) {
+    await this.forceFlush();
+    return (
+      this.latest?.resourceMetrics.scopeMetrics
+        .flatMap((scope) => scope.metrics)
+        .filter((metric) => metric.descriptor.name === name)
+        .flatMap((metric) =>
+          metric.dataPoints.map(({ attributes, value }) => ({ attributes, value }))
+        ) ?? []
+    );
+  }
+}
+
 describe('V2SchemaOperationRunnerService', () => {
+  let provider: InstanceType<typeof sdkMetrics.MeterProvider>;
+  let reader: CollectingMetricReader;
   beforeEach(() => {
+    metrics.disable();
+    reader = new CollectingMetricReader();
+    provider = new sdkMetrics.MeterProvider({ readers: [reader] });
+    metrics.setGlobalMeterProvider(provider);
     vi.useFakeTimers();
     vi.mocked(Sentry.captureException).mockClear();
     vi.mocked(Sentry.withScope).mockClear();
@@ -156,7 +195,9 @@ describe('V2SchemaOperationRunnerService', () => {
     sentryScope.setTag.mockClear();
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    await provider.shutdown();
+    metrics.disable();
     vi.useRealTimers();
   });
 
@@ -208,6 +249,58 @@ describe('V2SchemaOperationRunnerService', () => {
     expect(v2ContainerService.getContainerForBase).toHaveBeenCalledWith('bseSchemaOpRunner');
     expect(scopedRunner.runOperation).toHaveBeenCalledTimes(2);
     expect(runner.runOperation).not.toHaveBeenCalled();
+
+    service.onModuleDestroy();
+  });
+  it('exports actor enablement outcomes only after completed or failed runner results', async () => {
+    const failure = domainError.infrastructure({ message: 'actor columns failed' });
+    const readyOperation = operation(
+      'sgoActorReady',
+      'bseSchemaOpRunner',
+      'table.actor_columns.enable'
+    );
+    const failedOperation = {
+      ...operation('sgoActorFailed', 'bseSchemaOpRunner', 'table.actor_columns.enable'),
+      status: 'dead' as const,
+      phase: 'error' as const,
+    };
+    const { service, scopedRunner } = createService({
+      claimResults: [
+        okClaim({ status: 'claimed', operation: readyOperation }),
+        okClaim({ status: 'claimed', operation: failedOperation }),
+        idleClaim,
+      ],
+      runResults: [
+        okRun({ status: 'completed', operation: readyOperation }),
+        okRun({
+          status: 'failed',
+          operation: failedOperation,
+          terminal: true,
+          retryable: false,
+          error: failure,
+        }),
+      ],
+    });
+
+    await service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    const points = await reader.dataPoints('teable.schema_operation.outcome');
+
+    expect(scopedRunner.runOperation).toHaveBeenCalledTimes(2);
+    expect(points).toEqual(
+      expect.arrayContaining([
+        {
+          attributes: { type: 'table.actor_columns.enable', status: 'ready' },
+          value: 1,
+        },
+        {
+          attributes: { type: 'table.actor_columns.enable', status: 'error' },
+          value: 1,
+        },
+      ])
+    );
+    expect(points).toHaveLength(2);
+    expect(Object.keys(points[0].attributes).sort()).toEqual(['status', 'type']);
 
     service.onModuleDestroy();
   });
@@ -360,5 +453,60 @@ describe('V2SchemaOperationRunnerService', () => {
     expect(runner.claimNext).toHaveBeenCalledTimes(2);
 
     service.onModuleDestroy();
+  });
+
+  it('claims a post-cutover actor enable through the replacement metadata container', async () => {
+    const fixture = createService({ config: { V2_SCHEMA_OPERATION_RUNNER_POLL_INTERVAL_MS: 25 } });
+    await fixture.service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    const enabled = { ...operation('sgoPostCutoverEnable'), type: 'table.actor_columns.enable' };
+    const replacementRunner = {
+      registerHandler: vi.fn(),
+      claimNext: vi
+        .fn()
+        .mockResolvedValueOnce(okClaim({ status: 'claimed', operation: enabled }))
+        .mockResolvedValue(idleClaim),
+      runOperation: vi.fn(),
+    };
+    const replacement = {
+      isRegistered: (token: symbol) => token === v2CoreTokens.schemaOperationRunnerService,
+      resolve: () => replacementRunner,
+    } as unknown as DependencyContainer;
+    vi.mocked(fixture.v2ContainerService.getContainer).mockResolvedValue(replacement);
+    fixture.runner.claimNext.mockRejectedValue(new Error('Retired metadata pool'));
+    fixture.scopedRunner.runOperation.mockResolvedValueOnce(
+      okRun({ status: 'completed', operation: enabled })
+    );
+    await vi.advanceTimersByTimeAsync(25);
+    expect(replacementRunner.registerHandler).toHaveBeenCalledWith(fixture.recovery);
+    expect(fixture.runner.claimNext).toHaveBeenCalledTimes(1);
+    expect(replacementRunner.claimNext).toHaveBeenCalledTimes(2);
+    expect(fixture.scopedRunner.runOperation).toHaveBeenCalledWith(
+      expect.anything(),
+      enabled,
+      expect.anything()
+    );
+    fixture.service.onModuleDestroy();
+  });
+
+  it('abandons a claim-container retirement race and resolves fresh handles on the next tick', async () => {
+    const fixture = createService({ config: { V2_SCHEMA_OPERATION_RUNNER_POLL_INTERVAL_MS: 25 } });
+    fixture.runner.claimNext.mockRejectedValueOnce(new Error('Pool destroyed during claim'));
+    await fixture.service.onApplicationBootstrap();
+    await vi.advanceTimersByTimeAsync(0);
+    const replacementRunner = {
+      registerHandler: vi.fn(),
+      claimNext: vi.fn().mockResolvedValue(idleClaim),
+      runOperation: vi.fn(),
+    };
+    vi.mocked(fixture.v2ContainerService.getContainer).mockResolvedValue({
+      isRegistered: () => true,
+      resolve: () => replacementRunner,
+    } as unknown as DependencyContainer);
+    await vi.advanceTimersByTimeAsync(25);
+    expect(fixture.runner.claimNext).toHaveBeenCalledTimes(1);
+    expect(replacementRunner.claimNext).toHaveBeenCalledTimes(1);
+    expect(fixture.scopedRunner.runOperation).not.toHaveBeenCalled();
+    fixture.service.onModuleDestroy();
   });
 });

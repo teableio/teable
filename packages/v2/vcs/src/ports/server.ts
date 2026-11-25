@@ -13,7 +13,10 @@ export type { IVcsPullCursor } from '../domain/cursor';
 import type {
   IBaseVcsPatch,
   IBaseVcsPatchSummary,
+  IBaseVcsSnapshot,
   ITableAccessScope,
+  ITableVcsPatch,
+  ITableVcsSnapshot,
   IVcsStoredChange,
   VcsChangeOpKind,
   VcsEntityType,
@@ -22,6 +25,8 @@ import type {
 export interface IVcsHeadState {
   readonly enabled: boolean;
   readonly headRevision: number;
+  /** Monotonic storage fence shared by unlocked reads and confirmation locks. */
+  readonly modificationFence?: string;
   readonly minRetainedSeq: number;
   readonly minRetainedXid: string;
 }
@@ -57,7 +62,6 @@ export interface IVcsCommitInput {
   readonly originPushId: string;
   readonly actorId: string;
   readonly message?: string;
-  /** Reserved for future commit DAG support. */
   readonly parents?: readonly number[];
   readonly summary: IBaseVcsPatchSummary;
 }
@@ -88,10 +92,75 @@ export interface IVcsPushMetadataLockTargets {
   readonly viewIds: readonly string[];
 }
 
+/** Called with the current unrestricted schema. Undefined requests every record. */
+export type SelectCheckpointRecords = (
+  table: Omit<ITableVcsSnapshot, 'records'>,
+  fieldColumns: Readonly<Record<string, string>>
+) => Promise<readonly string[] | undefined>;
+
+/** Internal, unrestricted storage read in the transaction publishing this revision. */
+export interface VcsCheckpointCapture {
+  (
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>>;
+  withRecordSelection?(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number,
+    select: SelectCheckpointRecords
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>>;
+}
+
+export interface IVcsRevisionComparison {
+  readonly patch: IBaseVcsPatch;
+  readonly summary: IBaseVcsPatchSummary;
+  readonly mergeBase: number | null;
+  /** False only when both complete checkpoints have exclusively same-base references. */
+  readonly containsForeignReferences?: boolean;
+  /** Internal inputs for authorization. Equal chunks are omitted on both sides. Link
+   * target rows from shared chunks carry IDs only and occur on both sides. */
+  readonly projectionCandidates?: {
+    readonly before: IBaseVcsSnapshot;
+    readonly after: IBaseVcsSnapshot;
+  };
+}
+
 export interface IBaseVcsLogRepository {
-  getHead(ctx: IExecutionContext, baseId: BaseId): Promise<Result<IVcsHeadState, DomainError>>;
-  isEnabled(ctx: IExecutionContext, baseId: BaseId): Promise<Result<boolean, DomainError>>;
-  enable(ctx: IExecutionContext, baseId: BaseId): Promise<Result<IVcsEnableResult, DomainError>>;
+  getHead(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    options?: { readonly requireAtomicStorage: true }
+  ): Promise<Result<IVcsHeadState, DomainError>>;
+  isEnabled(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    options?: { readonly includePendingEnable: true }
+  ): Promise<Result<boolean, DomainError>>;
+  enable(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    capture: VcsCheckpointCapture
+  ): Promise<Result<IVcsEnableResult, DomainError>>;
+  /** Full-base repository reads. The calling service enforces historical read access. */
+  readHistoricalSnapshot(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>>;
+  /** Table membership from the checkpoint root without reading record objects. */
+  readHistoricalTableIds(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number
+  ): Promise<Result<readonly string[], DomainError>>;
+  compareHistoricalRevisions(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    from: number,
+    to: number
+  ): Promise<Result<IVcsRevisionComparison, DomainError>>;
   appendChanges(
     ctx: IExecutionContext,
     baseId: BaseId,
@@ -110,15 +179,18 @@ export interface IBaseVcsLogRepository {
     limit: number,
     options?: { readonly tableIds?: readonly string[] }
   ): Promise<Result<IVcsChangePage, DomainError>>;
+  /** Acquire metadata then the head fence. Call after acquiring explicit physical targets. */
   lockPushMetadata(
     ctx: IExecutionContext,
     baseId: BaseId,
     targets: IVcsPushMetadataLockTargets
   ): Promise<Result<IVcsHeadState, DomainError>>;
+  /** Only a new transaction may wait on its first physical target. */
   lockPushPhysicalTargets(
     ctx: IExecutionContext,
     baseId: BaseId,
-    physicalTargets: readonly IVcsPushPhysicalTableLockTarget[]
+    physicalTargets: readonly IVcsPushPhysicalTableLockTarget[],
+    options?: { readonly waitForFirstTarget: boolean }
   ): Promise<Result<void, DomainError>>;
   findCommitByOriginPushId(
     ctx: IExecutionContext,
@@ -128,7 +200,8 @@ export interface IBaseVcsLogRepository {
   appendCommit(
     ctx: IExecutionContext,
     baseId: BaseId,
-    commit: IVcsCommitInput
+    commit: IVcsCommitInput,
+    capture: VcsCheckpointCapture
   ): Promise<Result<IVcsCommit, DomainError>>;
 }
 
@@ -141,7 +214,43 @@ export interface IVcsReadableTableScope {
   readonly tableAccessScope?: ITableAccessScope;
 }
 
+export interface IVcsHistoryTableScope extends IVcsReadableTableScope {
+  readonly readableViewIds: ReadonlySet<string>;
+  /** Only per-record history is granted. Use live schema and omit historical views. */
+  readonly recordHistoryOnly?: true;
+  /** Current per-record history grants. Missing records and fields are denied. */
+  readonly historyFieldsForRecords?: (
+    recordIds: string[]
+  ) => Promise<ReadonlyMap<string, ReadonlySet<string>>>;
+}
+
+/** Inclusive epoch-millisecond bounds on persisted checkpoint times for record-only grants. */
+export interface IVcsRecordHistoryWindow {
+  readonly startMs?: number;
+  readonly endMs: number;
+}
+
+export type VcsHistoryAccess =
+  | { readonly kind: 'full'; readonly includesForeignBases?: true }
+  | {
+      readonly kind: 'scoped';
+      readonly tables: readonly IVcsHistoryTableScope[];
+      readonly currentBaseName?: string;
+      readonly recordHistoryWindow?: IVcsRecordHistoryWindow;
+    };
+
+/** Prepared from the retained tables in the rollback transaction. Never accepted on the wire. */
+export interface IVcsRollbackRestore {
+  readonly tableIds: readonly string[];
+  readonly tableChanges: readonly ITableVcsPatch[];
+}
+
 export interface IVcsAccessPolicy {
+  /** A full grant includes deleted entities. Absence of a history policy denies history access. */
+  resolveHistoryAccess?(
+    ctx: IExecutionContext,
+    baseId: BaseId
+  ): Promise<Result<VcsHistoryAccess, DomainError>>;
   resolveReadableTables(
     ctx: IExecutionContext,
     baseId: BaseId,
@@ -151,6 +260,7 @@ export interface IVcsAccessPolicy {
   assertCanApplyPatch(
     ctx: IExecutionContext,
     baseId: BaseId,
-    patch: IBaseVcsPatch
+    patch: IBaseVcsPatch,
+    restore?: IVcsRollbackRestore
   ): Promise<Result<void, DomainError>>;
 }

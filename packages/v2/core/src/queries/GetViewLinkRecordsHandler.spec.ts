@@ -21,6 +21,12 @@ const context: IExecutionContext = {
   actorId: ActorId.create('system')._unsafeUnwrap(),
 };
 const id = (prefix: 'bse' | 'tbl' | 'fld' | 'viw', seed: string) => `${prefix}${seed.repeat(16)}`;
+const unknownActorAttribution = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+} as const;
 
 const buildTable = (linkFilter?: unknown) => {
   const tableId = TableId.create(id('tbl', 't'))._unsafeUnwrap();
@@ -101,6 +107,7 @@ const targetRecords = [
       [id('fld', 'o')]: { id: 'usrAnn', title: 'Ann' },
     },
     version: 1,
+    ...unknownActorAttribution,
   },
   {
     id: `rec${'b'.repeat(16)}`,
@@ -110,6 +117,7 @@ const targetRecords = [
       [id('fld', 'o')]: { id: 'usrBob', title: 'Bob' },
     },
     version: 1,
+    ...unknownActorAttribution,
   },
 ];
 

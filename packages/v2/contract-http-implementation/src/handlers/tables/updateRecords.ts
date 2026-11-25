@@ -39,7 +39,7 @@ export const executeUpdateRecordsEndpoint = async (
     };
   }
 
-  const mapped = mapUpdateRecordsResultToDto(result.value);
+  const mapped = mapUpdateRecordsResultToDto(result.value, result.value.recordActorsByRecord);
   if (mapped.isErr()) {
     const error = mapped.error;
     return {

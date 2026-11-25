@@ -24,6 +24,13 @@ import { InjectRecordQueryDialect } from './record-query-builder.provider';
 import { getOrderedFieldsByProjection, getTableAliasFromTable } from './record-query-builder.util';
 import { IRecordQueryDialectProvider } from './record-query-dialect.interface';
 
+const actorColumnNames = [
+  '__created_by_actor_type',
+  '__created_by_actor_id',
+  '__last_modified_by_actor_type',
+  '__last_modified_by_actor_id',
+] as const;
+
 @Injectable()
 @V1EngineService(['prepareView', 'createRecordQueryBuilder', 'createRecordAggregateBuilder'])
 export class RecordQueryBuilderService implements IRecordQueryBuilder {
@@ -687,7 +694,16 @@ export class RecordQueryBuilderService implements IRecordQueryBuilder {
     const alias = getTableAliasFromTable(table);
 
     for (const field of preservedDbFieldNames) {
+      if (actorColumnNames.some((column) => column === field)) continue;
       qb.select(`${alias}.${field}`);
+    }
+    for (const column of actorColumnNames) {
+      qb.select({
+        [column]:
+          table.actorStorageVersion === 1
+            ? this.knex.ref(`${alias}.${column}`)
+            : this.knex.raw('NULL'),
+      });
     }
 
     const orderedFields = getOrderedFieldsByProjection(

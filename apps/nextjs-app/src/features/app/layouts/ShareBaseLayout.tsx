@@ -95,6 +95,7 @@ export const ShareBaseLayout: React.FC<IShareBaseLayoutProps> = ({
           dehydratedState={dehydratedState}
           wsPath={wsPath}
           shareId={shareId}
+          baseShareId={shareId}
           maxSearchFieldCount={maxSearchFieldCount}
         >
           <SessionProvider user={user} disabledApi>

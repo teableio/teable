@@ -5,3 +5,5 @@ export { v2VcsServerTokens } from '../ports/tokens';
 export * from '../projections/BaseVcsChangeLogProjection';
 export * from '../projections/extractDirtyKeys';
 export * from '../snapshot/tableToVcsSnapshot';
+export * from '../domain/checkpointMerkle';
+export { containsForeignReferences } from '../application/server/historyProjection';

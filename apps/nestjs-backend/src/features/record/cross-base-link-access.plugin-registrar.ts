@@ -3,6 +3,7 @@ import {
   RecordWriteOperationKind,
   registerFieldOperationPlugin,
   registerRecordWritePlugin,
+  registerTableOperationPlugin,
   v2CoreTokens,
   type IRecordWritePlugin,
   type RecordWriteSideEffectService,
@@ -16,6 +17,7 @@ import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-pro
 import { CrossBaseLinkAccessFieldOperationPlugin } from './cross-base-link-access.field-operation.plugin';
 import { CrossBaseLinkAccessRecordWritePlugin } from './cross-base-link-access.record-write.plugin';
 import { CrossBaseLinkAccessService } from './cross-base-link-access.service';
+import { CrossBaseLinkAccessTableOperationPlugin } from './cross-base-link-access.table-operation.plugin';
 import { LinkTitleRecordCreatePermissionPlugin } from './link-title-record-create-permission.plugin';
 import { SymmetricFieldPermissionFieldOperationPlugin } from './symmetric-field-permission.field-operation.plugin';
 import { SymmetricFieldTargetSchemaCapabilityProvider } from './symmetric-field-target-schema-capability.service';
@@ -26,9 +28,9 @@ import { SymmetricFieldTargetSchemaCapabilityProvider } from './symmetric-field-
  * the plugins have to be added at registration time rather than once at
  * bootstrap.
  *
- * Record writes and field operations are separate plugin ports, so both are
- * registered here to keep one piece of code answering "who checks cross-base
- * reach".
+ * Record writes, field operations and table creation are separate plugin
+ * ports, so all three are registered here to keep one piece of code answering
+ * "who checks cross-base reach".
  */
 @V2ProjectionRegistrar()
 @Injectable()
@@ -89,6 +91,11 @@ export class CrossBaseLinkAccessPluginRegistrar implements IV2ProjectionRegistra
     registerFieldOperationPlugin(
       container,
       new SymmetricFieldPermissionFieldOperationPlugin(this.targetSchemaCapability, this.cls),
+      { source: CrossBaseLinkAccessPluginRegistrar.name }
+    );
+    registerTableOperationPlugin(
+      container,
+      new CrossBaseLinkAccessTableOperationPlugin(this.fieldReferenceAdmission),
       { source: CrossBaseLinkAccessPluginRegistrar.name }
     );
   }

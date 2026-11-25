@@ -305,6 +305,12 @@
     "addRecordComment": "Add comment",
     "viewRecordHistory": "View record history",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Platform user",
+        "appUser": "App user",
+        "automation": "Automation",
+        "system": "System"
+      },
       "hiddenRecordHistory": "Hide record history",
       "showRecordHistory": "Show record history",
       "createdTime": "Modified time",
@@ -316,7 +322,9 @@
       "allFields": "All fields",
       "allUsers": "All users",
       "clearFilter": "Clear filters",
-      "viewRecord": "View record"
+      "viewRecord": "View record",
+      "actor": "Initiator",
+      "actorUnknown": "Unknown"
     },
     "showHiddenFields": "Show {{count}} hidden fields",
     "hideHiddenFields": "Hide {{count}} hidden fields",
@@ -464,6 +472,8 @@
       "appDelete": "Delete app",
       "appRead": "Read app",
       "appUpdate": "Update app",
+      "appReadUsers": "Read app users and identity metadata",
+      "appReadUserPii": "Read app identity personal information",
       "userEmailRead": "Read current user email",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Read current user's spaces (name, plan and seats)",
@@ -489,6 +499,7 @@
     "routine": "Routine",
     "app": "App",
     "user": "User",
+    "appUser": "App user",
     "recordHistory": "Record history",
     "you": "You",
     "instance": "Instance",
@@ -1737,7 +1748,11 @@
         "signInStateInvalid": "The sign-in session is invalid or has expired. Please sign in again.",
         "domainNotAllowed": "Sign-up is restricted to specific email domains. Your email domain is not on the allowed list.",
         "inviteOnly": "This app is invite-only. Contact the app administrator to request access.",
-        "emailMissing": "Your email address could not be retrieved"
+        "emailMissing": "Your email address could not be retrieved",
+        "accountExists": "This email already has a sign-in method. Sign in with it, then link this method in Account settings.",
+        "accountExistsWithProviders": "This email already signs in with {{providers}}. Sign in with an existing method, then link this method in Account settings.",
+        "userTableLocked": "This app already has App users, so its user table cannot change.",
+        "emailAmbiguous": "More than one profile row uses this email"
       },
       "previewOriginNotReady": "The preview app is not ready. Reload the preview and try again.",
       "publishedOriginNotReady": "The published app is not ready. Publish the app and try again.",
@@ -1747,6 +1762,8 @@
       },
       "customDomainNotConfigured": "No custom domain configured",
       "vercelTokenNotConfigured": "Vercel token is not configured in App Builder settings",
+      "managedFieldReadOnly": "This column is maintained by the App login and cannot be edited here",
+      "managedRecordReadOnly": "Login profile rows are managed by the App login and cannot be added or deleted here",
       "deleteSandboxCloseFailed": "Couldn't close the sandbox. Nothing was deleted; try again"
     },
     "reward": {

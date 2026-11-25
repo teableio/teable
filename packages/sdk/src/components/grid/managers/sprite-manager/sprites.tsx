@@ -9,6 +9,7 @@ import {
   EyeOff,
   Info,
 } from '@teable/icons';
+import { AppWindowMac } from 'lucide-react';
 import { renderToString } from 'react-dom/server';
 
 export interface ISpriteProps {
@@ -61,6 +62,11 @@ export const eyeOff = (props: ISpriteProps) => {
   return renderToString(<EyeOff style={{ color: fgColor }} />);
 };
 
+const appUser = (props: ISpriteProps) => {
+  const { fgColor } = props;
+  return renderToString(<AppWindowMac style={{ color: fgColor }} />);
+};
+
 export const sprites = {
   add,
   drag,
@@ -71,6 +77,7 @@ export const sprites = {
   collapse,
   lock,
   eyeOff,
+  appUser,
 };
 
 export enum GridInnerIcon {
@@ -83,4 +90,5 @@ export enum GridInnerIcon {
   Collapse = 'collapse',
   Lock = 'lock',
   EyeOff = 'eyeOff',
+  AppUser = 'appUser',
 }

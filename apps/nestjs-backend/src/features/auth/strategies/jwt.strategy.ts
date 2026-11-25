@@ -67,12 +67,14 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
       this.cls.set('user.name', user.name);
       this.cls.set('user.email', user.email);
       this.cls.set('user.isAdmin', user.isAdmin);
+      this.cls.set('recordInitiator', { type: 'user', id: user.id });
       return pickUserMe(user);
     }
 
     // Handle App and Automation type tokens - use robot users
     const user = payload.type === JwtAuthInternalType.App ? APP_ROBOT_USER : AUTOMATION_ROBOT_USER;
     this.cls.set('user', user);
+    this.cls.set('recordInitiator', undefined);
     this.cls.set('tempAuthBaseId', payload.baseId);
 
     if (payload.type === JwtAuthInternalType.App) {
@@ -80,14 +82,22 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     }
     if (payload.type === JwtAuthInternalType.Automation) {
       this.cls.set('workflowContext', payload.context);
+      this.cls.set(
+        'recordInitiator',
+        payload.context?.workflowId
+          ? { type: 'automation', id: payload.context.workflowId }
+          : { type: 'system', id: 'automation' }
+      );
     }
 
     return user;
   }
 
-  protected async authenticateAppToken(_baseId: string, _req: Request) {
-    // Overridden in the enterprise edition, which only accepts the token a live
-    // app currently holds. Community edition has no app model, so this is a no-op
+  protected async authenticateAppToken(_baseId: string, req: Request) {
+    // EE overrides this with live AppToken and opaque-session validation. CE has no App metadata.
+    if (req.headers?.['x-teable-app-session'] !== undefined) {
+      throw new UnauthorizedException('App sessions are not available in this edition');
+    }
   }
 
   private async validateUserToken(payload: IJwtAuthInfo) {
@@ -107,6 +117,7 @@ export class JwtStrategy extends PassportStrategy(Strategy, JWT_TOKEN_STRATEGY_N
     this.cls.set('user.name', user.name);
     this.cls.set('user.email', user.email);
     this.cls.set('user.isAdmin', user.isAdmin);
+    this.cls.set('recordInitiator', user.isSystem ? undefined : { type: 'user', id: user.id });
     if (payload.source) {
       this.cls.set('authSource', payload.source);
     }

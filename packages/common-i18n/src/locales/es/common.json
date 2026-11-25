@@ -1982,6 +1982,8 @@
     "agentStartFailed": "El motor de IA no pudo iniciarse. Inténtalo de nuevo o inicia una sesión nueva.",
     "agentSessionLost": "Algo salió mal. Vuelve a enviar tu mensaje.",
     "sandboxDestroyed": "El entorno de Cuppy se cerró y la respuesta se detuvo",
+    "streamInterrupted": "El entorno de ejecución se reinició inesperadamente",
+    "streamInterruptedDescription": "La respuesta se interrumpió al reiniciarse el entorno. Inténtalo de nuevo.",
     "sandboxOutOfMemory": "Cuppy se detuvo a mitad del trabajo",
     "sandboxOutOfMemoryDescription": "Este paso necesitó más recursos de los que Cuppy tiene disponibles. No es por nada que hayas hecho. Selecciona Continuar y Cuppy revisará hasta dónde llegó antes de seguir.",
     "sandboxOutOfMemoryAction": "Continuar",

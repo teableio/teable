@@ -32,6 +32,11 @@ export interface ITableSchemaRepository {
     context: IExecutionContext,
     table: Table
   ): Promise<Result<void, DomainError>>;
+  /**
+   * Explicitly enable physical actor storage in the caller's data transaction.
+   * The schema-operation caller publishes capability only after that transaction commits.
+   */
+  ensureActorColumns(context: IExecutionContext, table: Table): Promise<Result<void, DomainError>>;
   insertMany(
     context: IExecutionContext,
     tables: ReadonlyArray<Table>,

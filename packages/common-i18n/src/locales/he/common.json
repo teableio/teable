@@ -1982,6 +1982,8 @@
     "agentStartFailed": "מנוע ה-AI לא הצליח לעלות. יש לנסות שוב או להתחיל שיחה חדשה.",
     "agentSessionLost": "משהו השתבש. אנא שלח את ההודעה שוב.",
     "sandboxDestroyed": "סביבת ההרצה של Cuppy נסגרה והתגובה נעצרה",
+    "streamInterrupted": "סביבת ההרצה הופעלה מחדש באופן בלתי צפוי",
+    "streamInterruptedDescription": "התגובה נקטעה כשהסביבה הופעלה מחדש. יש לנסות שוב.",
     "sandboxOutOfMemory": "Cuppy נעצר באמצע העבודה",
     "sandboxOutOfMemoryDescription": "השלב הזה דרש יותר משאבים ממה שזמין ל-Cuppy. זה לא קרה בגלל משהו שעשית. יש לבחור „המשך“, ו-Cuppy יבדוק היכן הוא נעצר ואז ימשיך.",
     "sandboxOutOfMemoryAction": "המשך",

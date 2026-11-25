@@ -37,6 +37,7 @@ import {
   toUndoRedoStackAppendContext,
   UndoRedoStackService,
 } from '../application/services/UndoRedoStackService';
+import { assertRecordActorStorageEnabled } from '../application/services/withRecordWriteCoordination';
 import {
   domainError,
   type DomainError,
@@ -67,13 +68,12 @@ import { splitSelectTypecastValues } from '../domain/table/fields/visitors/split
 import type { UpdateRecordItem } from '../domain/table/methods/records';
 import { calculateBatchSize } from '../domain/table/methods/records/calculateBatchSize';
 import { RecordId } from '../domain/table/records/RecordId';
-import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { type TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
-import type { TableId } from '../domain/table/TableId';
+import { TableId } from '../domain/table/TableId';
 import type { ViewId } from '../domain/table/views/ViewId';
 import type { IBatchMutationOrchestration } from '../ports/BatchMutationOrchestration';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
@@ -87,6 +87,10 @@ import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import {
@@ -249,6 +253,8 @@ type PreparedPasteStreamPlan = {
   readonly typecast: boolean;
   readonly operationsStream: AsyncIterable<Result<PasteOperation, DomainError>>;
   readonly totalCount: number;
+  readonly updateRecordCount: number;
+  readonly createRecordCount: number;
   readonly totalChunkCount: number;
   readonly batchSize: number;
 };
@@ -343,11 +349,67 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
       [],
       new NoopLogger(),
       new DefaultTableMapper()
-    )
+    ),
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    protected readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: PasteCommand
+  ): Promise<Result<PasteResult, DomainError>> {
+    return this.withPasteWriteCoordination(context, command, () =>
+      this.executePaste(context, command)
+    );
+  }
+
+  /** Lock potential originating writes together; link/FK maintenance adds no nested lease. */
+  protected async withPasteWriteCoordination<T>(
+    context: ExecutionContextPort.IExecutionContext,
+    command: Pick<PasteCommand, 'tableId' | 'sourceFields'>,
+    execute: () => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    const tableIds = new Set([command.tableId.toString()]);
+    const collectTargets = (table: Table) => {
+      for (const field of table.getFields()) {
+        if (field.type().equals(FieldType.link())) {
+          tableIds.add((field as LinkField).foreignTableId().toString());
+        }
+      }
+      for (const field of command.sourceFields ?? []) {
+        if (field.type !== 'link' || field.isComputed || field.isLookup) continue;
+        const foreignId = field.options?.foreignTableId;
+        if (typeof foreignId !== 'string') continue;
+        const parsed = TableId.create(foreignId);
+        if (parsed.isOk()) tableIds.add(parsed.value.toString());
+      }
+    };
+    const discovery = await this.tableQueryService.getById(context, command.tableId);
+    if (discovery.isErr()) return err(discovery.error);
+    collectTargets(discovery.value);
+
+    for (;;) {
+      const targets = [...tableIds].sort();
+      const acquired = await this.tableSchemaCoordination.acquire(context, targets, 'exclusive');
+      if (acquired.isErr()) return err(acquired.error);
+      try {
+        const fresh = await this.tableQueryService.getById(context, command.tableId);
+        if (fresh.isErr()) return err(fresh.error);
+        collectTargets(fresh.value);
+        // A concurrent schema edit can introduce another auto-create target.
+        // Release the whole set before reacquiring; do not consume any input yet.
+        if (tableIds.size !== targets.length) continue;
+        const actorStorage = assertRecordActorStorageEnabled(context, fresh.value);
+        if (actorStorage.isErr()) return err(actorStorage.error);
+        return await execute();
+      } finally {
+        await acquired.value.release();
+      }
+    }
+  }
+
+  private async executePaste(
     context: ExecutionContextPort.IExecutionContext,
     command: PasteCommand
   ): Promise<Result<PasteResult, DomainError>> {
@@ -360,6 +422,7 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
         includeSchemaProjection: false,
       });
       const persistedTable = preparation.persistedTable;
+      yield* assertRecordActorStorageEnabled(context, persistedTable);
       const tableForPaste = preparation.tableForPaste;
       const editableColumns = preparation.editableColumns;
       const plannedColumnExpansion = preparation.columnExpansion
@@ -1930,6 +1993,33 @@ export class PasteStreamApplicationService extends PasteHandler {
     command: PasteStreamCommandLike,
     queue: AsyncIterableQueue<PasteStreamEvent>
   ) {
+    try {
+      const result = await this.withPasteWriteCoordination(context, command, async () => {
+        await this.runCoordinatedPasteStream(context, command, queue);
+        return ok(undefined);
+      });
+      if (result.isErr())
+        queue.push(
+          this.createErrorEvent(result.error, {
+            phase: 'preparing',
+            batchIndex: -1,
+            totalCount: 0,
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+            recordIds: [],
+          })
+        );
+    } finally {
+      queue.close();
+    }
+  }
+
+  private async runCoordinatedPasteStream(
+    context: ExecutionContextPort.IExecutionContext,
+    command: PasteStreamCommandLike,
+    queue: AsyncIterableQueue<PasteStreamEvent>
+  ) {
     queue.push(this.createProgressEvent('preparing', 0, 0, 0, 0, -1, 0));
 
     try {
@@ -1976,7 +2066,8 @@ export class PasteStreamApplicationService extends PasteHandler {
         payload: this.buildOperationPastePluginPayload(
           plan.typecast,
           plan.editableColumns,
-          plan.totalCount
+          plan.updateRecordCount,
+          plan.createRecordCount
         ),
         orchestration: {
           mode: 'stream',
@@ -2243,8 +2334,6 @@ export class PasteStreamApplicationService extends PasteHandler {
           }
         )
       );
-    } finally {
-      queue.close();
     }
   }
 
@@ -2257,6 +2346,8 @@ export class PasteStreamApplicationService extends PasteHandler {
       return err(persistedTableResult.error);
     }
     const persistedTable = persistedTableResult.value;
+    const actorStorage = assertRecordActorStorageEnabled(context, persistedTable);
+    if (actorStorage.isErr()) return err(actorStorage.error);
     let tableForPaste = persistedTable;
 
     let orderedFieldIds = persistedTable.getOrderedVisibleFieldIds(command.viewId.toString(), {
@@ -2367,6 +2458,8 @@ export class PasteStreamApplicationService extends PasteHandler {
         typecast: command.typecast,
         operationsStream: createEmptyPasteOperationStream(),
         totalCount: 0,
+        updateRecordCount: 0,
+        createRecordCount: 0,
         totalChunkCount: 0,
         batchSize: command.batchSize ?? 1,
       });
@@ -2491,6 +2584,8 @@ export class PasteStreamApplicationService extends PasteHandler {
         ...collectedOperations.value.createOperations,
       ]),
       totalCount: expandedContent.length,
+      updateRecordCount: collectedOperations.value.updateOperations.length,
+      createRecordCount: collectedOperations.value.createOperations.length,
       totalChunkCount: Math.max(1, Math.ceil(expandedContent.length / batchSize)),
       batchSize,
     });
@@ -2581,7 +2676,8 @@ export class PasteStreamApplicationService extends PasteHandler {
   private buildOperationPastePluginPayload(
     typecast: boolean,
     editableColumns: ReadonlyArray<EditableColumn>,
-    totalCount: number
+    updateRecordCount: number,
+    createRecordCount: number
   ) {
     return {
       editableFieldIds: editableColumns.map((column) => column.fieldId),
@@ -2589,9 +2685,9 @@ export class PasteStreamApplicationService extends PasteHandler {
       updateRecordsFieldValues: [] as ReadonlyMap<string, unknown>[],
       createRecordsFieldValues: [] as ReadonlyMap<string, unknown>[],
       typecast,
-      updateRecordCount: 0,
-      createRecordCount: totalCount,
-      recordCount: totalCount,
+      updateRecordCount,
+      createRecordCount,
+      recordCount: updateRecordCount + createRecordCount,
     };
   }
 

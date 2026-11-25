@@ -65,6 +65,54 @@ const readSpecifier = (node) => {
   }
 };
 
+/** @param {any} context @param {(source: string, filename: string) => boolean} blocked @param {string} messageId */
+const createImportBoundaryVisitors = (context, blocked, messageId) => {
+  /** @param {any} node @param {any} sourceNode */
+  const check = (node, sourceNode) => {
+    const name = readSpecifier(sourceNode);
+    if (name === undefined || !blocked(name, context.filename)) return;
+    context.report({ node, messageId, data: { name } });
+  };
+
+  return {
+    /** @param {any} node */
+    ImportDeclaration(node) {
+      check(node.source, node.source);
+    },
+    /** @param {any} node */
+    ExportNamedDeclaration(node) {
+      if (node.source) check(node.source, node.source);
+    },
+    /** @param {any} node */
+    ExportAllDeclaration(node) {
+      if (node.source) check(node.source, node.source);
+    },
+    /** @param {any} node */
+    ImportExpression(node) {
+      check(node.source, node.source);
+    },
+    /** @param {any} node */
+    TSImportType(node) {
+      check(node, node.source);
+    },
+    /** @param {any} node */
+    TSImportEqualsDeclaration(node) {
+      const reference = node.moduleReference;
+      if (reference?.type === 'TSExternalModuleReference') {
+        check(reference.expression, reference.expression);
+      }
+    },
+    /** @param {any} node */
+    CallExpression(node) {
+      const isRequire =
+        node.callee?.type === 'Identifier' &&
+        node.callee.name === 'require' &&
+        node.arguments?.length === 1;
+      if (isRequire) check(node.arguments[0], node.arguments[0]);
+    },
+  };
+};
+
 const noLegacyCoreImport = {
   meta: {
     type: 'problem',
@@ -76,51 +124,8 @@ const noLegacyCoreImport = {
   },
   /** @param {any} context */
   create(context) {
-    /** @param {any} node @param {any} sourceNode */
-    const check = (node, sourceNode) => {
-      const name = readSpecifier(sourceNode);
-      if (name === undefined || !isBlocked(name, context.filename)) return;
-      context.report({ node, messageId: 'legacy', data: { name } });
-    };
-
-    return {
-      /** @param {any} node */
-      ImportDeclaration(node) {
-        check(node.source, node.source);
-      },
-      /** @param {any} node */
-      ExportNamedDeclaration(node) {
-        if (node.source) check(node.source, node.source);
-      },
-      /** @param {any} node */
-      ExportAllDeclaration(node) {
-        if (node.source) check(node.source, node.source);
-      },
-      /** @param {any} node */
-      ImportExpression(node) {
-        check(node.source, node.source);
-      },
-      /** @param {any} node */
-      TSImportType(node) {
-        check(node, node.source);
-      },
-      /** @param {any} node */
-      TSImportEqualsDeclaration(node) {
-        const reference = node.moduleReference;
-        if (reference?.type === 'TSExternalModuleReference') {
-          check(reference.expression, reference.expression);
-        }
-      },
-      /** @param {any} node */
-      CallExpression(node) {
-        const isRequire =
-          node.callee?.type === 'Identifier' &&
-          node.callee.name === 'require' &&
-          node.arguments?.length === 1;
-        if (isRequire) check(node.arguments[0], node.arguments[0]);
-      },
-    };
+    return createImportBoundaryVisitors(context, isBlocked, 'legacy');
   },
 };
 
-module.exports = { noLegacyCoreImport };
+module.exports = { noLegacyCoreImport, createImportBoundaryVisitors };

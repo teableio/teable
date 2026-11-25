@@ -4,6 +4,7 @@ import type { Result } from 'neverthrow';
 
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { assertRecordActorStorageEnabled } from '../application/services/withRecordWriteCoordination';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type {
@@ -23,6 +24,8 @@ import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteT
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import { NoopTableSchemaCoordination } from '../ports/TableSchemaCoordination';
+import type { ITableSchemaCoordination } from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -60,11 +63,30 @@ export class RestoreRecordsHandler implements ICommandHandler<
     @inject(v2CoreTokens.domainWriteTransaction)
     private readonly domainWriteTransaction: IDomainWriteTransaction,
     @inject(v2CoreTokens.recordWritePluginRunner)
-    private readonly recordWritePluginRunner: RecordWritePluginRunner
+    private readonly recordWritePluginRunner: RecordWritePluginRunner,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
   async handle(
+    context: ExecutionContextPort.IExecutionContext,
+    command: RestoreRecordsCommand
+  ): Promise<Result<RestoreRecordsResult, DomainError>> {
+    const lease = await this.tableSchemaCoordination.acquire(
+      context,
+      [command.tableId.toString()],
+      'shared'
+    );
+    if (lease.isErr()) return err(lease.error);
+    try {
+      return await this.restoreWithSchemaLease(context, command);
+    } finally {
+      await lease.value.release();
+    }
+  }
+
+  private async restoreWithSchemaLease(
     context: ExecutionContextPort.IExecutionContext,
     command: RestoreRecordsCommand
   ): Promise<Result<RestoreRecordsResult, DomainError>> {
@@ -74,6 +96,9 @@ export class RestoreRecordsHandler implements ICommandHandler<
     }
 
     const table = tableResult.value;
+    const actorStorage = assertRecordActorStorageEnabled(context, table);
+    if (actorStorage.isErr()) return err(actorStorage.error);
+
     const selfLinkFieldIds = this.collectSelfReferentialLinkFieldIds(table);
     command.onTableSelfLinkFieldsResolved?.(selfLinkFieldIds);
 
@@ -208,7 +233,7 @@ export class RestoreRecordsHandler implements ICommandHandler<
         return err(builtRecords.error);
       }
 
-      const restoreRecordsById = this.buildRestoreRecordsById(phase1Batch);
+      const restoreRecordsById = this.buildRestoreRecordsById(phase1Batch, command);
       const deferredIdSet = useMultiPhaseSelfLinks
         ? new Set(batchDeferred.map((entry) => entry.recordId))
         : undefined;
@@ -580,13 +605,22 @@ export class RestoreRecordsHandler implements ICommandHandler<
     return ok(records);
   }
 
-  private buildRestoreRecordsById(batch: ReadonlyArray<RestoreRecordInput>) {
+  private buildRestoreRecordsById(
+    batch: ReadonlyArray<RestoreRecordInput>,
+    command: RestoreRecordsCommand
+  ) {
     return new Map(
       batch.map((record) => [
         record.recordId,
         {
           ...(record.version !== undefined ? { version: record.version } : {}),
+          ...(command.trustedCreatedActorsByRecordId
+            ? {
+                createdByActor: command.trustedCreatedActorsByRecordId.get(record.recordId) ?? null,
+              }
+            : {}),
           ...(record.orders ? { orders: record.orders } : {}),
+          ...(record.defaultOrder !== undefined ? { defaultOrder: record.defaultOrder } : {}),
           ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
           ...(record.createdTime ? { createdTime: record.createdTime } : {}),
           ...(record.createdBy ? { createdBy: record.createdBy } : {}),

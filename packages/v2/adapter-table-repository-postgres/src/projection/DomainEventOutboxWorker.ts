@@ -15,6 +15,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type Kysely, type Transaction } from 'kysely';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
+import { restoreProjectionAttribution } from './projectionAttribution';
 
 export type DomainEventClaimIdentity = Readonly<{
   consumerId: string;
@@ -73,6 +74,8 @@ type ClaimedDelivery = Readonly<{
   schemaVersion: number;
   payload: unknown;
   catalogGeneration: number;
+  attribution: unknown;
+  recordedAt: Date;
 }>;
 
 type OwnedDelivery = ClaimedDelivery & Readonly<{ remainingMs: number }>;
@@ -109,8 +112,9 @@ const metadataEnvelopeSchema = z
         correlationId: z.string().optional(),
         causationId: z.string().optional(),
       })
-      .strict(),
+      .strip(),
     occurredAt: z.string().datetime(),
+    attribution: z.unknown().optional(),
   })
   .strict();
 
@@ -350,6 +354,8 @@ export class DomainEventOutboxWorker {
           o.message_name as "messageName",
           o.schema_version as "schemaVersion",
           o.payload,
+          ${this.metadataOptions ? sql`NULL::jsonb` : sql`o.attribution`} as attribution,
+          o.created_at as "recordedAt",
           o.catalog_generation as "catalogGeneration"
         FROM claimed
         JOIN ${this.table('domain_event_outbox')} o ON o.id = claimed.event_id
@@ -424,6 +430,17 @@ export class DomainEventOutboxWorker {
     const liveDelivery = owned.value;
     const remainingMs = liveDelivery.remainingMs;
 
+    const handler = this.handlers.get(liveDelivery.consumerId);
+    let receiptDestination: 'source' | 'external' | undefined;
+    try {
+      receiptDestination = handler?.receiptDestination;
+    } catch (error) {
+      return this.markFailed(liveDelivery, {
+        code: 'domain_event.handler_resolution_failed',
+        retryability: 'retryable',
+        message: error instanceof Error ? error.message : 'Durable handler resolution failed',
+      });
+    }
     const isMetadata = this.metadataOptions?.transactionScope === 'meta';
     const envelope = isMetadata
       ? metadataEnvelopeSchema.safeParse(liveDelivery.payload)
@@ -436,7 +453,11 @@ export class DomainEventOutboxWorker {
       });
     }
     const persisted = envelope?.success ? envelope.data : undefined;
-    if (!isMetadata && (await this.inboxExists(liveDelivery))) {
+    if (
+      !isMetadata &&
+      receiptDestination !== 'external' &&
+      (await this.inboxExists(liveDelivery))
+    ) {
       return this.markSucceeded(liveDelivery);
     }
 
@@ -477,7 +498,11 @@ export class DomainEventOutboxWorker {
       }
     }
 
-    const handler = this.handlers.get(liveDelivery.consumerId);
+    const frozen = restoreProjectionAttribution(
+      persisted ? persisted.attribution : liveDelivery.attribution,
+      liveDelivery.eventId
+    );
+    if (frozen.isErr()) return this.markFailed(liveDelivery, frozen.error);
     if (!handler) {
       return this.markFailed(liveDelivery, {
         code: 'domain_event.handler_missing',
@@ -491,14 +516,17 @@ export class DomainEventOutboxWorker {
     leaseTimer.unref?.();
     const context: IDurableProjectionContext = {
       eventId: liveDelivery.eventId,
+      messageName: liveDelivery.messageName,
       deliveryId: liveDelivery.id,
       consumerId: liveDelivery.consumerId,
       catalogGeneration: liveDelivery.catalogGeneration,
       consumerGeneration: 1,
       replayGeneration: 0,
       invocationAttempt: liveDelivery.attempts,
-      ...(persisted ? persisted.context : { actorId: 'system' }),
-      occurredAt: persisted ? new Date(persisted.occurredAt) : new Date(),
+      ...(persisted && persisted.attribution == null
+        ? { ...persisted.context, occurredAt: new Date(persisted.occurredAt) }
+        : { ...persisted?.context, ...frozen.value }),
+      recordedAt: liveDelivery.recordedAt,
       dispatchScope: createEventDispatchScope(),
       leaseSignal: abort.signal,
     };
@@ -519,13 +547,45 @@ export class DomainEventOutboxWorker {
     }
 
     if (
+      receiptDestination === 'external' &&
+      (handled.value.kind !== 'applied' ||
+        handled.value.effectReceipt.kind !== 'destination-inbox' ||
+        handled.value.effectReceipt.destination !== 'external')
+    ) {
+      return this.markFailed(liveDelivery, {
+        code: 'domain_event.receipt_required',
+        retryability: 'terminal',
+        message: 'External inbox consumers must return a committed target receipt',
+      });
+    }
+    if (
       handled.value.kind === 'applied' &&
       handled.value.effectReceipt.kind === 'destination-inbox'
     ) {
-      let inboxExists: boolean;
-      if (this.metadataOptions) {
+      const receipt = handled.value.effectReceipt;
+      let exists: boolean;
+      if (receipt.destination === 'external') {
+        if (!handler.verifyReceipt) {
+          return this.markFailed(liveDelivery, {
+            code: 'domain_event.receipt_verifier_missing',
+            retryability: 'terminal',
+            message: 'External destination inbox requires a target receipt verifier',
+          });
+        }
         try {
-          inboxExists = await this.metadataOptions.destinationInboxExists({
+          const verified = await handler.verifyReceipt(context, receipt);
+          if (verified.isErr()) return this.markFailed(liveDelivery, verified.error);
+          exists = verified.value;
+        } catch (error) {
+          return this.markFailed(liveDelivery, {
+            code: 'domain_event.receipt_verification_failed',
+            retryability: 'retryable',
+            message: error instanceof Error ? error.message : 'Target receipt verification failed',
+          });
+        }
+      } else if (this.metadataOptions) {
+        try {
+          exists = await this.metadataOptions.destinationInboxExists({
             eventId: liveDelivery.eventId,
             consumerId: liveDelivery.consumerId,
             message: decoded.value,
@@ -538,14 +598,13 @@ export class DomainEventOutboxWorker {
           });
         }
       } else {
-        inboxExists = await this.inboxExists(liveDelivery);
+        exists = await this.inboxExists(liveDelivery);
       }
-      if (!inboxExists) {
+      if (!exists) {
         return this.markFailed(liveDelivery, {
           code: 'domain_event.inbox_missing',
-          retryability: 'terminal',
-          message:
-            'destination-inbox handler returned applied without persisting the inbox receipt',
+          retryability: receipt.destination === 'external' ? 'retryable' : 'terminal',
+          message: 'Destination inbox handler returned without a committed inbox receipt',
         });
       }
     }

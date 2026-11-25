@@ -76,7 +76,12 @@ import {
 } from './ComputedUpdateOutboxPayload';
 import type { ComputedUpdateSeedTaskInput } from './ComputedUpdateSeedPayload';
 import { buildSeedTaskChunk, mergeSeedPayloads } from './ComputedUpdateSeedPayload';
-import type { FieldBackfillOutboxTaskInput } from './FieldBackfillOutboxPayload';
+import type {
+  FieldBackfillOutboxTaskInput,
+  FieldBackfillPeriodicRefreshMeta,
+  FieldBackfillStageChain,
+  FieldBackfillStageEntry,
+} from './FieldBackfillOutboxPayload';
 import {
   defaultComputedUpdateOutboxConfig,
   DEFAULT_COMPUTED_WORKER_LANE,
@@ -4792,6 +4797,7 @@ export class ComputedUpdateOutbox implements IComputedUpdateOutbox {
         plan_hash: task.planHash,
         dirty_stats: toJsonValue({
           fieldBackfillCursor: task.cursor,
+          ...(task.stageChain ? { periodicRefreshStageChain: task.stageChain } : {}),
           traceparent: task.traceparent,
           tracestate: task.tracestate,
         }),
@@ -5838,6 +5844,7 @@ const toAnyOutboxItem = (row: OutboxRow, seedGroupsFromTable: SeedGroup[]): AnyO
  * Convert a database row to a FieldBackfillOutboxItem.
  */
 const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
+  const stageChain = parseFieldBackfillStageChain(row.dirty_stats);
   return {
     taskType: 'field-backfill',
     id: String(row.id),
@@ -5846,6 +5853,7 @@ const toFieldBackfillOutboxItem = (row: OutboxRow): FieldBackfillOutboxItem => {
     fieldIds: parseStringArray(row.affected_field_ids),
     estimatedRowCount: Number(row.estimated_complexity ?? 0),
     cursor: parseFieldBackfillCursor(row.dirty_stats),
+    ...(stageChain ? { stageChain } : {}),
     ...(parseTracePropagationCarrier(row.dirty_stats) ?? {}),
     runId: String(row.run_id ?? ''),
     planHash: String(row.plan_hash),
@@ -5876,6 +5884,80 @@ const parseFieldBackfillCursor = (value: unknown): string | undefined => {
   if (!parsed || typeof parsed !== 'object') return undefined;
   const cursor = (parsed as { fieldBackfillCursor?: unknown }).fieldBackfillCursor;
   return typeof cursor === 'string' && cursor.length > 0 ? cursor : undefined;
+};
+
+const parseStageEntries = (raw: unknown): FieldBackfillStageEntry[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  const entries: FieldBackfillStageEntry[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue;
+    const candidate = item as { tableId?: unknown; fieldIds?: unknown };
+    if (typeof candidate.tableId !== 'string' || !candidate.tableId) continue;
+    if (!Array.isArray(candidate.fieldIds)) continue;
+    const fieldIds = candidate.fieldIds.filter(
+      (id): id is string => typeof id === 'string' && id.length > 0
+    );
+    if (fieldIds.length === 0) continue;
+    entries.push({ tableId: candidate.tableId, fieldIds });
+  }
+  return entries;
+};
+
+const parseFieldBackfillPeriodicRefreshMeta = (
+  raw: unknown
+): FieldBackfillPeriodicRefreshMeta | undefined => {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const {
+    sourceFieldId,
+    sourceTableId,
+    rangeHash,
+    localDate,
+    timeZone,
+    containsNowPrecision,
+    triggeredAtIso,
+  } = raw as Partial<Record<keyof FieldBackfillPeriodicRefreshMeta, unknown>>;
+  if (
+    typeof sourceFieldId !== 'string' ||
+    typeof sourceTableId !== 'string' ||
+    typeof rangeHash !== 'string' ||
+    typeof localDate !== 'string' ||
+    typeof timeZone !== 'string' ||
+    typeof containsNowPrecision !== 'boolean' ||
+    typeof triggeredAtIso !== 'string'
+  ) {
+    return undefined;
+  }
+
+  return {
+    sourceFieldId,
+    sourceTableId,
+    rangeHash,
+    localDate,
+    timeZone,
+    containsNowPrecision,
+    triggeredAtIso,
+  };
+};
+
+const parseFieldBackfillStageChain = (value: unknown): FieldBackfillStageChain | undefined => {
+  const parsed = parseJsonValue(value);
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const rawChain = (parsed as { periodicRefreshStageChain?: unknown }).periodicRefreshStageChain;
+  if (!rawChain || typeof rawChain !== 'object') return undefined;
+  const chainObj = rawChain as {
+    remainingStages?: unknown;
+    notifyTargets?: unknown;
+    periodicRefresh?: unknown;
+  };
+  const remainingStages = parseStageEntries(chainObj.remainingStages);
+  if (!remainingStages) return undefined;
+  const notifyTargets = parseStageEntries(chainObj.notifyTargets);
+  const periodicRefresh = parseFieldBackfillPeriodicRefreshMeta(chainObj.periodicRefresh);
+  return {
+    remainingStages,
+    ...(notifyTargets ? { notifyTargets } : {}),
+    ...(periodicRefresh ? { periodicRefresh } : {}),
+  };
 };
 
 /**
@@ -6163,6 +6245,7 @@ const buildDeadLetterValues = (
       estimated_complexity: backfillTask.estimatedRowCount ?? 0,
       dirty_stats: toJsonValue({
         fieldBackfillCursor: backfillTask.cursor,
+        ...(backfillTask.stageChain ? { periodicRefreshStageChain: backfillTask.stageChain } : {}),
         traceparent: backfillTask.traceparent,
         tracestate: backfillTask.tracestate,
       }),

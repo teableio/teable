@@ -37,6 +37,20 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .execute();
 
   await db.schema
+    .createTable('data_db_connection')
+    .ifNotExists()
+    .addColumn('id', 'text', (col) => col.primaryKey())
+    .addColumn('provider', 'text', (col) => col.notNull().defaultTo('postgres'))
+    .addColumn('encrypted_url', 'text', (col) => col.notNull())
+    .addColumn('url_fingerprint', 'text', (col) => col.notNull().unique())
+    .addColumn('internal_schema', 'text', (col) => col.notNull())
+    .addColumn('status', 'text', (col) => col.notNull().defaultTo('pending'))
+    .addColumn('created_by', 'text', (col) => col.notNull())
+    .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
+    .addColumn('last_modified_time', 'timestamptz')
+    .execute();
+
+  await db.schema
     .createTable('space_data_db_binding')
     .ifNotExists()
     .addColumn('id', 'text', (col) => col.primaryKey())
@@ -62,6 +76,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('search_index', 'jsonb')
     .addColumn('provision_state', 'text', (col) => col.notNull().defaultTo('ready'))
     .addColumn('version', 'integer', (col) => col.notNull())
+    .addColumn('actor_storage_version', 'integer', (col) => col.notNull().defaultTo(0))
     .addColumn('order', 'double precision', (col) => col.notNull())
     .addColumn('created_time', 'timestamptz', (col) => col.notNull().defaultTo(sql`now()`))
     .addColumn('last_modified_time', 'timestamptz')
@@ -69,6 +84,12 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('created_by', 'text', (col) => col.notNull())
     .addColumn('last_modified_by', 'text')
     .execute();
+
+  // Reconcile earlier bootstrap schemas as well as creating a fresh one.
+  await sql`
+    ALTER TABLE table_meta
+    ADD COLUMN IF NOT EXISTS actor_storage_version integer NOT NULL DEFAULT 0
+  `.execute(db);
 
   await db.schema
     .createTable('schema_operation')
@@ -844,6 +865,7 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
     .addColumn('schema_version', 'integer', (col) => col.notNull())
     .addColumn('aggregate_id', 'text')
     .addColumn('payload', 'jsonb', (col) => col.notNull())
+    .addColumn('attribution', 'jsonb')
     .addColumn('payload_bytes', 'integer', (col) => col.notNull())
     .addColumn('catalog_generation', 'integer', (col) => col.notNull())
     .addColumn('required_consumers', 'jsonb', (col) => col.notNull())
@@ -858,6 +880,11 @@ export const ensureV1MetaSchema = async (db: Kysely<V1TeableDatabase>): Promise<
   await sql`
     ALTER TABLE domain_event_outbox
     ADD COLUMN IF NOT EXISTS settled_at timestamptz
+  `.execute(db);
+
+  await sql`
+    ALTER TABLE domain_event_outbox
+    ADD COLUMN IF NOT EXISTS attribution jsonb
   `.execute(db);
 
   await sql`

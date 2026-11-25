@@ -2,9 +2,15 @@
 import type { ExecutionContext } from '@nestjs/common';
 import type { Reflector } from '@nestjs/core';
 import { APP_ROBOT_ID, HttpErrorCode, type Action } from '@teable/core';
+import { BASE_SHARE_ID_HEADER } from '@teable/openapi';
 import type { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
+import {
+  BASE_SHARE_DENIED_MESSAGE,
+  IS_ALLOW_BASE_SHARE,
+} from '../decorators/allow-base-share.decorator';
+import { PERMISSIONS_KEY } from '../decorators/permissions.decorator';
 import type { PermissionService } from '../permission.service';
 import { PermissionGuard } from './permission.guard';
 
@@ -92,7 +98,7 @@ describe('PermissionGuard', () => {
     };
   };
 
-  it('checks the table resource when a share grants access through a project table route', async () => {
+  it('checks the table resource when a share grants access through an open project table route', async () => {
     class SharePermissionGuard extends PermissionGuard {
       checkShare(context: ExecutionContext) {
         return this.baseSharePermissionCheck(context, 'shrFixture');
@@ -105,7 +111,9 @@ describe('PermissionGuard', () => {
       getRequest: () => ({ params: { baseId, tableId } }),
     })) as typeof context.switchToHttp;
     const reflector = {
-      getAllAndOverride: vi.fn((key: string) => (key === 'permissions' ? ['table|read'] : undefined)),
+      getAllAndOverride: vi.fn((key: string) =>
+        key === 'permissions' ? ['table|read'] : key === IS_ALLOW_BASE_SHARE || undefined
+      ),
     } as unknown as Reflector;
     const cls = {
       get: vi.fn((key: string) => (key === 'baseShare' ? { baseId } : undefined)),
@@ -247,4 +255,104 @@ describe('PermissionGuard', () => {
       expect(validPermissions).not.toHaveBeenCalled();
     }
   );
+});
+
+describe('PermissionGuard with a project share header', () => {
+  const baseId = 'bsexxxxxxxxxxxx';
+  const shareId = 'shrxxxxxxxxxxxx';
+
+  const createShareGuard = ({
+    allowBaseShare,
+    shareBaseId = baseId,
+  }: {
+    allowBaseShare?: boolean;
+    shareBaseId?: string;
+  }) => {
+    const metadata: Record<string, unknown> = {
+      [PERMISSIONS_KEY]: ['table|read'],
+      [IS_ALLOW_BASE_SHARE]: allowBaseShare,
+    };
+    const reflector = {
+      getAllAndOverride: vi.fn((key: string) => metadata[key]),
+    } as unknown as Reflector;
+    const store = new Map<string, unknown>([['user.id', 'usrxxxxxxxxxxxx']]);
+    const cls = {
+      get: vi.fn((key: string) => store.get(key)),
+      set: vi.fn((key: string, value: unknown) => store.set(key, value)),
+    } as unknown as ClsService<IClsStore>;
+    // The share service records the share it checked, as the real one does
+    const validBaseSharePermissions = vi.fn(async () => {
+      store.set('baseShare', { baseId: shareBaseId, nodeId: 'bnoxxxxxxxxxxxx' });
+      return ['table|read'];
+    });
+    const permissionService = {
+      getBaseShareIdByHeader: (header: string) => header,
+      baseShareRequiresPassword: vi.fn().mockResolvedValue(false),
+      validBaseSharePermissions,
+    } as unknown as PermissionService;
+    return {
+      guard: new PermissionGuard(reflector, cls, permissionService),
+      validBaseSharePermissions,
+    };
+  };
+
+  const createShareContext = (params: Record<string, string>) =>
+    ({
+      getHandler: vi.fn(),
+      getClass: vi.fn(),
+      switchToHttp: () => ({
+        getRequest: () => ({
+          params,
+          headers: { [BASE_SHARE_ID_HEADER.toLowerCase()]: shareId },
+        }),
+      }),
+    }) as unknown as ExecutionContext;
+
+  it('refuses a project-level route that is not opened to shares', async () => {
+    const { guard, validBaseSharePermissions } = createShareGuard({});
+
+    await expect(guard.canActivate(createShareContext({ baseId }))).rejects.toThrow(
+      BASE_SHARE_DENIED_MESSAGE
+    );
+    expect(validBaseSharePermissions).not.toHaveBeenCalled();
+  });
+
+  it('checks an open project-level route against the base when the path names nothing else', async () => {
+    const { guard, validBaseSharePermissions } = createShareGuard({ allowBaseShare: true });
+
+    await expect(guard.canActivate(createShareContext({ baseId }))).resolves.toBe(true);
+    expect(validBaseSharePermissions).toHaveBeenCalledWith(shareId, baseId, ['table|read']);
+  });
+
+  it("refuses a route under a shared table's path that is not opened to shares", async () => {
+    const { guard, validBaseSharePermissions } = createShareGuard({});
+
+    // e.g. delete-references, which answers for the tables elsewhere that point at this one
+    await expect(guard.canActivate(createShareContext({ baseId, tableId }))).rejects.toThrow(
+      BASE_SHARE_DENIED_MESSAGE
+    );
+    expect(validBaseSharePermissions).not.toHaveBeenCalled();
+  });
+
+  it('checks the table an open project-level route names against the share', async () => {
+    const { guard, validBaseSharePermissions } = createShareGuard({ allowBaseShare: true });
+
+    await expect(guard.canActivate(createShareContext({ baseId, tableId }))).resolves.toBe(true);
+    expect(validBaseSharePermissions).toHaveBeenCalledWith(shareId, tableId, ['table|read']);
+  });
+
+  it("refuses a shared table under another project's id", async () => {
+    const { guard } = createShareGuard({ allowBaseShare: true, shareBaseId: 'bseyyyyyyyyyyyy' });
+
+    await expect(guard.canActivate(createShareContext({ baseId, tableId }))).rejects.toThrow(
+      `Resource ${baseId} is not accessible via share ${shareId}`
+    );
+  });
+
+  it('leaves a table-level route to the share check of its table', async () => {
+    const { guard, validBaseSharePermissions } = createShareGuard({});
+
+    await expect(guard.canActivate(createShareContext({ tableId }))).resolves.toBe(true);
+    expect(validBaseSharePermissions).toHaveBeenCalledWith(shareId, tableId, ['table|read']);
+  });
 });

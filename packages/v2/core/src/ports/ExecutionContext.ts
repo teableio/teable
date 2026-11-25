@@ -5,8 +5,10 @@ import { err, type Result } from 'neverthrow';
 import type { ActorId } from '../domain/shared/ActorId';
 import type { IDomainContext, IDomainContextConfig } from '../domain/shared/DomainContext';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { RecordInitiator } from '../domain/shared/RecordInitiator';
 import type { TableDataSafetyLimitConfig } from '../domain/shared/TableDataSafetyLimits';
 import type { FormulaSourceBudget } from '../domain/table/fields/types/FormulaExpression';
+import type { DomainWriteTable } from './DomainWriteTransaction';
 import type { ITracer } from './Tracer';
 
 export interface IUnitOfWorkTransactionSavepointHandle {
@@ -108,6 +110,18 @@ export type IExecutionContextTransactions = Partial<
 
 export interface IExecutionContext {
   actorId: ActorId;
+  /** The business initiator, independent from the technical executor in actorId. */
+  initiator?: RecordInitiator;
+  /** Trusted write admission policy supplied by the host, never by record input. */
+  requireActorStorage?: boolean;
+  operationAttribution?: Readonly<{
+    operationId: string;
+    occurredAt: string;
+    action?: string;
+    source?: string;
+    /** Bounded host provenance carried unchanged across durable delivery. */
+    attributes?: Readonly<Record<string, string | boolean>>;
+  }>;
   abortSignal?: AbortSignal;
   transaction?: IUnitOfWorkTransaction;
   transactions?: IExecutionContextTransactions;
@@ -118,6 +132,8 @@ export interface IExecutionContext {
   scheduleBackgroundTask?: ExecutionContextBackgroundTaskScheduler;
   undoRedo?: { mode: 'undo' | 'redo' | 'normal'; operationId?: string };
   sameTxProjection?: SameTxProjectionContext;
+  /** Available only while the current commit's direct projection delivery is executing. */
+  getCommittedTable?: (tableId: string) => DomainWriteTable | undefined;
   config?: {
     formulaSourceBudget?: FormulaSourceBudget;
     /** Read callers holding an external lock must disable provisioning waits. */

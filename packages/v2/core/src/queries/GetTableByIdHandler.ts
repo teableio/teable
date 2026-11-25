@@ -2,15 +2,15 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
 import { domainError, isNotFoundError, type DomainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
-import { TableOperationPluginRunner } from '../application/services/TableOperationPluginRunner';
-import type { IExecutionContext } from '../ports/ExecutionContext';
 import { NoopLogger } from '../ports/defaults/NoopLogger';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import * as LoggerPort from '../ports/Logger';
-import * as TableRepositoryPort from '../ports/TableRepository';
 import { TableOperationKind } from '../ports/TableOperationPlugin';
+import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { GetTableByIdQuery } from './GetTableByIdQuery';
 import { QueryHandler, type IQueryHandler } from './QueryHandler';

@@ -301,6 +301,140 @@ describe('PostgresTableRepository (pg)', () => {
     await pgContainer.stop();
   });
 
+  it('keeps actor capability disabled until publication and loads it independently of version', async () => {
+    const c = createRepositoryContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, { db, ensureSchema: true });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${getRandomString(16)}`)._unsafeUnwrap();
+      const spaceId = `spc${getRandomString(16)}`;
+      const context = { actorId: ActorId.create('system')._unsafeUnwrap() };
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Actor capability', created_by: 'system' })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Actor capability',
+          order: 1,
+          created_by: 'system',
+        })
+        .execute();
+
+      const buildTable = (name: string, actorStorageVersion = 0) => {
+        const builder = Table.builder()
+          .withBaseId(baseId)
+          .withName(TableName.create(name)._unsafeUnwrap());
+        builder
+          .field()
+          .singleLineText()
+          .withName(FieldName.create('Title')._unsafeUnwrap())
+          .primary()
+          .done();
+        builder.view().defaultGrid().done();
+        const table = builder.build()._unsafeUnwrap();
+        return Table.rehydrate({
+          id: table.id(),
+          baseId: table.baseId(),
+          name: table.name(),
+          fields: table.getFields(),
+          views: table.views(),
+          primaryFieldId: table.primaryFieldId(),
+          dbTableName: table.dbTableName()._unsafeUnwrap(),
+          actorStorageVersion,
+        })._unsafeUnwrap();
+      };
+      const singleSource = buildTable('Single', 1);
+      const batchSource = buildTable('Batch', 1);
+      const single = (await repo.insert(context, singleSource))._unsafeUnwrap();
+      const batch = (await repo.insertMany(context, [batchSource]))._unsafeUnwrap()[0]!;
+      expect(singleSource.actorStorageVersion()).toBe(1);
+      expect(batchSource.actorStorageVersion()).toBe(1);
+
+      for (const table of [single, batch]) {
+        const spec = TableByIdSpec.create(table.id());
+        expect(table.actorStorageVersion()).toBe(0);
+        expect((await repo.findOne(context, spec))._unsafeUnwrap().actorStorageVersion()).toBe(0);
+        (
+          await repo.setProvisionState!(context, table, 'ready', { operationType: 'table.create' })
+        )._unsafeUnwrap();
+        expect((await repo.findOne(context, spec))._unsafeUnwrap().actorStorageVersion()).toBe(0);
+      }
+
+      await expect(
+        db.transaction().execute(async (trx) => {
+          const transaction = {
+            kind: 'unitOfWorkTransaction',
+            scope: 'meta',
+            db: trx,
+          } as IUnitOfWorkTransaction;
+          (
+            await repo.setProvisionState!({ ...context, transaction }, single, 'ready', {
+              operationType: 'table.create',
+              publishActorStorageVersion: 1,
+            })
+          )._unsafeUnwrap();
+          const row = await trx
+            .selectFrom('table_meta')
+            .select('actor_storage_version')
+            .where('id', '=', single.id().toString())
+            .executeTakeFirstOrThrow();
+          expect(row.actor_storage_version).toBe(1);
+          throw new Error('roll back capability publication');
+        })
+      ).rejects.toThrow('roll back capability publication');
+      expect(
+        (await repo.findOne(context, TableByIdSpec.create(single.id())))
+          ._unsafeUnwrap()
+          .actorStorageVersion()
+      ).toBe(0);
+      (
+        await repo.setProvisionState!(context, single, 'ready', {
+          operationType: 'table.create',
+          publishActorStorageVersion: 1,
+        })
+      )._unsafeUnwrap();
+      await db
+        .updateTable('table_meta')
+        .set({ version: 73 })
+        .where('id', '=', single.id().toString())
+        .execute();
+      const spec = TableByIdSpec.create(single.id());
+      expect((await repo.findOne(context, spec))._unsafeUnwrap().actorStorageVersion()).toBe(1);
+      expect(
+        (await repo.find(context, spec))._unsafeUnwrap().map((table) => table.actorStorageVersion())
+      ).toEqual([1]);
+      expect(single.actorStorageVersion()).toBe(0);
+
+      const legacyId = `tbl${getRandomString(16)}`;
+      await db
+        .insertInto('table_meta')
+        .values({
+          id: legacyId,
+          base_id: baseId.toString(),
+          name: 'Legacy metadata writer',
+          db_table_name: `${baseId.toString()}.${legacyId}`,
+          order: 3,
+          version: 29,
+          created_by: 'system',
+        })
+        .execute();
+      const legacy = await db
+        .selectFrom('table_meta')
+        .select(['actor_storage_version', 'version'])
+        .where('id', '=', legacyId)
+        .executeTakeFirstOrThrow();
+      expect(legacy).toEqual({ actor_storage_version: 0, version: 29 });
+    } finally {
+      await db.destroy();
+    }
+  });
+
   it('loads serving metadata in single and multi-table reads and ignores malformed snapshots', async () => {
     const c = createRepositoryContainer();
     const db = await createPgDb(pgContainer.getConnectionUri());
@@ -1642,27 +1776,14 @@ describe('PostgresTableRepository (pg)', () => {
         conjunction: 'and',
         items: [
           {
-            conjunction: 'and',
-            items: [
-              {
-                fieldId: dateFieldId,
-                operator: 'isOnOrAfter',
-                value: {
-                  mode: 'exactDate',
-                  exactDate: '2025-12-31T16:00:00.000Z',
-                  timeZone: 'Asia/Shanghai',
-                },
-              },
-              {
-                fieldId: dateFieldId,
-                operator: 'isOnOrBefore',
-                value: {
-                  mode: 'exactDate',
-                  exactDate: '2026-01-31T15:59:59.999Z',
-                  timeZone: 'Asia/Shanghai',
-                },
-              },
-            ],
+            fieldId: dateFieldId,
+            operator: 'is',
+            value: {
+              mode: 'dateRange',
+              exactDate: '2025-12-31T16:00:00.000Z',
+              exactDateEnd: '2026-01-31T15:59:59.999Z',
+              timeZone: 'Asia/Shanghai',
+            },
           },
         ],
       });

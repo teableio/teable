@@ -68,6 +68,7 @@ import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
 import type { IOpsMap } from '../../calculation/utils/compose-maps';
+import { FieldPeriodicRefreshStateService } from '../../field-periodic-refresh/field-periodic-refresh-state.service';
 import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { GraphService } from '../../graph/graph.service';
 import { ComputedOrchestratorService } from '../../record/computed/services/computed-orchestrator.service';
@@ -173,7 +174,9 @@ export class FieldOpenApiService {
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
     private readonly computedOrchestrator: ComputedOrchestratorService,
     @Optional()
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    @Optional()
+    private readonly fieldPeriodicRefreshStateService?: FieldPeriodicRefreshStateService
   ) {}
 
   private async assertTableWritable(tableId: string) {
@@ -1317,6 +1320,10 @@ export class FieldOpenApiService {
     for (const { tableId: tid, field } of createdFields) {
       await this.tableIndexService.createSearchFieldSingleIndex(tid, field, routingOptions);
     }
+
+    await this.fieldPeriodicRefreshStateService?.syncFieldsMetadata(
+      createdFields.map(({ field }) => field.id)
+    );
   }
 
   @Timing()
@@ -1465,6 +1472,8 @@ export class FieldOpenApiService {
       (nf) => nf.tableId === tableId && nf.field.id === fieldVo.id
     );
     const emitFieldVo = createdMain ? convertFieldInstanceToFieldVo(createdMain.field) : fieldVo;
+
+    await this.fieldPeriodicRefreshStateService?.syncFieldMetadata(fieldVo.id);
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
       windowId,
@@ -1986,6 +1995,8 @@ export class FieldOpenApiService {
 
     this.cls.set('oldField', oldFieldVo);
 
+    await this.fieldPeriodicRefreshStateService?.syncFieldMetadata(fieldId);
+
     if (windowId) {
       this.eventEmitterService.emitAsync(Events.OPERATION_FIELD_CONVERT, {
         windowId,
@@ -2076,6 +2087,8 @@ export class FieldOpenApiService {
       },
       { timeout: this.thresholdConfig.bigTransactionTimeout }
     );
+
+    await this.fieldPeriodicRefreshStateService?.syncFieldMetadata(newField.id);
 
     this.eventEmitterService.emitAsync(Events.OPERATION_FIELDS_CREATE, {
       operationId: generateOperationId(),

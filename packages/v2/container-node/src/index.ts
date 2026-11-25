@@ -60,6 +60,7 @@ import {
   TargetedLegacyEventDispatcher,
   ViewDeleted,
   compileDurableSubscriptionCatalog,
+  getDurableProjectionRegistrations,
   recordProjectionCodecs,
   registerV2CoreServices,
   StaticTableDataSafetyLimitPlugin,
@@ -69,6 +70,8 @@ import {
   type ICommandBusMiddleware,
   type IComputedOutboxAdmin,
   type IHasher,
+  type IDurableProjectionHandler,
+  type ProjectionMessageJson,
   type IQueryBusMiddleware,
   type ILogger,
   type TableDataSafetyLimitConfig,
@@ -446,11 +449,48 @@ export const registerV2NodePgDependencies = async (
     )
   );
   const validationConsumer = new ValidationInboxDurableProjection(dataDb, options.dataSchema);
+  // The metadata worker owns view deletion even when both scopes share a database.
+  const dataProjectionRegistrations = getDurableProjectionRegistrations().filter(
+    ({ event }) => event !== ViewDeleted
+  );
   c.registerInstance(
     v2RecordRepositoryPostgresTokens.domainEventOutboxWorker,
     new DomainEventOutboxWorker(
       dataDb,
-      new Map([[validationConsumer.consumerId, validationConsumer]]),
+      new Map(
+        dataProjectionRegistrations.map((registration) => [
+          registration.id,
+          registration.id === validationConsumer.consumerId
+            ? validationConsumer
+            : {
+                handle: (
+                  ...args: Parameters<IDurableProjectionHandler<ProjectionMessageJson>['handle']>
+                ) =>
+                  c
+                    .resolve<IDurableProjectionHandler<ProjectionMessageJson>>(
+                      registration.handler as never
+                    )
+                    .handle(...args),
+                get receiptDestination() {
+                  return c.resolve<IDurableProjectionHandler<ProjectionMessageJson>>(
+                    registration.handler as never
+                  ).receiptDestination;
+                },
+                verifyReceipt: (
+                  ...args: Parameters<
+                    NonNullable<IDurableProjectionHandler<ProjectionMessageJson>['verifyReceipt']>
+                  >
+                ) => {
+                  const handler = c.resolve<IDurableProjectionHandler<ProjectionMessageJson>>(
+                    registration.handler as never
+                  );
+                  if (!handler.verifyReceipt)
+                    throw new Error('Durable projection receipt verifier is unavailable');
+                  return handler.verifyReceipt(...args);
+                },
+              },
+        ])
+      ),
       codecResult.value,
       logger,
       options.dataSchema

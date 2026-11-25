@@ -7,6 +7,17 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - Define projection types that bind Domain Events to derived effects.
 - Provide an alias decorator for projection event bindings.
 - Keep projections as EventHandlers (no event type branching inside handlers).
+- Record realtime actor projections reuse the exact base/table aggregate supplied by the
+  successful `DomainWriteTransaction` for that commit's own awaited and background direct
+  delivery. A restricted table lookup is active only while that delivery executes; even a
+  copied context loses access when delivery ends. The supplied map and original request
+  context are never mutated. Background scopes start inside their scheduled callback, and
+  nested writes strip upstream lookups. This is not a request-wide or cross-transaction
+  metadata cache. Physical actor rows and versions are still read from storage. Missing,
+  non-aggregate, or mismatched entries use the existing
+  `activeWithPending` repository lookup, including its not-found behavior, and construct the
+  repository spec only on that fallback path. Schema-lease escalation still releases shared,
+  acquires exclusive, and reloads metadata.
 
 ## Files
 
@@ -19,6 +30,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 - `recordProjectionCodecs.ts` - Role: record event codecs; Purpose: encode/decode immutable outbox DTOs.
 - `Projection.ts` - Role: projection alias; Purpose: define IProjection and the ProjectionHandler decorator.
 - `RealtimeProjection.ts` - Role: marker type; Purpose: label projections that target realtime engines.
+- `readRealtimeRecordActors.ts` - Role: shared create/update actor reader; Purpose: read exact
+  mutation-authorized record IDs using the committed table when available. Single and batch
+  create/update projections share it; delete projections remove documents without reading
+  actors from rows that no longer exist.
 - `TableCreatedRealtimeProjection.ts` - Role: realtime projection; Purpose: publish table and field
   snapshots on create or restore.
 - `TableProvisionReadyRealtimeProjection.ts` - Role: realtime projection; Purpose: re-ensure only

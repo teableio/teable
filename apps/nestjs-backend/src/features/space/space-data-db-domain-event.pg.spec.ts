@@ -254,6 +254,22 @@ const createDomainEventTables = async (client: Client, schema: string) => {
       PRIMARY KEY ("consumer_id", "event_id")
     )
   `);
+  const attributionMigration = readFileSync(
+    new URL(
+      '../../../../../packages/db-data-prisma/prisma/migrations/20261105075405_add_actor_attribution/migration.sql',
+      import.meta.url
+    ),
+    'utf8'
+  );
+  await client.query('BEGIN');
+  try {
+    await client.query(`SET LOCAL search_path TO "${schema}"`);
+    await client.query(attributionMigration);
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  }
 };
 
 const insertOutboxFamily = async (
@@ -315,6 +331,18 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
       deliveryId: 'dlv-copy',
       baseId,
     });
+    await client.query(
+      `UPDATE "${sourceSchema}"."domain_event_outbox" SET attribution = $1::jsonb WHERE id = 'deo-copy'`,
+      [
+        JSON.stringify({
+          version: 1,
+          eventId: 'deo-copy',
+          operationId: 'operation-deo-copy',
+          occurredAt: '2026-11-05T10:11:18.886Z',
+          context: { actorId: 'system', initiator: { type: 'appUser', id: 'apu-frozen-copy' } },
+        }),
+      ]
+    );
     await insertOutboxFamily(client, sourceSchema, {
       eventId: 'deo-other',
       deliveryId: 'dlv-other',
@@ -381,6 +409,17 @@ describeWithPostgres('domain event BYODB copy and delta (postgres)', () => {
         [baseId]
       )
     ).resolves.toBe(1);
+    const copied = await client.query<{ attribution: unknown }>(
+      `SELECT attribution FROM ${qualify(targetSchema, 'domain_event_outbox')} WHERE id = 'deo-copy'`
+    );
+    const source = await client.query<{ attribution: unknown }>(
+      `SELECT attribution FROM ${qualify(sourceSchema, 'domain_event_outbox')} WHERE id = 'deo-copy'`
+    );
+    expect(copied.rows[0].attribution).toEqual(source.rows[0].attribution);
+    expect(copied.rows[0].attribution).toMatchObject({
+      operationId: 'operation-deo-copy',
+      context: { actorId: 'system', initiator: { type: 'appUser', id: 'apu-frozen-copy' } },
+    });
     await expect(
       queryCount(
         client,

@@ -6,6 +6,7 @@ import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.co
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
 import type { IClsStore } from '../../../types/cls';
+import { buildLegacyRedoKey } from '../open-api/undo-redo-engine-preference';
 
 @Injectable()
 export class UndoRedoStackService {
@@ -21,7 +22,7 @@ export class UndoRedoStackService {
   }
 
   private async getRedoStack(userId: string, tableId: string, windowId: string) {
-    return (await this.cacheService.get(`operations:redo:${userId}:${tableId}:${windowId}`)) || [];
+    return (await this.cacheService.get(buildLegacyRedoKey(userId, tableId, windowId))) || [];
   }
 
   private async setUndoStack(
@@ -44,7 +45,7 @@ export class UndoRedoStackService {
     redoStack: IUndoRedoOperation[]
   ) {
     await this.cacheService.set(
-      `operations:redo:${userId}:${tableId}:${windowId}`,
+      buildLegacyRedoKey(userId, tableId, windowId),
       redoStack,
       this.thresholdConfig.undoExpirationTime
     );
@@ -67,7 +68,7 @@ export class UndoRedoStackService {
     await this.setUndoStack(userId, tableId, windowId, undoStack);
 
     // Clear redo stack when a new operation is pushed
-    await this.cacheService.del(`operations:redo:${userId}:${tableId}:${windowId}`);
+    await this.cacheService.del(buildLegacyRedoKey(userId, tableId, windowId));
 
     this.eventEmitterService.emit(Events.OPERATION_PUSH, operation);
   }

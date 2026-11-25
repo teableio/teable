@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../domain/base/BaseId';
+import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { DbFieldName } from '../domain/table/fields/DbFieldName';
 import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -32,6 +33,7 @@ import { UserNotification } from '../domain/table/fields/types/UserNotification'
 import { UpdateButtonWorkflowSpec } from '../domain/table/specs/field-updates/UpdateButtonWorkflowSpec';
 import { UpdateMultipleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateMultipleSelectOptionsSpec';
 import { UpdateSingleSelectOptionsSpec } from '../domain/table/specs/field-updates/UpdateSingleSelectOptionsSpec';
+import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { TableUpdateFieldAiConfigSpec } from '../domain/table/specs/TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from '../domain/table/specs/TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from '../domain/table/specs/TableUpdateFieldDescriptionSpec';
@@ -46,7 +48,6 @@ const createTableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`).
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 
 const TEXT_DEFAULT_ALPHA = TextDefaultValue.create('Alpha')._unsafeUnwrap();
-const TEXT_DEFAULT_BETA = TextDefaultValue.create('Beta')._unsafeUnwrap();
 const NUMBER_DEFAULT_ONE = NumberDefaultValue.create(1)._unsafeUnwrap();
 const NUMBER_SHOW_AS_BAR = NumberShowAs.create({
   type: SingleNumberDisplayType.Bar,
@@ -99,7 +100,7 @@ type SameTypeCase = {
     currentField: Field;
     input: Record<string, unknown>;
     expectedSpecNames: string[];
-    assertSpecs?: (specs: unknown[]) => void;
+    assertSpecs?: (specs: ReadonlyArray<ISpecification<Table, ITableSpecVisitor>>) => void;
   };
 };
 

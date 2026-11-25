@@ -48,6 +48,7 @@ const darkTheme = {
   // Avatar
   avatarBg: colors.zinc[900],
   avatarTextColor: colors.zinc[200],
+  appUserChipBg: hexToRGBA(colors.blue[500], 0.15),
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,

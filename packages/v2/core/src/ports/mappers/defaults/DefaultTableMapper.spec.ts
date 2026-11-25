@@ -48,6 +48,7 @@ import { UserDefaultValue } from '../../../domain/table/fields/types/UserDefault
 import { UserField } from '../../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../../../domain/table/fields/types/UserNotification';
+import type { ITableReadModel } from '../../../domain/table/ITableReadModel';
 import { UpdateFormulaExpressionSpec } from '../../../domain/table/specs/field-updates/UpdateFormulaExpressionSpec';
 import { Table } from '../../../domain/table/Table';
 import { TableId } from '../../../domain/table/TableId';
@@ -64,7 +65,7 @@ import { ViewId } from '../../../domain/table/views/ViewId';
 import { ViewName } from '../../../domain/table/views/ViewName';
 import { ViewQueryDefaults } from '../../../domain/table/views/ViewQueryDefaults';
 import { ViewVersion } from '../../../domain/table/views/ViewVersion';
-import type { ITableFieldPersistenceDTO } from '../TableMapper';
+import type { ITableFieldPersistenceDTO, ITablePersistenceDTO } from '../TableMapper';
 import { DefaultTableMapper } from './DefaultTableMapper';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`);
@@ -345,6 +346,93 @@ const buildFormulaTable = () => {
 };
 
 describe('DefaultTableMapper', () => {
+  it('defaults legacy DTOs to disabled actor storage', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+    delete dto.actorStorageVersion;
+
+    const table = mapper.toDomain(dto)._unsafeUnwrap();
+    expect(table.actorStorageVersion()).toBe(0);
+    const readModel: ITableReadModel = table;
+    expect(readModel.actorStorageVersion()).toBe(0);
+    expect(mapper.toDTO(table)._unsafeUnwrap().actorStorageVersion).toBe(0);
+  });
+
+  it('preserves confirmed actor storage through DTOs and same-table copies', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+    const table = mapper.toDomain({ ...dto, actorStorageVersion: 1 })._unsafeUnwrap();
+
+    expect(table.actorStorageVersion()).toBe(1);
+    expect(mapper.toDTO(table)._unsafeUnwrap().actorStorageVersion).toBe(1);
+    expect(table.clone(mapper)._unsafeUnwrap().actorStorageVersion()).toBe(1);
+    expect(
+      table
+        .rename(TableName.create('Renamed table')._unsafeUnwrap())
+        ._unsafeUnwrap()
+        .actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table
+        .updateProperties({ description: 'New description' })
+        ._unsafeUnwrap()
+        .actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table
+        .renameView(table.views()[0]!.id(), ViewName.create('Renamed grid')._unsafeUnwrap())
+        ._unsafeUnwrap()
+        .updateResult.table.actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table
+        .updateViewDescription(table.views()[0]!.id(), 'Description')
+        ._unsafeUnwrap()
+        .updateResult.table.actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table
+        .updateViewLocked(table.views()[0]!.id(), true)
+        ._unsafeUnwrap()
+        .updateResult.table.actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table
+        .updateFieldName(table.primaryFieldId(), FieldName.create('Renamed title')._unsafeUnwrap())
+        ._unsafeUnwrap()
+        .actorStorageVersion()
+    ).toBe(1);
+    expect(
+      table.removeField(table.getFields()[1]!.id())._unsafeUnwrap().actorStorageVersion()
+    ).toBe(1);
+    expect(table.removeView(table.views()[1]!.id())._unsafeUnwrap().actorStorageVersion()).toBe(1);
+    expect(table.actorStorageVersion()).toBe(1);
+  });
+
+  it.each([-1, 2, 0.5, Number.NaN])('rejects unsupported actor storage version %s', (version) => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+
+    expect(mapper.toDomain({ ...dto, actorStorageVersion: version }).isErr()).toBe(true);
+  });
+
+  it('does not inherit confirmed storage capability when duplicating a table', () => {
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
+    const source = mapper.toDomain({ ...dto, actorStorageVersion: 1 })._unsafeUnwrap();
+
+    const duplicate = source
+      .duplicate({
+        mapper,
+        newName: TableName.create('Duplicate')._unsafeUnwrap(),
+      })
+      ._unsafeUnwrap().table;
+
+    expect(source.actorStorageVersion()).toBe(1);
+    expect(duplicate.actorStorageVersion()).toBe(0);
+    expect(duplicate.id().equals(source.id())).toBe(false);
+  });
+
   it('round-trips table description and icon', () => {
     const mapper = new DefaultTableMapper();
     const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
@@ -1163,6 +1251,7 @@ describe('DefaultTableMapper', () => {
     const dto = mapper.toDTO(buildTable())._unsafeUnwrap();
     const lookupId = `fld${'q'.repeat(16)}`;
     const formatting = { type: 'currency' as const, precision: 1, symbol: '¥' };
+    // Legacy lookup rows contain storage type metadata outside the authoring DTO union.
     const table = mapper
       .toDomain({
         ...dto,
@@ -1184,7 +1273,7 @@ describe('DefaultTableMapper', () => {
             },
           },
         ],
-      })
+      } as unknown as ITablePersistenceDTO)
       ._unsafeUnwrap();
     const persisted = mapper
       .toDTO(table)
@@ -1614,6 +1703,7 @@ describe('DefaultTableMapper', () => {
     const mapper = new DefaultTableMapper();
     const dto = mapper.toDTO(table)._unsafeUnwrap();
 
+    // Deliberately malformed persisted input exercises runtime validation, not DTO authoring.
     const result = mapper.toDomain({
       ...dto,
       fields: dto.fields.map((field) =>
@@ -1627,7 +1717,7 @@ describe('DefaultTableMapper', () => {
             }
           : field
       ),
-    });
+    } as unknown as ITablePersistenceDTO);
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message).toContain('Invalid FormulaFormatting');
@@ -1746,7 +1836,8 @@ describe('DefaultTableMapper', () => {
       ],
     };
 
-    const result = mapper.toDomain(withInvalidTrackedFieldIds);
+    // Deliberately malformed persisted input exercises runtime validation, not DTO authoring.
+    const result = mapper.toDomain(withInvalidTrackedFieldIds as unknown as ITablePersistenceDTO);
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().message).toContain('Invalid trackedFieldIds');
@@ -1758,7 +1849,7 @@ describe('DefaultTableMapper', () => {
     const dto = mapper.toDTO(table)._unsafeUnwrap();
     const conditionalRollupId = `fld${'r'.repeat(16)}`;
 
-    const withConditionalRollup = {
+    const withConditionalRollup: ITablePersistenceDTO = {
       ...dto,
       fields: [
         ...dto.fields,
@@ -1809,6 +1900,7 @@ describe('DefaultTableMapper', () => {
     const dto = mapper.toDTO(table)._unsafeUnwrap();
     const lookupOfRollupId = `fld${'z'.repeat(16)}`;
 
+    // Legacy persisted rows can lack the expression required by newly authored rollup DTOs.
     const result = mapper.toDomain({
       ...dto,
       fields: [
@@ -1838,7 +1930,7 @@ describe('DefaultTableMapper', () => {
           isMultipleCellValue: false,
         },
       ],
-    });
+    } as unknown as ITablePersistenceDTO);
 
     expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
     const mapped = result._unsafeUnwrap();
@@ -1854,6 +1946,7 @@ describe('DefaultTableMapper', () => {
     const dto = mapper.toDTO(table)._unsafeUnwrap();
     const rollupId = `fld${'x'.repeat(16)}`;
 
+    // Legacy persisted rows can lack the expression required by newly authored rollup DTOs.
     const result = mapper.toDomain({
       ...dto,
       fields: [
@@ -1876,7 +1969,7 @@ describe('DefaultTableMapper', () => {
           isMultipleCellValue: false,
         },
       ],
-    });
+    } as unknown as ITablePersistenceDTO);
 
     expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
     const mapped = result._unsafeUnwrap();

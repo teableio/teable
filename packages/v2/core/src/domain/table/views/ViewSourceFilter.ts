@@ -1,12 +1,13 @@
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
-import type {
-  RecordFilter,
-  RecordFilterDateValue,
-  RecordFilterNode,
-  RecordFilterOperator,
-  RecordFilterValue,
+import {
+  isRecordFilterDateValue,
+  type RecordFilter,
+  type RecordFilterCondition,
+  type RecordFilterNode,
+  type RecordFilterOperator,
+  type RecordFilterValue,
 } from '../../../queries/RecordFilterDto';
 import { domainError, type DomainError } from '../../shared/DomainError';
 import { isoDateTimeWithOffsetSchema } from '../../shared/isoDateTimeSchema';
@@ -247,45 +248,26 @@ const isSourceFilterGroup = (
   value: ViewSourceFilterConditionDTO | ViewSourceFilterDTO
 ): value is ViewSourceFilterDTO => 'filterSet' in value;
 
-const mapDateRange = (
-  condition: ViewSourceFilterConditionDTO,
-  operator: RecordFilterOperator
-): RecordFilterNode | undefined => {
-  const value = condition.value;
+/** An inverted interval in a saved view denotes an empty set, even inside an OR group. */
+export const normalizeSavedViewCondition = (condition: RecordFilterCondition): RecordFilterNode => {
+  const { fieldId, operator, value } = condition;
   if (
-    (operator !== 'is' && operator !== 'isWithIn') ||
-    value == null ||
-    typeof value !== 'object' ||
-    Array.isArray(value) ||
-    !('mode' in value) ||
-    value.mode !== 'dateRange'
+    (operator === 'is' || operator === 'isWithIn') &&
+    isRecordFilterDateValue(value) &&
+    value.mode === 'dateRange' &&
+    value.exactDate &&
+    value.exactDateEnd &&
+    Date.parse(value.exactDate) > Date.parse(value.exactDateEnd)
   ) {
-    return undefined;
+    return {
+      conjunction: 'and',
+      items: [
+        { fieldId, operator: 'isEmpty', value: null },
+        { fieldId, operator: 'isNotEmpty', value: null },
+      ],
+    };
   }
-
-  return {
-    conjunction: 'and',
-    items: [
-      {
-        fieldId: condition.fieldId,
-        operator: 'isOnOrAfter',
-        value: {
-          mode: 'exactDate',
-          exactDate: value.exactDate,
-          timeZone: value.timeZone,
-        } as RecordFilterDateValue,
-      },
-      {
-        fieldId: condition.fieldId,
-        operator: 'isOnOrBefore',
-        value: {
-          mode: 'exactDate',
-          exactDate: value.exactDateEnd,
-          timeZone: value.timeZone,
-        } as RecordFilterDateValue,
-      },
-    ],
-  };
+  return condition;
 };
 
 const mapCondition = (condition: ViewSourceFilterConditionDTO): RecordFilterNode | null => {
@@ -295,8 +277,6 @@ const mapCondition = (condition: ViewSourceFilterConditionDTO): RecordFilterNode
       : condition.operator;
   if (!operator) return null;
 
-  const dateRange = mapDateRange(condition, operator);
-  if (dateRange) return dateRange;
   if (recordConditionOperatorsExpectingNull.includes(operator)) {
     return { fieldId: condition.fieldId, operator, value: null };
   }
@@ -314,11 +294,11 @@ const mapCondition = (condition: ViewSourceFilterConditionDTO): RecordFilterNode
     };
   }
   if (condition.value == null && operator !== 'is' && operator !== 'isNot') return null;
-  return {
+  return normalizeSavedViewCondition({
     fieldId: condition.fieldId,
     operator,
     value: condition.value as RecordFilterValue,
-  };
+  });
 };
 
 const mapGroup = (group: ViewSourceFilterDTO): RecordFilterNode | undefined => {

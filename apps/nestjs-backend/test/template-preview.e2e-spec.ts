@@ -541,6 +541,46 @@ describe('Template Preview Permission (e2e)', () => {
     });
   });
 
+  describe('Template header for a base the snapshot only names', () => {
+    it('does not open a base whose id is only the snapshot name', async () => {
+      const anonymousAxios = createAxios();
+      anonymousAxios.defaults.baseURL = defaultAxios.defaults.baseURL;
+      const privateSpaceId = (await createSpace({ name: 'private space' })).data.id;
+      const namingTemplateId = (await createTemplate({})).data.id;
+      try {
+        const privateBaseId = (await createBase({ name: 'private base', spaceId: privateSpaceId }))
+          .data.id;
+        const sourceBaseId = (await createBase({ name: 'source base', spaceId: privateSpaceId }))
+          .data.id;
+        await updateTemplate(namingTemplateId, { name: privateBaseId, baseId: sourceBaseId });
+        await createTemplateSnapshot(namingTemplateId);
+        await updateTemplate(namingTemplateId, { isPublished: true });
+        const namingSnapshotBaseId = (await getTemplateDetail(namingTemplateId)).data.snapshot
+          .baseId!;
+        const headers = {
+          [IS_TEMPLATE_HEADER]: permissionService.generateTemplateHeader(namingTemplateId),
+        };
+
+        // control: the header still opens the template's own snapshot base
+        const own = await anonymousAxios.get<IGetBaseVo>(`/base/${namingSnapshotBaseId}`, {
+          headers,
+        });
+        expect(own.status).toBe(200);
+        expect(own.data.name).toBe(privateBaseId);
+
+        const [baseError, tablesError] = await Promise.all([
+          getError(() => anonymousAxios.get(`/base/${privateBaseId}`, { headers })),
+          getError(() => anonymousAxios.get(`/base/${privateBaseId}/table`, { headers })),
+        ]);
+        expect(baseError?.status).toBe(401);
+        expect(tablesError?.status).toBe(401);
+      } finally {
+        await deleteTemplate(namingTemplateId);
+        await permanentDeleteSpace(privateSpaceId);
+      }
+    });
+  });
+
   describe('Template preview app token operations', () => {
     let appToken: string;
     const anonymousAxios = createAxios();

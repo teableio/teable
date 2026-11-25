@@ -175,6 +175,7 @@ const noBareBullmqProcessor = {
   },
 };
 
+const { noAppPlatformHostImport } = require('./app-platform-import-boundary');
 const { consistentTypeImports, namingConvention } = require('./typescript-eslint');
 const { noLegacyCoreImport } = require('./v2-import-boundary');
 
@@ -183,6 +184,7 @@ module.exports = {
   rules: {
     'consistent-type-imports': consistentTypeImports,
     'naming-convention': namingConvention,
+    'no-app-platform-host-import': noAppPlatformHostImport,
     'no-bare-bullmq-processor': noBareBullmqProcessor,
     'no-bare-fetch': noBareFetch,
     'no-legacy-core-import': noLegacyCoreImport,

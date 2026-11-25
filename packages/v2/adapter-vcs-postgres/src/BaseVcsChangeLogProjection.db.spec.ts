@@ -27,7 +27,11 @@ import {
 import { container as rootContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { vcsDomainError } from '@teable/v2-vcs';
-import { v2VcsServerTokens, type IBaseVcsLogRepository } from '@teable/v2-vcs/server';
+import {
+  EnableBaseVcsService,
+  v2VcsServerTokens,
+  type IBaseVcsLogRepository,
+} from '@teable/v2-vcs/server';
 import { sql, type Kysely } from 'kysely';
 import { err, type Result } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
@@ -51,6 +55,7 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
   let metaDb: Kysely<Record<string, unknown>>;
   let commandBus: ICommandBus;
   let logRepository: IBaseVcsLogRepository;
+  let enableService: EnableBaseVcsService;
   let domainWriteTransaction: IDomainWriteTransaction;
 
   beforeAll(async () => {
@@ -61,6 +66,7 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
     logRepository = testContainer.container.resolve<IBaseVcsLogRepository>(
       v2VcsServerTokens.logRepository
     );
+    enableService = testContainer.container.resolve(EnableBaseVcsService);
     domainWriteTransaction = testContainer.container.resolve<IDomainWriteTransaction>(
       v2CoreTokens.domainWriteTransaction
     );
@@ -72,7 +78,7 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
 
   it('(a) rolls back base_vcs_change rows completely when a business write transaction aborts', async () => {
     const ctx = createContext();
-    (await logRepository.enable(ctx, testContainer.baseId))._unsafeUnwrap();
+    (await enableService.execute(ctx, { baseId: testContainer.baseId.toString() }))._unsafeUnwrap();
 
     const tableRes = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       ctx,
@@ -128,7 +134,7 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
 
   it('(b) rolls back business record AND schema writes atomically when change-log write fails', async () => {
     const ctx = createContext();
-    (await logRepository.enable(ctx, testContainer.baseId))._unsafeUnwrap();
+    (await enableService.execute(ctx, { baseId: testContainer.baseId.toString() }))._unsafeUnwrap();
 
     const tableRes = await commandBus.execute<CreateTableCommand, CreateTableResult>(
       ctx,
@@ -244,7 +250,9 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
       const ctx = createContext();
 
       // 1. enable() refuses split Meta/Data configuration.
-      const enableRes = await splitLogRepo.enable(ctx, splitBaseId);
+      const enableRes = await splitContainer.container
+        .resolve(EnableBaseVcsService)
+        .execute(ctx, { baseId: splitBaseId.toString() });
       expect(enableRes.isErr()).toBe(true);
       expect(enableRes._unsafeUnwrapErr().code).toBe('batch.cross_database_not_atomic');
 
@@ -375,7 +383,7 @@ describe('BaseVcsChangeLogProjection same-tx integration (real PostgreSQL)', () 
     )._unsafeUnwrap().record;
 
     // Enable VCS and update Alice's Company link from Acme -> Globex
-    (await logRepository.enable(ctx, testContainer.baseId))._unsafeUnwrap();
+    (await enableService.execute(ctx, { baseId: testContainer.baseId.toString() }))._unsafeUnwrap();
     const cursorBefore = (
       await logRepository.capturePullCursor(ctx, testContainer.baseId)
     )._unsafeUnwrap();

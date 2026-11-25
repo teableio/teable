@@ -2,6 +2,7 @@ import type { IUserCellValue } from '@teable/core';
 import { cn } from '@teable/ui-lib';
 import { useMemo } from 'react';
 import type { ICellValue } from '../type';
+import { isAppUserId } from './app-user';
 import { UserTag } from './UserTag';
 
 interface ICellUser extends ICellValue<IUserCellValue | IUserCellValue[]> {
@@ -36,6 +37,7 @@ export const CellUser = (props: ICellUser) => {
             avatar={avatarUrl}
             className={itemClassName}
             formatImageUrl={formatImageUrl}
+            isAppUser={isAppUserId(id)}
           />
         );
       })}

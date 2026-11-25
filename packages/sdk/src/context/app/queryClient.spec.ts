@@ -24,7 +24,7 @@ import zhSdk from '@teable/common-i18n/src/locales/zh/sdk.json';
 import zhTable from '@teable/common-i18n/src/locales/zh/table.json';
 import { HttpErrorCode } from '@teable/core';
 import { get } from 'lodash';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { sdkErrorI18nKeys, tableI18nKeys } from '../../../../i18n-keys/src';
 import type { ILocaleFunction } from './i18n';
 import {
@@ -402,6 +402,75 @@ describe('errorRequestHandler title', () => {
     errorRequestHandler({ code: 'not_found', message: 'App not found', status: 404 }, t);
 
     expect(lastTitle()).toBe('httpErrors.notFound');
+  });
+});
+
+describe('a 401', () => {
+  const page = 'http://localhost/share/shrxxxxxxxx/base/bsexxxxxxxx';
+  const unauthorized = { code: HttpErrorCode.UNAUTHORIZED, message: 'Unauthorized', status: 401 };
+  const sharePassword = { ...unauthorized, code: HttpErrorCode.UNAUTHORIZED_SHARE };
+  let location: { href: string; reload: ReturnType<typeof vi.fn> };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let toastError: any;
+
+  beforeEach(async () => {
+    location = { href: page, reload: vi.fn() };
+    vi.spyOn(window, 'location', 'get').mockReturnValue(location as unknown as Location);
+    const { sonner } = await import('@teable/ui-lib');
+    toastError = sonner.toast.error;
+    toastError.mockClear();
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const leftForSignIn = () => location.href !== page && location.href.includes('/auth/');
+
+  it("sends a member's page to sign-in, on a lookup and on a change alike", () => {
+    errorRequestHandler(unauthorized, t, { isQuery: true });
+    expect(leftForSignIn()).toBe(true);
+
+    location.href = page;
+    errorRequestHandler(unauthorized, t);
+    expect(leftForSignIn()).toBe(true);
+  });
+
+  it('leaves the visitor of a share or template page there when a lookup is not theirs to make', () => {
+    errorRequestHandler(unauthorized, t, { isQuery: true, isReadOnlyPreview: true });
+
+    expect(location.href).toBe(page);
+    expect(location.reload).not.toHaveBeenCalled();
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('still sends that visitor to sign-in for a change they tried to make', () => {
+    errorRequestHandler(unauthorized, t, { isReadOnlyPreview: true });
+
+    expect(leftForSignIn()).toBe(true);
+  });
+
+  it('reloads a share page whose share wants its password, so the page asks for it', () => {
+    errorRequestHandler(sharePassword, t, { isQuery: true, isReadOnlyPreview: true });
+    errorRequestHandler(sharePassword, t, { isReadOnlyPreview: true });
+
+    expect(location.reload).toHaveBeenCalledTimes(2);
+    expect(location.href).toBe(page);
+  });
+
+  it('hands a query client of a share page that handling', async () => {
+    const client = createQueryClient(t, { isReadOnlyPreview: true });
+    await client
+      .fetchQuery({ queryKey: ['members'], queryFn: () => Promise.reject(unauthorized) })
+      .catch(() => undefined);
+    expect(location.href).toBe(page);
+
+    await client
+      .getMutationCache()
+      .build(client, { mutationFn: () => Promise.reject(unauthorized) })
+      .execute(undefined)
+      .catch(() => undefined);
+    expect(leftForSignIn()).toBe(true);
+    client.clear();
   });
 });
 

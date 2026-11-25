@@ -10,6 +10,7 @@ import type {
   BulkCopyTableInput,
 } from '../ports/BaseDataBulkCopier';
 import type { NormalizedDotTeaStructure } from '../ports/DotTeaParser';
+import type { IExecutionContext } from '../ports/ExecutionContext';
 import type { ITablePersistenceDTO } from '../ports/mappers/TableMapper';
 import { MAX_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 
@@ -21,6 +22,8 @@ export interface DuplicateBaseRecordInput {
   autoNumber?: number;
   createdTime?: string;
   createdBy?: string;
+  /** Native source readers only; null preserves an unknown historical creator. */
+  trustedCreatedActor?: IExecutionContext['initiator'] | null;
   lastModifiedTime?: string | null;
   lastModifiedBy?: string | null;
 }

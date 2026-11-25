@@ -1,8 +1,13 @@
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
-import type { IExecutionContext } from '../../ports/ExecutionContext';
+import {
+  getUnitOfWorkTransaction,
+  withoutTransaction,
+  type IExecutionContext,
+} from '../../ports/ExecutionContext';
 import type {
   SchemaOperationPhase,
   SchemaOperationStatus,
@@ -29,6 +34,7 @@ export type TableSchemaOperationOptions = {
   lastError?: string | null;
   maxAttempts?: number;
   nextRunAt?: Date;
+  publishActorStorageVersion?: 1;
 };
 
 export type BeginTableSchemaOperationOptions = TableSchemaOperationOptions & {
@@ -70,6 +76,7 @@ const operationOptions = (
   lastError: options.lastError,
   maxAttempts: options.maxAttempts,
   nextRunAt: options.nextRunAt,
+  publishActorStorageVersion: options.publishActorStorageVersion,
 });
 
 export const beginTableSchemaOperation = async (
@@ -104,6 +111,52 @@ export const beginTablesSchemaOperation = async (
     operationOptions(options, tablesPayload(tables, options.payload), 'metadata_pending')
   );
 
+const completeAfterActorStorageCommit = async (
+  context: IExecutionContext,
+  options: TableSchemaOperationOptions,
+  complete: (context: IExecutionContext) => Promise<Result<void, DomainError>>
+): Promise<Result<void, DomainError>> => {
+  const dataTransaction = getUnitOfWorkTransaction(context, 'data');
+  if (options.publishActorStorageVersion !== 1 || !dataTransaction || dataTransaction.committed) {
+    return complete(context);
+  }
+
+  const metaTransaction = getUnitOfWorkTransaction(context, 'meta');
+  // A shared transaction commits the DDL and capability atomically. Later writes in
+  // the same batch need to see the ready table before the owner commits.
+  if (
+    metaTransaction === dataTransaction &&
+    dataTransaction.pending !== false &&
+    !dataTransaction.rolledBack
+  ) {
+    return complete(context);
+  }
+
+  const transactions =
+    metaTransaction && metaTransaction !== dataTransaction && !metaTransaction.committed
+      ? [dataTransaction, metaTransaction]
+      : [dataTransaction];
+  if (transactions.some((transaction) => transaction.rolledBack || !transaction.afterCommit)) {
+    return err(
+      domainError.infrastructure({
+        code: 'actor_storage.publication_transaction_owner_required',
+        message: 'Actor storage publication requires confirmed data and metadata commit hooks',
+      })
+    );
+  }
+
+  let remainingCommits = transactions.length;
+  for (const transaction of transactions) {
+    transaction.afterCommit!(async () => {
+      remainingCommits -= 1;
+      if (remainingCommits !== 0) return;
+      const result = await complete(withoutTransaction(context));
+      if (result.isErr()) throw new Error(result.error.message);
+    });
+  }
+  return ok(undefined);
+};
+
 export const completeTableSchemaOperation = async (
   unitOfWork: IUnitOfWork,
   tableRepository: ITableRepository,
@@ -111,16 +164,18 @@ export const completeTableSchemaOperation = async (
   table: Table,
   options: TableSchemaOperationOptions
 ): Promise<Result<void, DomainError>> =>
-  setTableProvisionState(
-    unitOfWork,
-    tableRepository,
-    context,
-    table,
-    'ready',
-    operationOptions(
-      options,
-      options.payload === undefined ? undefined : tablePayload(table, options.payload),
-      'ready'
+  completeAfterActorStorageCommit(context, options, (publicationContext) =>
+    setTableProvisionState(
+      unitOfWork,
+      tableRepository,
+      publicationContext,
+      table,
+      'ready',
+      operationOptions(
+        options,
+        options.payload === undefined ? undefined : tablePayload(table, options.payload),
+        'ready'
+      )
     )
   );
 
@@ -131,16 +186,18 @@ export const completeTablesSchemaOperation = async (
   tables: ReadonlyArray<Table>,
   options: TableSchemaOperationOptions
 ): Promise<Result<void, DomainError>> =>
-  setTablesProvisionState(
-    unitOfWork,
-    tableRepository,
-    context,
-    tables,
-    'ready',
-    operationOptions(
-      options,
-      options.payload === undefined ? undefined : tablesPayload(tables, options.payload),
-      'ready'
+  completeAfterActorStorageCommit(context, options, (publicationContext) =>
+    setTablesProvisionState(
+      unitOfWork,
+      tableRepository,
+      publicationContext,
+      tables,
+      'ready',
+      operationOptions(
+        options,
+        options.payload === undefined ? undefined : tablesPayload(tables, options.payload),
+        'ready'
+      )
     )
   );
 

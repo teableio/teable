@@ -91,6 +91,14 @@ export class RecordQueryService {
           lastModifiedTime,
           createdBy: 'system', // Simplified for internal use
           lastModifiedBy: 'system', // Simplified for internal use
+          createdByActorType: (rawRecord.__created_by_actor_type ??
+            null) as IRecord['createdByActorType'],
+          createdByActorId: (rawRecord.__created_by_actor_id ??
+            null) as IRecord['createdByActorId'],
+          lastModifiedByActorType: (rawRecord.__last_modified_by_actor_type ??
+            null) as IRecord['lastModifiedByActorType'],
+          lastModifiedByActorId: (rawRecord.__last_modified_by_actor_id ??
+            null) as IRecord['lastModifiedByActorId'],
         };
 
         snapshots.push({

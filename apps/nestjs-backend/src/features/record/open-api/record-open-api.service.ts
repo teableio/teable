@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-identical-functions */
 import { Injectable } from '@nestjs/common';
 import type {
-  IAttachmentCellValue,
   IAttachmentItem,
   IButtonFieldCellValue,
   IButtonFieldOptions,

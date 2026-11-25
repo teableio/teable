@@ -59,6 +59,34 @@ describe('LinkService', () => {
     await knex.destroy();
   });
 
+  it('writes derived junction changes without requiring actor storage or stamping attribution', async () => {
+    const knex = createKnex({ client: 'pg' });
+    const executeDataPrismaForTable = vi.fn(async (_id: string, sql: string) => {
+      expect(sql).not.toContain('_actor_');
+      expect(sql).not.toContain('__last_modified_time');
+      return 1;
+    });
+    const service = Object.create(LinkService.prototype);
+    Object.assign(service, { knex, databaseRouter: { executeDataPrismaForTable } });
+    await service.saveForeignKeyForManyMany(
+      {
+        options: {
+          fkHostTableName: 'base.junction',
+          selfKeyName: 'source',
+          foreignKeyName: 'target',
+          foreignTableId: 'tblForeign',
+        },
+        getHasOrderColumn: () => false,
+      },
+      { recSource: { oldKey: ['recOld'], newKey: ['recNew'] } }
+    );
+    expect(executeDataPrismaForTable).toHaveBeenCalledTimes(2);
+    expect(executeDataPrismaForTable).toHaveBeenCalledWith('tblForeign', expect.any(String), {
+      useTransaction: true,
+    });
+    await knex.destroy();
+  });
+
   // describe('getCellMutation', () => {
   //   let fieldMapByTableId: IFieldMapByTableId = {};
   //   beforeEach(() => {

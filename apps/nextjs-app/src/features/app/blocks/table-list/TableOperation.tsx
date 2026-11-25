@@ -25,6 +25,11 @@ import { useRouter } from 'next/router';
 import { useTranslation } from 'next-i18next';
 import React, { useMemo, useState } from 'react';
 import { OperationPreviewPanel } from '@/features/app/components/operation-preview';
+import {
+  TableActorColumnsDialog,
+  TableActorColumnsMenuItem,
+  useTableActorColumns,
+} from '@/features/app/components/table-actor-columns/TableActorColumnsMenu';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { tableConfig } from '@/features/i18n/table.config';
 import { useDownload } from '../../hooks/useDownLoad';
@@ -46,6 +51,7 @@ interface ITableOperationProps {
 export const TableOperation = (props: ITableOperationProps) => {
   const { table, className, onRename, open, setOpen } = props;
   const [deleteConfirm, setDeleteConfirm] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [importVisible, setImportVisible] = useState(false);
   const [duplicateSetting, setDuplicateSetting] = useState(false);
@@ -82,6 +88,13 @@ export const TableOperation = (props: ITableOperationProps) => {
       importTable: table.permission?.['table|import'],
     };
   }, [permission, table.permission]);
+
+  const actorColumns = useTableActorColumns({
+    baseId: baseId as string,
+    tableId: table.id,
+    canEnable: Boolean(menuPermission.updateTable),
+    open: open ?? menuOpen,
+  });
 
   const deleteTable = async (permanent?: boolean) => {
     const tableId = table?.id;
@@ -145,7 +158,7 @@ export const TableOperation = (props: ITableOperationProps) => {
 
   return (
     <>
-      <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenu open={open ?? menuOpen} onOpenChange={setOpen ?? setMenuOpen}>
         <DropdownMenuTrigger asChild>
           <div>
             <MoreHorizontal className={className} />
@@ -226,6 +239,7 @@ export const TableOperation = (props: ITableOperationProps) => {
               </DropdownMenuPortal>
             </DropdownMenuSub>
           )}
+          <TableActorColumnsMenuItem controller={actorColumns} />
           {menuPermission.deleteTable && (
             <DropdownMenuItem className="text-destructive" onClick={() => setDeleteConfirm(true)}>
               <Trash className="me-2 size-4" />
@@ -312,6 +326,8 @@ export const TableOperation = (props: ITableOperationProps) => {
           await duplicateTableFn();
         }}
       />
+
+      <TableActorColumnsDialog controller={actorColumns} />
     </>
   );
 };

@@ -21,6 +21,7 @@ import { baseDisplayName } from '../../utils/base-name';
 import { AuditScope } from '../audit/audit-scope';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { PersistedComputedBackfillService } from '../record/computed/services/persisted-computed-backfill.service';
+import { RecordActorStorageService } from '../record-attribution/record-actor-storage.service';
 import { TableDuplicateService } from '../table/table-duplicate.service';
 import { BaseExportService } from './base-export.service';
 import type { BaseImportProgressCallback } from './base-import-contract';
@@ -42,6 +43,7 @@ type IDataPrismaExecutor = {
 
 type IDataPrismaScopedClient = IDataPrismaExecutor & {
   txClient?: () => IDataPrismaExecutor;
+  $tx: <T>(action: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
 };
 
 const toLinkFieldTableInfo = ({
@@ -75,7 +77,8 @@ export class BaseDuplicateService {
     private readonly persistedComputedBackfillService: PersistedComputedBackfillService,
     private readonly cls: ClsService<IClsStore>,
     private readonly dataDbClientManager: DataDbClientManager,
-    private readonly audit: AuditScope
+    private readonly audit: AuditScope,
+    private readonly recordActorStorageService: RecordActorStorageService
   ) {}
 
   private getDataPrismaExecutor(prisma: IDataPrismaScopedClient): IDataPrismaExecutor {
@@ -667,136 +670,146 @@ export class BaseDuplicateService {
       DuplicateBaseSource['dateTimeZoneConversionsByTableId']
     > = {}
   ): Promise<number> {
-    const prisma = this.getDataPrismaExecutor(
-      (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
-        useTransaction: true,
-      })) as IDataPrismaScopedClient
-    );
-    const metaPrisma = this.prismaService.txClient();
-    const tableId2DbTableNameMap: Record<string, string> = {};
-    const tableId2NameMap: Record<string, string> = {};
-    const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
-    const tableRaws = await metaPrisma.tableMeta.findMany({
-      where: { id: { in: allTableId }, deletedTime: null },
-      select: {
-        id: true,
-        dbTableName: true,
-        name: true,
+    // duplicateStructure has created this complete destination set. Pin one sorted
+    // shared lease before beginning the data transaction; nested table copies reuse it.
+    return this.recordActorStorageService.withTablesWrite(
+      Object.values(tableIdMap),
+      async () => {
+        const dataPrisma = (await this.dataDbClientManager.dataPrismaForBase(targetBaseId, {
+          useTransaction: true,
+        })) as IDataPrismaScopedClient;
+        return dataPrisma.$tx(async (transactionPrisma) => {
+          const prisma = transactionPrisma;
+          const metaPrisma = this.prismaService.txClient();
+          const tableId2DbTableNameMap: Record<string, string> = {};
+          const tableId2NameMap: Record<string, string> = {};
+          const allTableId = Object.keys(tableIdMap).concat(Object.values(tableIdMap));
+          const tableRaws = await metaPrisma.tableMeta.findMany({
+            where: { id: { in: allTableId }, deletedTime: null },
+            select: {
+              id: true,
+              dbTableName: true,
+              name: true,
+            },
+          });
+          tableRaws.forEach((tableRaw) => {
+            tableId2DbTableNameMap[tableRaw.id] = tableRaw.dbTableName;
+            tableId2NameMap[tableRaw.id] = tableRaw.name;
+          });
+
+          const oldTableId = Object.keys(tableIdMap);
+
+          const dbTableNames = tableRaws.map((tableRaw) => tableRaw.dbTableName);
+
+          // Query total records count from all source tables before duplicating
+          let totalRecordsCount = 0;
+          for (const tableId of oldTableId) {
+            const sourceDbTableName = tableId2DbTableNameMap[tableId];
+            const countQuery = this.knex(sourceDbTableName).count('*', { as: 'count' }).toQuery();
+            const countResult =
+              await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(countQuery);
+            const tableRecordCount = Number(countResult[0]?.count || 0);
+            totalRecordsCount += tableRecordCount;
+          }
+
+          onProgress?.({
+            phase: 'table_data_start',
+            processedRows: 0,
+            batchProcessedRows: 0,
+            currentBatch: 0,
+            totalRows: totalRecordsCount,
+          });
+
+          const allForeignKeyInfos = [] as {
+            constraint_name: string;
+            column_name: string;
+            referenced_table_schema: string;
+            referenced_table_name: string;
+            referenced_column_name: string;
+            delete_rule: string;
+            dbTableName: string;
+          }[];
+
+          // delete foreign keys if(exist) then duplicate table data
+          for (const dbTableName of dbTableNames) {
+            const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
+            const foreignKeysInfo = await prisma.$queryRawUnsafe<
+              {
+                constraint_name: string;
+                column_name: string;
+                referenced_table_schema: string;
+                referenced_table_name: string;
+                referenced_column_name: string;
+                delete_rule: string;
+              }[]
+            >(foreignKeysInfoSql);
+            const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
+              ...info,
+              dbTableName,
+            }));
+            allForeignKeyInfos.push(...newForeignKeyInfos);
+          }
+
+          for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
+            const dropForeignKeyQuery = this.knex.schema
+              .alterTable(dbTableName, (table) => {
+                table.dropForeign(column_name, constraint_name);
+              })
+              .toQuery();
+
+            await prisma.$executeRawUnsafe(dropForeignKeyQuery);
+          }
+
+          const progressState = { processedRows: 0, totalRows: totalRecordsCount };
+          for (const tableId of oldTableId) {
+            await this.duplicateSingleTableData({
+              tableId,
+              tableIdMap,
+              fieldIdMap,
+              viewIdMap,
+              crossBaseLinkFieldTableMap,
+              tableId2DbTableNameMap,
+              tableId2NameMap,
+              prisma,
+              progressState,
+              onProgress,
+              dateTimeZoneConversions: dateTimeZoneConversionsByTableId[tableId],
+            });
+          }
+
+          for (const {
+            constraint_name: constraintName,
+            column_name: columnName,
+            referenced_table_schema: referencedTableSchema,
+            referenced_table_name: referencedTableName,
+            referenced_column_name: referencedColumnName,
+            delete_rule: deleteRule,
+            dbTableName,
+          } of allForeignKeyInfos) {
+            const addForeignKeyQuerySql = this.knex.schema
+              .alterTable(dbTableName, (table) => {
+                table
+                  .foreign(columnName, constraintName)
+                  .references(referencedColumnName)
+                  .inTable(`${referencedTableSchema}.${referencedTableName}`)
+                  .onDelete(toPostgresFkDeleteAction(deleteRule));
+              })
+              .toQuery();
+
+            await prisma.$executeRawUnsafe(addForeignKeyQuerySql);
+          }
+
+          onProgress?.({
+            phase: 'table_data_done',
+            processedRows: progressState.processedRows,
+            totalRows: totalRecordsCount,
+          });
+
+          return onProgress ? progressState.processedRows : totalRecordsCount;
+        });
       },
-    });
-    tableRaws.forEach((tableRaw) => {
-      tableId2DbTableNameMap[tableRaw.id] = tableRaw.dbTableName;
-      tableId2NameMap[tableRaw.id] = tableRaw.name;
-    });
-
-    const oldTableId = Object.keys(tableIdMap);
-
-    const dbTableNames = tableRaws.map((tableRaw) => tableRaw.dbTableName);
-
-    // Query total records count from all source tables before duplicating
-    let totalRecordsCount = 0;
-    for (const tableId of oldTableId) {
-      const sourceDbTableName = tableId2DbTableNameMap[tableId];
-      const countQuery = this.knex(sourceDbTableName).count('*', { as: 'count' }).toQuery();
-      const countResult = await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(countQuery);
-      const tableRecordCount = Number(countResult[0]?.count || 0);
-      totalRecordsCount += tableRecordCount;
-    }
-
-    onProgress?.({
-      phase: 'table_data_start',
-      processedRows: 0,
-      batchProcessedRows: 0,
-      currentBatch: 0,
-      totalRows: totalRecordsCount,
-    });
-
-    const allForeignKeyInfos = [] as {
-      constraint_name: string;
-      column_name: string;
-      referenced_table_schema: string;
-      referenced_table_name: string;
-      referenced_column_name: string;
-      delete_rule: string;
-      dbTableName: string;
-    }[];
-
-    // delete foreign keys if(exist) then duplicate table data
-    for (const dbTableName of dbTableNames) {
-      const foreignKeysInfoSql = this.dbProvider.getForeignKeysInfo(dbTableName);
-      const foreignKeysInfo = await prisma.$queryRawUnsafe<
-        {
-          constraint_name: string;
-          column_name: string;
-          referenced_table_schema: string;
-          referenced_table_name: string;
-          referenced_column_name: string;
-          delete_rule: string;
-        }[]
-      >(foreignKeysInfoSql);
-      const newForeignKeyInfos = foreignKeysInfo.map((info) => ({
-        ...info,
-        dbTableName,
-      }));
-      allForeignKeyInfos.push(...newForeignKeyInfos);
-    }
-
-    for (const { constraint_name, column_name, dbTableName } of allForeignKeyInfos) {
-      const dropForeignKeyQuery = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table.dropForeign(column_name, constraint_name);
-        })
-        .toQuery();
-
-      await prisma.$executeRawUnsafe(dropForeignKeyQuery);
-    }
-
-    const progressState = { processedRows: 0, totalRows: totalRecordsCount };
-    for (const tableId of oldTableId) {
-      await this.duplicateSingleTableData({
-        tableId,
-        tableIdMap,
-        fieldIdMap,
-        viewIdMap,
-        crossBaseLinkFieldTableMap,
-        tableId2DbTableNameMap,
-        tableId2NameMap,
-        prisma,
-        progressState,
-        onProgress,
-        dateTimeZoneConversions: dateTimeZoneConversionsByTableId[tableId],
-      });
-    }
-
-    for (const {
-      constraint_name: constraintName,
-      column_name: columnName,
-      referenced_table_schema: referencedTableSchema,
-      referenced_table_name: referencedTableName,
-      referenced_column_name: referencedColumnName,
-      delete_rule: deleteRule,
-      dbTableName,
-    } of allForeignKeyInfos) {
-      const addForeignKeyQuerySql = this.knex.schema
-        .alterTable(dbTableName, (table) => {
-          table
-            .foreign(columnName, constraintName)
-            .references(referencedColumnName)
-            .inTable(`${referencedTableSchema}.${referencedTableName}`)
-            .onDelete(toPostgresFkDeleteAction(deleteRule));
-        })
-        .toQuery();
-
-      await prisma.$executeRawUnsafe(addForeignKeyQuerySql);
-    }
-
-    onProgress?.({
-      phase: 'table_data_done',
-      processedRows: progressState.processedRows,
-      totalRows: totalRecordsCount,
-    });
-
-    return onProgress ? progressState.processedRows : totalRecordsCount;
+      { provisioning: true }
+    );
   }
 
   private createDuplicateTableProgressOptions(
@@ -806,10 +819,11 @@ export class BaseDuplicateService {
     tableName: string
   ) {
     if (!onProgress) {
-      return undefined;
+      return { createdTableActorStorage: true as const };
     }
 
     return {
+      createdTableActorStorage: true as const,
       batchSize: v2DuplicateCopyBatchSize,
       onProgress: (progress: { batchProcessedRows: number; currentBatch: number }) => {
         progressState.processedRows += progress.batchProcessedRows;

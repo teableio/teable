@@ -41,6 +41,21 @@ Unsupported explicit field/collation combinations must also fail rather than be
 ignored. The domain-level behavior contract is documented in the
 [shared sort notes](../../../core/src/domain/shared/sort/ARCHITECTURE.md).
 
+## Cursor pagination verification
+
+Cursor continuation carries the order-key values rather than looking up the
+previous page's boundary row again. Its performance contract is query work, not
+that every HTTP request is faster than OFFSET: metadata, group totals, transport
+and scheduling contribute to the same request, and mixed-direction seeks can
+still scan the filtered table before sorting the remaining candidates.
+
+`e2e/src/list-records-cursor.e2e.spec.ts` in the sibling v2 E2E package captures
+the SQL and bindings executed by the HTTP list handler and explains them on real
+PostgreSQL. It checks indexed unfiltered seeks against skipped-row work, reduced
+sort input for the mixed filter/group/sort fixture, equivalent page records and
+continuation after deleting the boundary row. Do not replace these checks with
+millisecond ordering on a shared runner or EXPLAIN of a separately written query.
+
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe module layout under src/.

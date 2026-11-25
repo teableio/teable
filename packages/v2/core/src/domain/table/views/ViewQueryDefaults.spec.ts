@@ -218,27 +218,14 @@ describe('ViewQueryDefaults', () => {
       conjunction: 'and',
       items: [
         {
-          conjunction: 'and',
-          items: [
-            {
-              fieldId: 'fldDate',
-              operator: 'isOnOrAfter',
-              value: {
-                mode: 'exactDate',
-                exactDate: '2026-01-01T00:00:00Z',
-                timeZone: 'UTC',
-              },
-            },
-            {
-              fieldId: 'fldDate',
-              operator: 'isOnOrBefore',
-              value: {
-                mode: 'exactDate',
-                exactDate: '2026-01-31T23:59:59Z',
-                timeZone: 'UTC',
-              },
-            },
-          ],
+          fieldId: 'fldDate',
+          operator: 'is',
+          value: {
+            mode: 'dateRange',
+            exactDate: '2026-01-01T00:00:00Z',
+            exactDateEnd: '2026-01-31T23:59:59Z',
+            timeZone: 'UTC',
+          },
         },
       ],
     });

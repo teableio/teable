@@ -1954,6 +1954,8 @@
     "agentStartFailed": "AI エンジンを開始できませんでした。もう一度お試しいただくか、新しいセッションを開始してください。",
     "agentSessionLost": "問題が発生しました。もう一度送信してください。",
     "sandboxDestroyed": "Cuppy の実行環境が終了し、返信が停止しました",
+    "streamInterrupted": "実行環境が予期せず再起動しました",
+    "streamInterruptedDescription": "環境の再起動により返信が中断されました。もう一度お試しください。",
     "sandboxOutOfMemory": "Cuppy の作業が途中で止まりました",
     "sandboxOutOfMemoryDescription": "この作業に必要なリソースが上限を超えました。操作に問題があったわけではありません。「続ける」を選ぶと、Cuppy がどこまで進んだかを確認してから作業を続けます。",
     "sandboxOutOfMemoryAction": "続ける",

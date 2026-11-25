@@ -129,23 +129,6 @@ exports[`direct field references > direct reference to 'conditionalRollup' field
 }
 `;
 
-exports[`direct field references > direct reference to 'createdBy' field 1`] = `
-{
-  "fieldType": "createdBy",
-  "formula": "{CreatedBy}",
-  "inputs": {
-    "CreatedBy": {
-      "fieldName": "CreatedBy",
-      "fieldType": "createdBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "{"id": "system", "email": null, "title": "System"}",
-  "sql": ""t"."CreatedBy"",
-}
-`;
-
 exports[`direct field references > direct reference to 'createdTime' field 1`] = `
 {
   "fieldType": "createdTime",
@@ -208,23 +191,6 @@ exports[`direct field references > direct reference to 'formula' field 1`] = `
   },
   "result": "10",
   "sql": "10",
-}
-`;
-
-exports[`direct field references > direct reference to 'lastModifiedBy' field 1`] = `
-{
-  "fieldType": "lastModifiedBy",
-  "formula": "{LastModifiedBy}",
-  "inputs": {
-    "LastModifiedBy": {
-      "fieldName": "LastModifiedBy",
-      "fieldType": "lastModifiedBy",
-      "formattedValue": "System",
-      "formatting": undefined,
-    },
-  },
-  "result": "{"id": "system", "email": null, "title": "System"}",
-  "sql": ""t"."LastModifiedBy"",
 }
 `;
 

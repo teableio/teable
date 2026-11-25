@@ -3,7 +3,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { vcsDomainError } from '../../domain/errors';
+import { readonlyCheckoutError, vcsDomainError } from '../../domain/errors';
 import { canonicalizeSnapshot } from '../../domain/fieldClassification';
 import type {
   IBaseVcsPatchSummary,
@@ -20,10 +20,12 @@ import {
   type IVcsStateRepository,
   type IVcsWorkspaceConfig,
 } from '../../ports';
+import { historicalEngineSnapshot } from './historicalEngineSnapshot';
 import { EAGER_RETURN_SNAPSHOT_RECORD_LIMIT, runWithEngineSession } from './workspaceHelpers';
 
 export interface ICloneBaseVcsInput {
   readonly baseId: string;
+  readonly atRevision?: number;
   readonly tableIds?: readonly string[];
   readonly endpoint?: string;
   readonly pgliteDir?: string;
@@ -94,6 +96,7 @@ export class CloneBaseVcsService {
   ): Promise<Result<void, DomainError>> {
     const existingConfigRes = await this.stateRepository.readConfig();
     if (existingConfigRes.isErr()) return err(existingConfigRes.error);
+    if (existingConfigRes.value?.readOnly) return err(readonlyCheckoutError());
 
     const hasBaseRes = await this.localEngine.hasBase(baseId);
     if (hasBaseRes.isErr()) return err(hasBaseRes.error);
@@ -153,6 +156,7 @@ export class CloneBaseVcsService {
         : {}),
       ...(persistedSnapshot.cursor !== undefined ? { pullCursor: persistedSnapshot.cursor } : {}),
       ...(schemaOnly ? { schemaOnly: true } : {}),
+      ...(input.atRevision !== undefined ? { readOnly: true } : {}),
       clonedAt,
       cloneRevision: persistedSnapshot.revision,
       lastPulledAt: clonedAt,
@@ -239,9 +243,14 @@ export class CloneBaseVcsService {
 
     const { snapshot: rawSnapshot, remoteMode } = resolved.value;
     const remoteSnapshot = canonicalizeSnapshot(rawSnapshot, { preserveComputed: true });
+    const historical = input.atRevision !== undefined;
+    const engineSnapshot =
+      historical && (remoteSnapshot.accessScope || input.tableIds)
+        ? historicalEngineSnapshot(remoteSnapshot)
+        : remoteSnapshot;
 
     const hydrateRes = await runWithEngineSession(this.localEngine, async (engine) => {
-      const hyd = await engine.hydrateSnapshot(remoteSnapshot);
+      const hyd = await engine.hydrateSnapshot(engineSnapshot, { skipCaptureSnapshot: historical });
       if (hyd.isErr()) return err(hyd.error);
       if (engine.markWorkingClean) {
         const cleanRes = await engine.markWorkingClean(remoteSnapshot.baseId);
@@ -251,19 +260,25 @@ export class CloneBaseVcsService {
     });
     if (hydrateRes.isErr()) return err(hydrateRes.error);
 
-    const persistedSnapshot = hydrateRes.value.snapshot
-      ? canonicalizeSnapshot(
-          {
-            ...hydrateRes.value.snapshot,
-            revision: rawSnapshot.revision,
-            ...(rawSnapshot.cursor !== undefined ? { cursor: rawSnapshot.cursor } : {}),
-            ...(rawSnapshot.accessScope ? { accessScope: rawSnapshot.accessScope } : {}),
-          },
-          { preserveComputed: true }
-        )
-      : remoteSnapshot;
+    const persistedSnapshot =
+      !historical && hydrateRes.value.snapshot
+        ? canonicalizeSnapshot(
+            {
+              ...hydrateRes.value.snapshot,
+              revision: rawSnapshot.revision,
+              ...(rawSnapshot.cursor !== undefined ? { cursor: rawSnapshot.cursor } : {}),
+              ...(rawSnapshot.accessScope ? { accessScope: rawSnapshot.accessScope } : {}),
+            },
+            { preserveComputed: true }
+          )
+        : remoteSnapshot;
 
-    const config = this.buildWorkspaceConfig(input, persistedSnapshot, remoteMode);
+    const config = this.buildWorkspaceConfig(
+      input,
+      persistedSnapshot,
+      remoteMode,
+      input.schemaOnly
+    );
     const persistRes = await this.persistClonedState(config, persistedSnapshot);
     if (persistRes.isErr()) return err(persistRes.error);
 
@@ -667,9 +682,57 @@ export class CloneBaseVcsService {
     });
   }
 
+  private async checkoutRevision(
+    input: ICloneBaseVcsInput,
+    revision: number
+  ): Promise<Result<ICloneBaseVcsOutput, DomainError>> {
+    if (!this.remoteGateway.checkoutRevision) {
+      return err(
+        vcsDomainError.notFound({
+          code: 'vcs.history_unavailable',
+          message: 'This remote does not support historical checkouts.',
+        })
+      );
+    }
+    const result = await this.remoteGateway.checkoutRevision(input.baseId, revision);
+    if (result.isErr()) return err(result.error);
+    const { snapshot, remoteMode } = result.value;
+    if (snapshot.baseId !== input.baseId || snapshot.revision !== revision) {
+      return err(
+        vcsDomainError.infrastructure({
+          code: 'vcs.checkout_mismatch',
+          message: 'Checkout response does not match the requested base and revision.',
+        })
+      );
+    }
+    const selected = input.tableIds ? new Set(input.tableIds) : undefined;
+    const tables = selected ? snapshot.tables.filter((t) => selected.has(t.id)) : snapshot.tables;
+    if (input.force && this.localEngine.reset) {
+      const reset = await this.localEngine.reset();
+      if (reset.isErr()) return err(reset.error);
+    }
+    return this.executeMonolithicClone(input, {
+      remoteMode,
+      snapshot: {
+        ...snapshot,
+        tables: input.schemaOnly ? tables.map((t) => ({ ...t, records: [] })) : tables,
+        ...(snapshot.accessScope && selected
+          ? {
+              accessScope: {
+                tables: Object.fromEntries(
+                  Object.entries(snapshot.accessScope.tables).filter(([id]) => selected.has(id))
+                ),
+              },
+            }
+          : {}),
+      },
+    });
+  }
+
   async execute(input: ICloneBaseVcsInput): Promise<Result<ICloneBaseVcsOutput, DomainError>> {
     const availableRes = await this.ensureWorkspaceAvailable(input.baseId, input.force);
     if (availableRes.isErr()) return err(availableRes.error);
+    if (input.atRevision !== undefined) return this.checkoutRevision(input, input.atRevision);
 
     const enableRes = await this.ensureVcsEnabledIfSupported(input.baseId);
     if (enableRes.isErr()) return err(enableRes.error);

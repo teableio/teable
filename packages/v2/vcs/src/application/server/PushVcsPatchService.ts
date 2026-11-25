@@ -1,23 +1,40 @@
 import { randomUUID } from 'node:crypto';
 import {
+  GetTableByIdQuery,
+  RenameViewCommand,
+  RestoreTableCommand,
+  Table,
+  TableId,
+  UpdateFieldCommand,
+  ViewId,
+  failBatchResultIfActive,
+  getUnitOfWorkTransaction,
   v2CoreTokens,
+  withTableSchemaCoordination,
   type BaseId,
   type DomainError,
+  type GetTableByIdResult,
   type IBaseRepository,
   type ICommandBus,
   type IDomainWriteTransaction,
   type IExecutionContext,
   type IQueryBus,
+  type IRecordOrderColumnPreparer,
+  type ITableRepository,
+  type ITableSchemaCoordination,
+  type IUpdateFieldCommandInput,
   type LinkField,
-  type Table,
+  type RestoreTableResult,
+  type TableSchemaCoordinationMode,
 } from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import { err, ok, type Result } from 'neverthrow';
 import { z } from 'zod';
 
+import { collectVcsPatchAddedIds } from '../../domain/accessPolicy';
 import { countPatchRecordOps, MAX_SINGLE_TX_PUSH_RECORD_OPS } from '../../domain/chunkPatch';
 import { isEmptyPatch, summarizePatch } from '../../domain/diffSnapshots';
-import { vcsDomainError } from '../../domain/errors';
+import { vcsDomainError, vcsWriteBusyError } from '../../domain/errors';
 import {
   collectDeletedTableCasConflicts,
   collectTableFieldCasConflicts,
@@ -40,15 +57,21 @@ import type {
   IVcsCommit,
   IVcsPushMetadataLockTargets,
   IVcsPushPhysicalTableLockTarget,
+  IVcsRollbackRestore,
 } from '../../ports/server';
 import { v2VcsServerTokens } from '../../ports/tokens';
+import { BaseVcsCheckpointReader } from '../../snapshot/BaseVcsCheckpointReader';
 import {
   buildTableVcsSnapshot,
   listSelectedTableRecordsForVcs,
   mapTableFieldsToVcsSnapshots,
   mapTableViewsFromDomain,
 } from '../../snapshot/tableToVcsSnapshot';
-import { listLiveTablesInBase, resolveExistingBase } from './serverHelpers';
+import {
+  listLiveTablesInBase,
+  listTableDeletionDependencies,
+  resolveExistingBase,
+} from './serverHelpers';
 
 export const pushVcsPatchInputSchema = baseVcsPushRequestSchema.extend({
   baseId: z.string().min(1),
@@ -57,7 +80,41 @@ export const pushVcsPatchInputSchema = baseVcsPushRequestSchema.extend({
 export type IPushVcsPatchInput = z.input<typeof pushVcsPatchInputSchema>;
 type IParsedPushInput = z.output<typeof pushVcsPatchInputSchema>;
 
+function checkPushHead(input: IParsedPushInput, headRevision: number, requireExactHead: boolean) {
+  if (
+    input.baseRevision > headRevision ||
+    (requireExactHead && input.baseRevision !== headRevision)
+  ) {
+    return err(
+      vcsDomainError.conflict({
+        code: 'vcs.non_fast_forward',
+        message: `Client revision ${input.baseRevision} cannot be applied to head ${headRevision}.`,
+        details: {
+          baseId: input.baseId,
+          baseRevision: input.baseRevision,
+          headRevision,
+          overlappingKeys: [],
+        },
+      })
+    );
+  }
+  return ok(undefined);
+}
+
 const DRY_RUN_ROLLBACK_CODE = 'vcs.dry_run_rollback';
+
+const notEnabled = (baseId: BaseId) =>
+  vcsDomainError.conflict({
+    code: 'vcs.not_enabled',
+    message: 'Base VCS is not enabled on this base; enable VCS first.',
+    details: { baseId: baseId.toString() },
+  });
+
+const originPushIdUsed = () =>
+  vcsDomainError.conflict({
+    code: 'vcs.origin_push_id_used',
+    message: 'An exact-head push requires an unused origin push ID.',
+  });
 
 const resolveMaxSingleTxPushOps = (): number => {
   const raw = Number(process.env.TEABLE_VCS_MAX_SINGLE_TX_PUSH_OPS);
@@ -76,9 +133,14 @@ const commitToPushResult = (commit: IVcsCommit, baseRevision: number): IVcsPushR
   summary: commit.summary,
 });
 
-const collectMetadataLockTargets = (patch: IBaseVcsPatch): IVcsPushMetadataLockTargets => {
+const collectMetadataLockTargets = (
+  patch: IBaseVcsPatch,
+  restore?: IVcsRollbackRestore
+): IVcsPushMetadataLockTargets => {
+  const added = restore && collectVcsPatchAddedIds(patch);
   const tableIds = Array.from(
     new Set([
+      ...(added?.tableIds ?? []),
       ...patch.tablesDeleted.map((t) => t.tableId),
       ...patch.tablesUpdated.map((t) => t.tableId),
     ])
@@ -86,6 +148,7 @@ const collectMetadataLockTargets = (patch: IBaseVcsPatch): IVcsPushMetadataLockT
 
   const fieldIds = Array.from(
     new Set([
+      ...(added?.fieldIds ?? []),
       ...patch.tablesUpdated.flatMap((tp) => [
         ...tp.fieldsUpdated.map((f) => f.fieldId),
         ...tp.fieldsDeleted.map((f) => f.fieldId),
@@ -96,9 +159,13 @@ const collectMetadataLockTargets = (patch: IBaseVcsPatch): IVcsPushMetadataLockT
 
   const viewIds = Array.from(
     new Set([
+      ...(added?.viewIds ?? []),
       ...patch.tablesUpdated.flatMap((tp) => [
         ...tp.viewsUpdated.map((v) => v.viewId),
         ...tp.viewsDeleted.map((v) => v.viewId),
+        ...tp.recordsUpdated.flatMap((row) =>
+          (row.orderChanges ?? []).map((change) => change.viewId)
+        ),
       ]),
       ...patch.tablesDeleted.flatMap((d) => d.before.views.map((v) => v.id)),
     ])
@@ -151,6 +218,7 @@ const collectPhysicalLockTargets = (
     if (!liveTable || !dbNameRes?.isOk()) continue;
     const touchedRecordIds = Array.from(
       new Set([
+        ...tp.recordsAdded.map((r) => r.id),
         ...tp.recordsUpdated.map((r) => r.recordId),
         ...tp.recordsDeleted.map((r) => r.recordId),
       ])
@@ -166,6 +234,101 @@ const collectPhysicalLockTargets = (
   return physicalLocks;
 };
 
+function effectivePushPatch(patch: IBaseVcsPatch, restore?: IVcsRollbackRestore): IBaseVcsPatch {
+  if (!restore?.tableIds.length) return patch;
+  // Restoring a trashed table brings back its retained rows. Only the delta from
+  // those rows to the historical target generates record operations.
+  const restored = new Set(restore.tableIds);
+  return {
+    ...patch,
+    tablesAdded: patch.tablesAdded.filter((table) => !restored.has(table.id)),
+    tablesUpdated: [...patch.tablesUpdated, ...restore.tableChanges],
+  };
+}
+
+function patchCoordinationMode(patch: IBaseVcsPatch): TableSchemaCoordinationMode {
+  const changesSchema =
+    patch.tablesAdded.length > 0 ||
+    patch.tablesDeleted.length > 0 ||
+    patch.tablesUpdated.some(
+      (table) =>
+        table.nameChange !== undefined ||
+        table.fieldsAdded.length > 0 ||
+        table.fieldsUpdated.length > 0 ||
+        table.fieldsDeleted.length > 0 ||
+        table.viewsAdded.length > 0 ||
+        table.viewsUpdated.length > 0 ||
+        table.viewsDeleted.length > 0
+    );
+  return changesSchema ? 'exclusive' : 'shared';
+}
+
+function* displacedRollbackViews(patch: IBaseVcsPatch, tables: ReadonlyMap<string, Table>) {
+  for (const change of patch.tablesUpdated) {
+    const targets = new Map([
+      ...change.viewsAdded.map((view) => [view.name, view.id] as const),
+      ...change.viewsUpdated.map(({ after }) => [after.name, after.id] as const),
+    ]);
+    if (!targets.size) continue;
+    const views = tables.get(change.tableId)?.views() ?? [];
+    const reserved = new Set([...targets.keys(), ...views.map((v) => v.name().toString())]);
+    let suffix = 0;
+    for (const view of views) {
+      const id = view.id().toString();
+      const targetId = targets.get(view.name().toString());
+      if (targetId === undefined || targetId === id) continue;
+      let name: string;
+      do {
+        name = `__vcs_rollback_${suffix++}`;
+      } while (reserved.has(name));
+      reserved.add(name);
+      yield { tableId: change.tableId, viewId: id, name };
+    }
+  }
+}
+
+// A restored field may need its historical values before NOT NULL or UNIQUE can be
+// enforced. Its name may also be held by a field that the inverse renames or deletes.
+function prepareRollbackFields(patch: IBaseVcsPatch, tables: ReadonlyMap<string, Table>) {
+  const finish: IUpdateFieldCommandInput[] = [];
+  const tablesUpdated = patch.tablesUpdated.map((change) => {
+    if (!change.fieldsAdded.length) return change;
+    const occupied = new Set(
+      tables
+        .get(change.tableId)
+        ?.getFields()
+        .map((field) => field.name().toString())
+    );
+    const reserved = new Set([
+      ...occupied,
+      ...change.fieldsAdded.map((f) => f.name),
+      ...change.fieldsUpdated.map((f) => f.after.name),
+    ]);
+    const fieldsAdded = change.fieldsAdded.map((field) => {
+      const rename = occupied.has(field.name);
+      if (!rename && !field.notNull && !field.unique) return field;
+      let name = field.name;
+      if (rename) {
+        name = field.id;
+        while (reserved.has(name)) name += '_';
+        reserved.add(name);
+      }
+      finish.push({
+        tableId: change.tableId,
+        fieldId: field.id,
+        field: {
+          ...(rename && { name: field.name }),
+          ...(field.notNull && { notNull: true }),
+          ...(field.unique && { unique: true }),
+        },
+      });
+      return { ...field, name, notNull: false, unique: false };
+    });
+    return { ...change, fieldsAdded };
+  });
+  return { patch: { ...patch, tablesUpdated }, finish };
+}
+
 @injectable()
 export class PushVcsPatchService {
   constructor(
@@ -180,8 +343,109 @@ export class PushVcsPatchService {
     @inject(v2VcsServerTokens.logRepository)
     private readonly logRepository: IBaseVcsLogRepository,
     @inject(v2VcsServerTokens.accessPolicy)
-    private readonly accessPolicy: IVcsAccessPolicy
+    private readonly accessPolicy: IVcsAccessPolicy,
+    @inject(BaseVcsCheckpointReader)
+    private readonly checkpoints: BaseVcsCheckpointReader,
+    @inject(v2CoreTokens.recordOrderColumnPreparer)
+    private readonly orderColumns: IRecordOrderColumnPreparer,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tables: ITableRepository,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly coordination: ITableSchemaCoordination
   ) {}
+
+  async withWriteCoordination<T>(
+    context: IExecutionContext,
+    tableIds: readonly string[],
+    deletedTableIds: readonly string[],
+    mode: TableSchemaCoordinationMode,
+    work: (context: IExecutionContext) => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    const dependencies = await listTableDeletionDependencies(this.tables, context, deletedTableIds);
+    if (dependencies.isErr()) return failBatchResultIfActive(context, err(dependencies.error));
+    const result = await withTableSchemaCoordination(
+      context,
+      this.coordination,
+      [...tableIds, ...dependencies.value],
+      mode,
+      work
+    );
+    // Deletion can coordinate tables outside the caller's visible base.
+    if (result.isErr() && result.error.code.startsWith('schema_coordination.')) {
+      const { code, message, tags } = result.error;
+      const publicError = tags.includes('conflict')
+        ? vcsDomainError.conflict
+        : tags.includes('invariant')
+          ? vcsDomainError.invariant
+          : vcsDomainError.infrastructure;
+      return failBatchResultIfActive(
+        context,
+        err(publicError({ code, message, cause: result.error }))
+      );
+    }
+    return failBatchResultIfActive(context, result);
+  }
+
+  async prepareRollbackOrderColumns(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    targets: ReadonlyMap<string, ReadonlySet<string>>
+  ): Promise<Result<void, DomainError>> {
+    for (const [tableId, viewIds] of targets) {
+      const id = TableId.create(tableId);
+      if (id.isErr()) return err(id.error);
+      const builder = Table.specs(baseId);
+      builder.byIds([id.value]);
+      const spec = builder.build();
+      if (spec.isErr()) return err(spec.error);
+      // A retained table still owns its physical rows while it is in the trash.
+      const table = await this.tables.findOne(ctx, spec.value, { state: 'all' });
+      if (table.isErr()) return err(table.error);
+      for (const viewId of viewIds) {
+        const view = ViewId.create(viewId);
+        if (view.isErr()) return err(view.error);
+        const prepared = await this.orderColumns.prepareOrderColumn(ctx, table.value, view.value);
+        if (prepared.isErr()) return err(prepared.error);
+      }
+    }
+    return ok(undefined);
+  }
+
+  private async prepareOrderColumns(
+    ctx: IExecutionContext,
+    baseId: string,
+    patch: IBaseVcsPatch
+  ): Promise<Result<void, DomainError>> {
+    for (const tp of patch.tablesUpdated) {
+      const viewIds = new Set<string>();
+      for (const row of tp.recordsAdded) {
+        for (const viewId of Object.keys(row.orders ?? {})) viewIds.add(viewId);
+      }
+      for (const row of tp.recordsUpdated) {
+        for (const change of row.orderChanges ?? []) viewIds.add(change.viewId);
+      }
+      if (!viewIds.size) continue;
+      const query = GetTableByIdQuery.create({ baseId, tableId: tp.tableId });
+      if (query.isErr()) return err(query.error);
+      const result = await this.queryBus.execute<GetTableByIdQuery, GetTableByIdResult>(
+        ctx,
+        query.value
+      );
+      if (result.isErr()) return err(result.error);
+      const { table } = result.value;
+      for (const rawId of viewIds) {
+        const id = ViewId.create(rawId);
+        if (id.isErr()) return err(id.error);
+        const view = table.getView(id.value);
+        if (view.isErr() && !tp.viewsAdded.some((added) => added.id === rawId)) {
+          return err(view.error);
+        }
+        const prepared = await this.orderColumns.prepareOrderColumn(ctx, table, id.value);
+        if (prepared.isErr()) return err(prepared.error);
+      }
+    }
+    return ok(undefined);
+  }
 
   private async collectRecordUpdateCasConflicts(params: {
     readonly ctx: IExecutionContext;
@@ -358,46 +622,26 @@ export class PushVcsPatchService {
     ctx: IExecutionContext,
     baseId: BaseId,
     input: IParsedPushInput,
-    summary: IBaseVcsPatchSummary
+    summary: IBaseVcsPatchSummary,
+    requireExactHead: boolean
   ): Promise<Result<IVcsPushResult, DomainError>> {
-    return this.domainWriteTransaction.withBatchTransaction<IVcsPushResult>(
-      ctx,
-      async (batchCtx) => {
-        const lockedHeadRes = await this.logRepository.lockPushMetadata(batchCtx, baseId, {
-          tableIds: [],
-          fieldIds: [],
-          viewIds: [],
-        });
-        if (lockedHeadRes.isErr()) return err(lockedHeadRes.error);
+    const head = await this.logRepository.getHead(ctx, baseId, { requireAtomicStorage: true });
+    if (head.isErr()) return err(head.error);
+    if (!head.value.enabled) return err(notEnabled(baseId));
 
-        const headRevision = lockedHeadRes.value.headRevision;
-        if (input.baseRevision > headRevision) {
-          return err(
-            vcsDomainError.conflict({
-              code: 'vcs.non_fast_forward',
-              message: `Client baseRevision (${input.baseRevision}) exceeds remote headRevision (${headRevision}).`,
-              details: {
-                baseId: input.baseId,
-                baseRevision: input.baseRevision,
-                headRevision,
-                overlappingKeys: [],
-              },
-            })
-          );
-        }
+    const headRevision = head.value.headRevision;
+    const checked = checkPushHead(input, headRevision, requireExactHead);
+    if (checked.isErr()) return err(checked.error);
 
-        return ok({
-          ok: true,
-          dryRun: Boolean(input.dryRun),
-          baseId: input.baseId,
-          baseRevision: input.baseRevision,
-          newRevision: headRevision,
-          rebased: false,
-          summary,
-        });
-      },
-      { scope: 'data' }
-    );
+    return ok({
+      ok: true,
+      dryRun: Boolean(input.dryRun),
+      baseId: input.baseId,
+      baseRevision: input.baseRevision,
+      newRevision: headRevision,
+      rebased: false,
+      summary,
+    });
   }
 
   private async executePushInTransaction(params: {
@@ -405,13 +649,27 @@ export class PushVcsPatchService {
     readonly baseId: BaseId;
     readonly baseName: string;
     readonly input: IParsedPushInput;
+    readonly effectivePatch: IBaseVcsPatch;
     readonly originPushId: string;
     readonly summary: IBaseVcsPatchSummary;
+    readonly requireExactHead: boolean;
+    readonly rollbackCommitId?: string;
+    readonly restore?: IVcsRollbackRestore;
+    readonly borrowedTransaction: boolean;
     readonly setDryRunResult: (result: IVcsPushResult) => void;
   }): Promise<Result<IVcsPushResult, DomainError>> {
     const { batchCtx, baseId, baseName, input, originPushId, summary, setDryRunResult } = params;
 
-    const authRes = await this.accessPolicy.assertCanApplyPatch(batchCtx, baseId, input.patch);
+    const head = await this.logRepository.getHead(batchCtx, baseId, { requireAtomicStorage: true });
+    if (head.isErr()) return err(head.error);
+    if (!head.value.enabled) return err(notEnabled(baseId));
+
+    const authRes = await this.accessPolicy.assertCanApplyPatch(
+      batchCtx,
+      baseId,
+      input.patch,
+      params.restore
+    );
     if (authRes.isErr()) return err(authRes.error);
 
     const replayInTx = await this.logRepository.findCommitByOriginPushId(
@@ -421,41 +679,61 @@ export class PushVcsPatchService {
     );
     if (replayInTx.isErr()) return err(replayInTx.error);
     if (replayInTx.value) {
+      if (params.requireExactHead) return err(originPushIdUsed());
       return ok(commitToPushResult(replayInTx.value, input.baseRevision));
     }
 
-    const metaTargets = collectMetadataLockTargets(input.patch);
-    const lockedHeadRes = await this.logRepository.lockPushMetadata(batchCtx, baseId, metaTargets);
-    if (lockedHeadRes.isErr()) return err(lockedHeadRes.error);
-    const headRevision = lockedHeadRes.value.headRevision;
-
-    if (input.baseRevision > headRevision) {
-      return err(
-        vcsDomainError.conflict({
-          code: 'vcs.non_fast_forward',
-          message: `Client baseRevision (${input.baseRevision}) exceeds remote headRevision (${headRevision}).`,
-          details: {
-            baseId: input.baseId,
-            baseRevision: input.baseRevision,
-            headRevision,
-            overlappingKeys: [],
-          },
-        })
-      );
-    }
-
-    // Read table/field/view metadata AFTER locking base_vcs_head + table_meta + field + view rows.
+    // Resolve physical names from the batch snapshot, then lock data before metadata and head.
     const tablesRes = await listLiveTablesInBase(this.queryBus, batchCtx, baseId);
     if (tablesRes.isErr()) return err(tablesRes.error);
-    const liveTableMap = new Map(tablesRes.value.map((t) => [t.id().toString(), t]));
-
-    const physicalLocks = collectPhysicalLockTargets(input.patch, liveTableMap);
+    let liveTableMap = new Map(tablesRes.value.map((t) => [t.id().toString(), t]));
     const physLockRes = await this.logRepository.lockPushPhysicalTargets(
       batchCtx,
       baseId,
-      physicalLocks
+      collectPhysicalLockTargets(input.patch, liveTableMap),
+      { waitForFirstTarget: !params.borrowedTransaction }
     );
     if (physLockRes.isErr()) return err(physLockRes.error);
+
+    const metaTargets = collectMetadataLockTargets(input.patch, params.restore);
+    const lockedHeadRes = await this.logRepository.lockPushMetadata(batchCtx, baseId, metaTargets);
+    if (lockedHeadRes.isErr()) return err(lockedHeadRes.error);
+    const headRevision = lockedHeadRes.value.headRevision;
+    if (params.borrowedTransaction) {
+      const stillAuthorized = await this.accessPolicy.assertCanApplyPatch(
+        batchCtx,
+        baseId,
+        input.patch,
+        params.restore
+      );
+      if (stillAuthorized.isErr()) return err(stillAuthorized.error);
+      const committed = await this.logRepository.findCommitByOriginPushId(
+        batchCtx,
+        baseId,
+        originPushId
+      );
+      if (committed.isErr()) return err(committed.error);
+      if (committed.value) {
+        if (params.requireExactHead) return err(originPushIdUsed());
+        return ok(commitToPushResult(committed.value, input.baseRevision));
+      }
+    }
+    const checked = checkPushHead(input, headRevision, params.requireExactHead);
+    if (checked.isErr()) return err(checked.error);
+
+    // A caller-owned batch need not use repeatable read. Re-resolve physical names behind
+    // the metadata locks and try any changed targets without waiting while holding the head.
+    if (params.borrowedTransaction) {
+      const lockedTables = await listLiveTablesInBase(this.queryBus, batchCtx, baseId);
+      if (lockedTables.isErr()) return err(lockedTables.error);
+      liveTableMap = new Map(lockedTables.value.map((t) => [t.id().toString(), t]));
+      const lockedPhysical = await this.logRepository.lockPushPhysicalTargets(
+        batchCtx,
+        baseId,
+        collectPhysicalLockTargets(input.patch, liveTableMap)
+      );
+      if (lockedPhysical.isErr()) return err(lockedPhysical.error);
+    }
 
     const casRes = await this.evaluateLiveCas({
       ctx: batchCtx,
@@ -500,25 +778,63 @@ export class PushVcsPatchService {
       );
     }
 
+    const patch = params.effectivePatch;
+    if (params.restore?.tableIds.length) {
+      for (const tableId of params.restore.tableIds) {
+        const command = RestoreTableCommand.create({ baseId: input.baseId, tableId });
+        if (command.isErr()) return err(command.error);
+        const result = await this.commandBus.execute<RestoreTableCommand, RestoreTableResult>(
+          batchCtx,
+          command.value
+        );
+        if (result.isErr()) return err(result.error);
+        liveTableMap.set(tableId, result.value.table);
+      }
+    }
+
+    if (params.restore) {
+      // Free occupied names before upserting the target views, including name swaps.
+      for (const rename of displacedRollbackViews(patch, liveTableMap)) {
+        const command = RenameViewCommand.create(rename);
+        if (command.isErr()) return err(command.error);
+        const result = await this.commandBus.execute(batchCtx, command.value);
+        if (result.isErr()) return err(result.error);
+      }
+    }
+
     const adapter = new V2EngineSyncAdapter({
       commandBus: this.commandBus,
       queryBus: this.queryBus,
       executionContext: batchCtx,
+      preserveAutoNumbers: params.rollbackCommitId !== undefined,
     });
-    const applyRes = await adapter.applyPatch(input.baseId, input.patch, {
+    const fields = params.restore ? prepareRollbackFields(patch, liveTableMap) : undefined;
+    const applyRes = await adapter.applyPatch(input.baseId, fields?.patch ?? patch, {
       baseName,
       context: batchCtx,
       skipCaptureSnapshot: true,
     });
     if (applyRes.isErr()) return err(applyRes.error);
+    for (const update of fields?.finish ?? []) {
+      const command = UpdateFieldCommand.create(update, { allowNoop: true });
+      if (command.isErr()) return err(command.error);
+      const result = await this.commandBus.execute(batchCtx, command.value);
+      if (result.isErr()) return err(result.error);
+    }
 
-    const commitRes = await this.logRepository.appendCommit(batchCtx, baseId, {
-      expectedHeadRevision: headRevision,
-      originPushId,
-      actorId: batchCtx.actorId.toString(),
-      ...(input.message !== undefined ? { message: input.message } : {}),
-      summary,
-    });
+    const commitRes = await this.logRepository.appendCommit(
+      batchCtx,
+      baseId,
+      {
+        expectedHeadRevision: headRevision,
+        commitId: params.rollbackCommitId,
+        originPushId,
+        actorId: batchCtx.actorId.toString(),
+        ...(input.message !== undefined ? { message: input.message } : {}),
+        summary,
+      },
+      this.checkpoints.capture
+    );
     if (commitRes.isErr()) return err(commitRes.error);
 
     return ok({
@@ -536,8 +852,16 @@ export class PushVcsPatchService {
 
   async execute(
     ctx: IExecutionContext,
-    rawInput: unknown
+    rawInput: unknown,
+    options: {
+      readonly requireExactHead?: boolean;
+      readonly rollbackCommitId?: string;
+      readonly restore?: IVcsRollbackRestore;
+    } = {}
   ): Promise<Result<IVcsPushResult, DomainError>> {
+    // Only internal confirmed rollback supplies a receipt, including for an empty inverse patch.
+    const { rollbackCommitId } = options;
+    const requireExactHead = options.requireExactHead === true || rollbackCommitId !== undefined;
     const parsed = pushVcsPatchInputSchema.safeParse(rawInput);
     if (!parsed.success) {
       return err(
@@ -555,11 +879,17 @@ export class PushVcsPatchService {
     const { baseId, base } = resolved.value;
 
     // Authorization check runs BEFORE originPushId deduplication so unauthorized callers cannot probe commit receipts.
-    const authRes = await this.accessPolicy.assertCanApplyPatch(ctx, baseId, input.patch);
+    const authRes = await this.accessPolicy.assertCanApplyPatch(
+      ctx,
+      baseId,
+      input.patch,
+      options.restore
+    );
     if (authRes.isErr()) return err(authRes.error);
 
     const maxSingleTxOps = resolveMaxSingleTxPushOps();
-    const patchRecordOps = countPatchRecordOps(input.patch);
+    const effectivePatch = effectivePushPatch(input.patch, options.restore);
+    const patchRecordOps = countPatchRecordOps(effectivePatch);
     if (patchRecordOps > maxSingleTxOps) {
       return err(
         vcsDomainError.validation({
@@ -576,33 +906,77 @@ export class PushVcsPatchService {
     const replayRes = await this.logRepository.findCommitByOriginPushId(ctx, baseId, originPushId);
     if (replayRes.isErr()) return err(replayRes.error);
     if (replayRes.value) {
+      if (requireExactHead) return err(originPushIdUsed());
       return ok(commitToPushResult(replayRes.value, input.baseRevision));
     }
 
-    if (isEmptyPatch(input.patch)) {
-      return this.handleEmptyPatch(ctx, baseId, input, summary);
+    if (isEmptyPatch(input.patch) && rollbackCommitId === undefined) {
+      return this.handleEmptyPatch(ctx, baseId, input, summary, requireExactHead);
+    }
+
+    // Ordinary pushes can be the first writer to materialize a view's order column.
+    // Historical rollback reuses the columns retained with the table.
+    if (!options.restore && !input.dryRun) {
+      const prepared = await this.prepareOrderColumns(ctx, input.baseId, input.patch);
+      if (prepared.isErr()) return err(prepared.error);
     }
 
     let dryRunResult: IVcsPushResult | undefined;
-    const txRes = await this.domainWriteTransaction.withBatchTransaction(
-      ctx,
-      async (batchCtx) =>
-        this.executePushInTransaction({
-          batchCtx,
-          baseId,
-          baseName: base.name().toString(),
-          input,
-          originPushId,
-          summary,
-          setDryRunResult: (res) => {
-            dryRunResult = res;
-          },
-        }),
-      { scope: 'data' }
-    );
+    const apply = (context: IExecutionContext) =>
+      this.domainWriteTransaction.withBatchTransaction(
+        context,
+        async (batchCtx) => {
+          dryRunResult = undefined;
+          return this.executePushInTransaction({
+            batchCtx,
+            baseId,
+            baseName: base.name().toString(),
+            input,
+            effectivePatch,
+            originPushId,
+            summary,
+            requireExactHead,
+            rollbackCommitId,
+            restore: options.restore,
+            borrowedTransaction: Boolean(
+              getUnitOfWorkTransaction(context, 'data') || getUnitOfWorkTransaction(context, 'meta')
+            ),
+            setDryRunResult: (res) => {
+              dryRunResult = res;
+            },
+          });
+        },
+        { scope: 'data', isolationLevel: 'repeatable read', onRetryExhausted: vcsWriteBusyError }
+      );
+    const txRes = input.dryRun
+      ? await apply(ctx)
+      : await this.withWriteCoordination(
+          ctx,
+          [
+            ...input.patch.tablesAdded.map((table) => table.id),
+            ...input.patch.tablesUpdated.map((table) => table.tableId),
+            ...input.patch.tablesDeleted.map((table) => table.tableId),
+          ],
+          input.patch.tablesDeleted.map((table) => table.tableId),
+          patchCoordinationMode(input.patch),
+          apply
+        );
 
     if (txRes.isErr() && txRes.error.code === DRY_RUN_ROLLBACK_CODE && dryRunResult) {
       return ok(dryRunResult);
+    }
+    if (
+      txRes.isErr() &&
+      txRes.error.code === 'schema_coordination.busy' &&
+      input.originPushId &&
+      !requireExactHead
+    ) {
+      // A duplicate request can commit before its coordination lease is released.
+      const access = await this.accessPolicy.assertCanApplyPatch(ctx, baseId, input.patch);
+      if (access.isErr()) return err(access.error);
+      const receipt = await this.logRepository.findCommitByOriginPushId(ctx, baseId, originPushId);
+      if (receipt.isErr()) return err(receipt.error);
+      if (receipt.value) return ok(commitToPushResult(receipt.value, input.baseRevision));
     }
 
     return txRes;

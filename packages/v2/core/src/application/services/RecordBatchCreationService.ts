@@ -19,6 +19,7 @@ import type {
   ITableRecordRepository,
   BatchRecordMutationResult,
   RecordStoredSnapshot,
+  RecordActorAttribution,
 } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import type { UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
@@ -55,6 +56,7 @@ export interface IRecordBatchCreationResult {
   readonly events: ReadonlyArray<IDomainEvent>;
   readonly fieldKeyMapping: FieldKeyMapping;
   readonly computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   readonly undoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly redoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
   readonly afterCommit: () => Promise<void>;
@@ -196,6 +198,7 @@ export class RecordBatchCreationService {
           fieldKeyMapping
         ),
         computedChangesByRecord: mutationResult.computedChangesByRecord,
+        recordActorsByRecord: mutationResult.recordActorsByRecord,
         undoCommands: [
           createUndoRedoCommand('DeleteRecords', {
             tableId: input.table.id().toString(),

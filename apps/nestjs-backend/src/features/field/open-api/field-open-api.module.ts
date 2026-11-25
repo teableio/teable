@@ -3,6 +3,7 @@ import { DbProvider } from '../../../db-provider/db.provider';
 import { ShareDbModule } from '../../../share-db/share-db.module';
 import { CalculationModule } from '../../calculation/calculation.module';
 import { CanaryModule } from '../../canary/canary.module';
+import { FieldPeriodicRefreshModule } from '../../field-periodic-refresh/field-periodic-refresh.module';
 import { FieldReferenceAdmissionModule } from '../../field-reference-admission/field-reference-admission.module';
 import { GraphLegacyModule } from '../../graph/graph-legacy.module';
 import { ComputedModule } from '../../record/computed/computed.module';
@@ -22,6 +23,7 @@ import { FieldOpenApiService } from './field-open-api.service';
 @Module({
   imports: [
     FieldModule,
+    FieldPeriodicRefreshModule,
     RecordModule,
     ViewOpenApiModule,
     ShareDbModule,
@@ -40,6 +42,11 @@ import { FieldOpenApiService } from './field-open-api.service';
   ],
   controllers: [FieldOpenApiController],
   providers: [DbProvider, FieldOpenApiService],
-  exports: [FieldOpenApiService, FieldOpenApiV2Module, TableIndexModule],
+  exports: [
+    FieldOpenApiService,
+    FieldOpenApiV2Module,
+    TableIndexModule,
+    FieldPeriodicRefreshModule,
+  ],
 })
 export class FieldOpenApiModule {}

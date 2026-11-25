@@ -7,9 +7,10 @@ import type {
 import { FieldType } from '@teable/core';
 import { AttachmentManager, CellEditor, LinkDisplayType, LinkEditor } from '@teable/sdk/components';
 import { UploadAttachment } from '@teable/sdk/components/editor/attachment/upload-attachment/UploadAttachment';
+import { ShareViewContext } from '@teable/sdk/context';
 import type { Field, LinkField, UserField } from '@teable/sdk/model';
 import { cn } from '@teable/ui-lib/shadcn';
-import { useRouter } from 'next/router';
+import { useContext } from 'react';
 import { ShareFormLinkEditor } from './share-link-editor/FormLinkEditor';
 import { ShareUserEditor } from './ShareUserEditor';
 
@@ -24,8 +25,9 @@ const attachmentManager = new AttachmentManager(2);
 
 export const FormCellEditor = (props: IFormCellEditor) => {
   const { cellValue, field, className, onChange } = props;
-  const router = useRouter();
-  const shareId = router.query.shareId;
+  // Only a shared view serves its form through the share's own routes. A project share page
+  // carries a share id in its URL too, but it is the ordinary table page.
+  const { shareId } = useContext(ShareViewContext) ?? {};
   const { id, type, options } = field;
 
   if (shareId) {
@@ -33,7 +35,7 @@ export const FormCellEditor = (props: IFormCellEditor) => {
       case FieldType.Link:
         return (
           <ShareFormLinkEditor
-            shareId={shareId as string}
+            shareId={shareId}
             cellValue={cellValue as ILinkCellValue | ILinkCellValue[] | undefined}
             field={field as LinkField}
             onChange={onChange}
@@ -41,7 +43,7 @@ export const FormCellEditor = (props: IFormCellEditor) => {
           />
         );
       case FieldType.Attachment:
-        attachmentManager.shareId = shareId as string;
+        attachmentManager.shareId = shareId;
         return (
           <UploadAttachment
             mode="local"
@@ -54,7 +56,7 @@ export const FormCellEditor = (props: IFormCellEditor) => {
       case FieldType.User:
         return (
           <ShareUserEditor
-            shareId={shareId as string}
+            shareId={shareId}
             cellValue={cellValue as IUserCellValue | IUserCellValue[]}
             field={field as UserField}
             onChange={onChange}

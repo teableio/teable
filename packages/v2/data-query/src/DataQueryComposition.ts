@@ -1,4 +1,4 @@
-import { domainError } from '@teable/v2-core';
+import { domainError, isoDateTimeWithOffsetSchema } from '@teable/v2-core';
 import { err, ok, safeTry } from 'neverthrow';
 import { z } from 'zod';
 import {
@@ -7,6 +7,8 @@ import {
   dataQueryNameSchema,
   dataQueryParameterDefinitionSchema,
   dataQueryParameterUsage,
+  isPlainData,
+  queryError,
   validateDataQueryParameterDefaults,
 } from './DataQueryDefinition';
 import type {
@@ -37,6 +39,8 @@ export const dataQueryCompositionSchema = z
       .max(50)
       .optional(),
     groupBy: z.array(alias).min(1).max(20).optional(),
+    /** Declares a shared metric and the source aliases its callers may group or filter by. */
+    metricDimensions: z.array(alias).max(20).optional(),
     metrics: z
       .array(
         z
@@ -201,14 +205,16 @@ function bindCompositionFilter(filter: Filter, valueFor: (name: string) => unkno
   return ok({ ...filter, value: parsed.data });
 }
 
-export function prepareDataQueryComposition(
+type CompositionSource = {
+  definition: DataQueryDefinitionInput;
+  parameters: Record<string, DataQueryParameterDefinition>;
+  optionalParameters: ReadonlySet<string>;
+};
+
+function prepareFixedComposition(
   definition: DataQueryComposition,
   sourceOutputs: readonly DataQueryOutput[],
-  source: {
-    definition: DataQueryDefinitionInput;
-    parameters: Record<string, DataQueryParameterDefinition>;
-    optionalParameters: ReadonlySet<string>;
-  }
+  source: CompositionSource
 ) {
   const requiredByComposition = new Set(
     (definition.filter ?? []).flatMap((filter) =>
@@ -258,4 +264,150 @@ export function prepareDataQueryComposition(
       },
     });
   });
+}
+
+function metricControls(dimensions: readonly DataQueryOutput[]) {
+  const controls: Record<string, DataQueryParameterDefinition> = { groupBy: { type: 'string[]' } };
+  for (const output of dimensions) {
+    const type = scalarType(output);
+    if (!type) return err(invalid(`Unsupported metric dimension: ${output.alias}`));
+    controls[`where_${output.alias}`] = { type, nullable: true };
+  }
+  return ok(controls);
+}
+
+// PostgreSQL may return an exact numeric dimension as text, including exponent notation.
+const metricDecimal = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+const metricNumericSpecials = ['NaN', 'Infinity', '-Infinity'];
+const metricTimestamp = isoDateTimeWithOffsetSchema();
+
+function isMetricNumber(value: unknown): value is number | string {
+  if (typeof value === 'number') return Number.isFinite(value);
+  return (
+    typeof value === 'string' &&
+    (metricDecimal.test(value) || metricNumericSpecials.includes(value))
+  );
+}
+
+function metricEpochMillis(value: string) {
+  const instant = Date.parse(value);
+  if (!Number.isFinite(instant)) return undefined;
+  // Date.toISOString() uses signed six-digit years outside 0000–9999.
+  if (metricTimestamp.safeParse(value).success || new Date(instant).toISOString() === value) {
+    return instant;
+  }
+  return undefined;
+}
+
+function metricFilterValue(name: string, output: DataQueryOutput, value: unknown) {
+  if (value === null) return ok(null);
+  if (output.wireType === 'numberOrString' && isMetricNumber(value)) return ok(value);
+  if (output.wireType === 'boolean' && typeof value === 'boolean') return ok(value);
+  if (output.wireType === 'string' && typeof value === 'string') {
+    if (output.cellValueType !== 'dateTime') return ok(value);
+    const instant = metricEpochMillis(value);
+    if (instant !== undefined) return ok(instant);
+  }
+  return err(
+    queryError('parameter_type', 'Parameter has an invalid type or value', {
+      path: `parameters.${name}`,
+    })
+  );
+}
+
+function metricGroupBy(value: unknown, dimensions: readonly string[]) {
+  if (value === undefined) return ok<string[]>([]);
+  if (
+    !Array.isArray(value) ||
+    value.length > dimensions.length ||
+    !value.every((item): item is string => typeof item === 'string' && dimensions.includes(item)) ||
+    new Set(value).size !== value.length
+  ) {
+    return err(invalid('groupBy must contain unique admitted metric dimensions'));
+  }
+  return ok(value);
+}
+
+function prepareSharedMetric(
+  definition: DataQueryComposition,
+  dimensions: string[],
+  sourceOutputs: readonly DataQueryOutput[],
+  source: CompositionSource
+) {
+  if (definition.page?.offset) {
+    return err(invalid('A shared metric must start at the first group. Remove the page offset.'));
+  }
+  if (
+    definition.metrics?.length !== 1 ||
+    definition.groupBy ||
+    definition.select ||
+    definition.orderBy
+  ) {
+    return err(invalid('A shared metric requires one aggregate and caller-selected dimensions'));
+  }
+  return safeTry(function* () {
+    const fixed = yield* prepareFixedComposition(
+      { ...definition, groupBy: dimensions },
+      sourceOutputs,
+      source
+    );
+    // The source and owner-defined filters use their saved defaults on every metric run.
+    const base = yield* fixed.bind();
+    const dimensionOutputs = fixed.outputs.slice(0, dimensions.length);
+    const parameters = yield* metricControls(dimensionOutputs);
+    const filterOutputs = new Map<string, DataQueryOutput>(
+      dimensionOutputs.map((output) => [`where_${output.alias}`, output])
+    );
+    const optionalParameters = Object.keys(parameters);
+    const outputs = [
+      ...dimensionOutputs.map((output) => ({ ...output, nullable: true })),
+      ...fixed.outputs.slice(dimensions.length),
+    ];
+    return ok({
+      outputs,
+      parameters,
+      optionalParameters,
+      bind(input: Readonly<Record<string, unknown>> = {}) {
+        return safeTry(function* () {
+          if (!input || typeof input !== 'object' || Array.isArray(input) || !isPlainData(input)) {
+            return err(invalid('Metric parameters must be a plain object'));
+          }
+          const { groupBy, ...filterInput } = input;
+          const groups = yield* metricGroupBy(groupBy, dimensions);
+          const filters = [...base.composition.filters];
+          for (const [name, inputValue] of Object.entries(filterInput)) {
+            const output = filterOutputs.get(name);
+            if (!output) {
+              return err(
+                queryError('unknown_parameter', 'An undeclared parameter was provided', {
+                  path: `parameters.${name}`,
+                })
+              );
+            }
+            const value = yield* metricFilterValue(name, output, inputValue);
+            filters.push({ alias: output.alias, operator: 'eq', value });
+          }
+          return ok({
+            parameters: base.parameters,
+            composition: {
+              ...base.composition,
+              definition: { ...definition, groupBy: groups },
+              outputs,
+              filters,
+            },
+          });
+        });
+      },
+    });
+  });
+}
+
+export function prepareDataQueryComposition(
+  definition: DataQueryComposition,
+  sourceOutputs: readonly DataQueryOutput[],
+  source: CompositionSource
+) {
+  return definition.metricDimensions
+    ? prepareSharedMetric(definition, definition.metricDimensions, sourceOutputs, source)
+    : prepareFixedComposition(definition, sourceOutputs, source);
 }

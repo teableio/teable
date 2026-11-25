@@ -8,6 +8,7 @@ import type { LinkFieldCore } from './derivate/link.field';
 import type { IFieldVisitor } from './field-visitor.interface';
 import type { IFieldVo } from './field.schema';
 import type { IConditionalLookupOptions, ILookupOptionsVo } from './lookup-options-base.schema';
+import type { IFieldPeriodicRefreshVo } from './periodic-refresh/periodic-refresh.schema';
 import { getDbFieldType } from './utils/get-db-field-type';
 
 export interface IFieldMatchSearchOptions {
@@ -53,6 +54,8 @@ export abstract class FieldCore implements IFieldVo {
     lastDurationMs?: number;
     lastError?: { code?: string; message: string; context?: Record<string, unknown> } | null;
   };
+
+  periodicRefresh?: IFieldPeriodicRefreshVo;
 
   hasError?: boolean;
 

@@ -9,9 +9,11 @@ import {
   type Table,
 } from '@teable/v2-core';
 import {
+  dataQueryCompositionSource,
   DataQueryDefinition,
   DataQueryRelationBinding,
   DataQueryService,
+  prepareDataQueryComposition,
   type DataQueryRelationPlan,
   type DataQueryPredicateV5,
   type DataQueryDefinitionV5Input,
@@ -598,8 +600,18 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
       groupBy: [{ fieldId: tierId, alias: 'tier' }],
       aggregates: [
         { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'unique', alias: 'amounts' },
-        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'sum', alias: 'contractTotal' },
-        { source: 'manyInvoices', fieldId: invoicedId, statisticFunc: 'sum', alias: 'invoiceTotal' },
+        {
+          source: 'contracts',
+          fieldId: contractValueId,
+          statisticFunc: 'sum',
+          alias: 'contractTotal',
+        },
+        {
+          source: 'manyInvoices',
+          fieldId: invoicedId,
+          statisticFunc: 'sum',
+          alias: 'invoiceTotal',
+        },
         {
           source: 'manyInvoices',
           fieldId: invoicedId,
@@ -620,8 +632,9 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
       rootScope: RecordQueryPluginScope = {},
       sourceScopes: ReadonlyMap<string, RecordQueryPluginScope> = new Map()
     ) =>
-      resultValue(await executor.executeRelation(context, planFor(grouped, rootScope, sourceScopes)))
-        .rows;
+      resultValue(
+        await executor.executeRelation(context, planFor(grouped, rootScope, sourceScopes))
+      ).rows;
     expect(await batchRows()).toEqual([
       {
         tier: 'A',
@@ -1255,6 +1268,64 @@ describe('Multi-source and multi-hop aggregates on PGlite', () => {
       { id: 'recV3', contractCount: 0, invoiceCount: 0, value: null, invoiced: null },
     ]);
     expect(result._unsafeUnwrap().page).toEqual({ limit: 10, offset: 0, total: 3 });
+  });
+
+  it('round-trips relation average group keys at PostgreSQL numeric precision', async () => {
+    await sql`insert into ${sql.id('public', vendorPhysical)} (__id) values ('recV4')`.execute(
+      database.db
+    );
+    await sql`update ${sql.id('public', contractPhysical)} set value =
+      case __id when 'recC1' then 1 when 'recC2' then 0 else 'NaN'::numeric end`.execute(
+      database.db
+    );
+    await sql`insert into ${sql.id('public', contractPhysical)} (__id, value, fk_vendor) values
+      ('recC4', 0, 'recV1'), ('recC5', 'Infinity', 'recV3'), ('recC6', '-Infinity', 'recV4')`.execute(
+      database.db
+    );
+    const definition = DataQueryDefinition.create({
+      version: 2,
+      kind: 'records',
+      tableId: vendorTableId,
+      relations: { contracts: { linkFieldId: contractsLinkId, tableId: contractTableId } },
+      select: [
+        { source: 'contracts', fieldId: contractValueId, statisticFunc: 'average', alias: 'mean' },
+      ],
+    })._unsafeUnwrap();
+    const plan = planFor(definition);
+    const binding = DataQueryRelationBinding.prepare(
+      definition,
+      vendor,
+      new Map([['contracts', contract]])
+    )._unsafeUnwrap();
+    const metric = prepareDataQueryComposition(
+      {
+        kind: 'composition',
+        source: { id: 'qlb1111111111111111', revision: 1 },
+        metricDimensions: ['mean'],
+        metrics: [{ alias: 'vendors', statistic: 'count' }],
+      },
+      binding.outputs,
+      dataQueryCompositionSource(definition.snapshot())._unsafeUnwrap()
+    )._unsafeUnwrap();
+    const run = async (parameters: Record<string, unknown>) => {
+      const { composition } = metric.bind(parameters)._unsafeUnwrap();
+      return resultValue(await executor.executeRelation(context, plan, composition)).rows;
+    };
+    const groups = await run({ groupBy: ['mean'] });
+    expect(groups.map((row) => row.mean)).toEqual([
+      '-Infinity',
+      expect.stringMatching(/^0\.3{17,}$/),
+      'Infinity',
+      'NaN',
+    ]);
+    for (const row of groups) {
+      expect(await run({ groupBy: ['mean'], where_mean: row.mean })).toEqual([row]);
+    }
+    for (const invalid of ['nan', '+Infinity', 'infinity', ' NaN']) {
+      expect(metric.bind({ where_mean: invalid })._unsafeUnwrapErr().code).toBe(
+        'data_query.parameter_type'
+      );
+    }
   });
 
   it('returns one grouped row per vendor with both metric branches', async () => {

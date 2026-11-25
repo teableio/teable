@@ -1,9 +1,12 @@
 import type { OnApplicationBootstrap, OnModuleDestroy } from '@nestjs/common';
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { metrics } from '@opentelemetry/api';
 import * as Sentry from '@sentry/nestjs';
 import {
   ActorId,
+  type DomainError,
+  type SchemaOperationClaimNextResult,
   type IExecutionContext,
   type SchemaOperationRecord,
   type SchemaOperationRunNextResult,
@@ -11,9 +14,10 @@ import {
   v2CoreTokens,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
+import type { Result } from 'neverthrow';
 
-import { V2ContainerService } from './v2-container.service';
 import { CrossSpaceLinkConversionRecoveryService } from '../table-lifecycle/cross-space-link-conversion-recovery.service';
+import { V2ContainerService } from './v2-container.service';
 
 const enabledKey = 'V2_SCHEMA_OPERATION_RUNNER_ENABLED';
 const pollIntervalMsKey = 'V2_SCHEMA_OPERATION_RUNNER_POLL_INTERVAL_MS';
@@ -48,12 +52,16 @@ const isWorkResult = (
 
 @Injectable()
 export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, OnModuleDestroy {
+  private readonly schemaOperationOutcome = metrics
+    .getMeter('teable-observability')
+    .createCounter('teable.schema_operation.outcome', {
+      description: 'Durable schema operation outcomes after persisted completion or failure',
+    });
   private readonly logger = new Logger(V2SchemaOperationRunnerService.name);
   private readonly workerId = `schema-operation-${process.pid}`;
   private timer?: ReturnType<typeof setTimeout>;
   private running = false;
   private stopped = false;
-  private runner?: SchemaOperationRunnerService;
 
   constructor(
     private readonly v2ContainerService: V2ContainerService,
@@ -67,16 +75,7 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
       return;
     }
 
-    const container = await this.v2ContainerService.getContainer();
-    if (!container.isRegistered(v2CoreTokens.schemaOperationRunnerService)) {
-      this.logger.warn('V2 schema operation runner service is not registered');
-      return;
-    }
-
-    this.runner = container.resolve<SchemaOperationRunnerService>(
-      v2CoreTokens.schemaOperationRunnerService
-    );
-    this.runner.registerHandler(this.pairRecovery);
+    if (!(await this.resolveClaimRunner())) return;
     this.stopped = false;
     this.schedule(0);
     this.logger.log(
@@ -142,7 +141,10 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
   }
 
   private async drainRunnableOperations(): Promise<void> {
-    if (!this.runner) return;
+    // Containers are disposable routing-cache entries. Never retain a runner
+    // (and its database handles) across ticks or a storage cutover.
+    const claimRunner = await this.resolveClaimRunner();
+    if (!claimRunner) return;
 
     let processed = 0;
     const maxBatch = this.maxBatch;
@@ -153,43 +155,16 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
       // identical on every container; the handler must run on the container
       // scoped to the operation's data database (BYODB), otherwise repair DDL
       // lands on the meta database and reads keep failing with 42P01.
-      const claimed = await this.runner.claimNext(this.createContext(), {
-        workerId: this.workerId,
-        now,
-        staleRunningBefore: new Date(now.getTime() - this.staleRunningMs),
-      });
-
-      if (claimed.isErr()) {
-        this.logger.warn(`V2 schema operation runner failed to claim: ${claimed.error.message}`);
-        return;
-      }
+      const claimed = await this.claimRunnableOperation(claimRunner, now);
+      if (!claimed) return;
 
       if (claimed.value.status !== 'claimed') {
         return;
       }
 
-      const operation = claimed.value.operation;
-      const runner = await this.resolveOperationRunner(operation);
-      if (!runner) {
-        continue;
-      }
-
-      const result = await runner.runOperation(this.createContext(), operation, { now });
-      if (result.isErr()) {
-        this.logger.warn(`V2 schema operation runner failed to run: ${result.error.message}`);
-        return;
-      }
-
-      const value = result.value;
-      if (!isWorkResult(value)) {
-        this.logger.warn(
-          `V2 schema operation runner skipped claimed operation: operationId=${operation.id}, reason=${value.reason}`
-        );
-        return;
-      }
-
-      processed += 1;
-      this.logWorkResult(value);
+      const outcome = await this.executeClaimedOperation(claimed.value.operation, now);
+      if (outcome === 'stop') return;
+      if (outcome === 'processed') processed += 1;
     }
 
     if (processed >= maxBatch) {
@@ -199,12 +174,79 @@ export class V2SchemaOperationRunnerService implements OnApplicationBootstrap, O
     }
   }
 
+  private async claimRunnableOperation(runner: SchemaOperationRunnerService, now: Date) {
+    let claimed: Result<SchemaOperationClaimNextResult, DomainError>;
+    try {
+      claimed = await runner.claimNext(this.createContext(), {
+        workerId: this.workerId,
+        now,
+        staleRunningBefore: new Date(now.getTime() - this.staleRunningMs),
+      });
+    } catch {
+      // Retirement can race this claim. Next tick resolves fresh handles;
+      // do not replay an uncertain claim within this tick.
+      this.logger.warn('V2 schema operation claim container became unavailable');
+      return undefined;
+    }
+    if (claimed.isErr()) {
+      this.logger.warn(`V2 schema operation runner failed to claim: ${claimed.error.message}`);
+      return undefined;
+    }
+    return claimed;
+  }
+
+  private async executeClaimedOperation(
+    operation: SchemaOperationRecord,
+    now: Date
+  ): Promise<'processed' | 'skipped' | 'stop'> {
+    const runner = await this.resolveOperationRunner(operation);
+    if (!runner) return 'skipped';
+    const result = await runner.runOperation(this.createContext(), operation, { now });
+    if (result.isErr()) {
+      this.logger.warn(`V2 schema operation runner failed to run: ${result.error.message}`);
+      return 'stop';
+    }
+    const value = result.value;
+    if (!isWorkResult(value)) {
+      this.logger.warn(
+        `V2 schema operation runner skipped claimed operation: operationId=${operation.id}, reason=${value.reason}`
+      );
+      return 'stop';
+    }
+    if (operation.type === 'table.actor_columns.enable') {
+      this.schemaOperationOutcome.add(1, {
+        type: 'table.actor_columns.enable',
+        status: value.status === 'completed' ? 'ready' : 'error',
+      });
+    }
+    this.logWorkResult(value);
+    return 'processed';
+  }
+
+  private async resolveClaimRunner(): Promise<SchemaOperationRunnerService | undefined> {
+    try {
+      const container = await this.v2ContainerService.getContainer();
+      if (!container.isRegistered(v2CoreTokens.schemaOperationRunnerService)) {
+        this.logger.warn('V2 schema operation runner service is not registered');
+        return undefined;
+      }
+      const runner = container.resolve<SchemaOperationRunnerService>(
+        v2CoreTokens.schemaOperationRunnerService
+      );
+      runner.registerHandler(this.pairRecovery);
+      return runner;
+    } catch {
+      this.logger.warn('V2 schema operation claim container is unavailable');
+      return undefined;
+    }
+  }
+
   private async resolveOperationRunner(
     operation: SchemaOperationRecord
   ): Promise<SchemaOperationRunnerService | undefined> {
     const baseId = operation.target.baseId;
     if (!baseId) {
-      return this.runner;
+      return this.resolveClaimRunner();
     }
 
     let container: DependencyContainer;

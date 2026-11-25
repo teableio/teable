@@ -160,12 +160,12 @@ export class DiffBaseVcsService {
           })
         );
       }
+      const source = canonicalizeSnapshot(input.upstreamSnapshot, { preserveComputed: true });
       return this.compareUpstream(
         loaded.value,
-        alignSourceSnapshot(
-          canonicalizeSnapshot(input.upstreamSnapshot, { preserveComputed: true }),
-          loaded.value.baseSnapshot
-        )
+        loaded.value.config.readOnly
+          ? source
+          : alignSourceSnapshot(source, loaded.value.baseSnapshot)
       );
     }
 

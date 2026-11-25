@@ -1229,7 +1229,9 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     const [columnIndex] = cellItem;
     const { id: fieldId } = columns[columnIndex] ?? {};
 
-    if (type === RegionType.ColumnDescription) {
+    // The icon opens the field's settings, for someone who may change the field. Everyone else
+    // reads the description from the tooltip the icon shows on hover.
+    if (type === RegionType.ColumnDescription && fieldEditable) {
       openSetting({ fieldId, operator: FieldOperator.Edit });
     }
   };

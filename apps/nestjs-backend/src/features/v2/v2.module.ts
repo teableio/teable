@@ -23,6 +23,7 @@ import { DomainEventWakeupProducerModule } from './domain-event-outbox-trigger/d
 import { TableQueryObservationRuntimeModule } from './table-query-observation-runtime.module';
 import { TableQuerySearchVectorRuntimeService } from './table-query-search-vector-runtime.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
+import { V2ActorColumnsService } from './v2-actor-columns.service';
 import { V2BaseNodeCompatService } from './v2-base-node-compat.service';
 import {
   V2CollaboratorNotificationDispatcher,
@@ -166,6 +167,7 @@ export const toV2HttpError = (
     DiscoveryService,
     V2ContainerService,
     V2ExecutionContextFactory,
+    V2ActorColumnsService,
     NestVcsAccessPolicy,
     TableQuerySearchVectorRuntimeService,
     V2PublicProcedureService,
@@ -198,6 +200,7 @@ export const toV2HttpError = (
     V2ContainerService,
     TableQueryObservationRuntimeModule,
     V2ExecutionContextFactory,
+    V2ActorColumnsService,
     V2RecordQueryPlanService,
     TableQuerySearchVectorRuntimeService,
     V2PublicProcedureService,

@@ -44,7 +44,8 @@ export class ClickButtonResult {
     readonly fieldId: string,
     readonly runId: string,
     readonly record: TableRecord,
-    readonly events: ReadonlyArray<IDomainEvent>
+    readonly events: ReadonlyArray<IDomainEvent>,
+    readonly recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ) {}
 
   static create(
@@ -52,9 +53,10 @@ export class ClickButtonResult {
     fieldId: string,
     runId: string,
     record: TableRecord,
-    events: ReadonlyArray<IDomainEvent>
+    events: ReadonlyArray<IDomainEvent>,
+    recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ): ClickButtonResult {
-    return new ClickButtonResult(tableId, fieldId, runId, record, [...events]);
+    return new ClickButtonResult(tableId, fieldId, runId, record, [...events], recordActors);
   }
 }
 
@@ -243,7 +245,12 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
               }),
               buttonClicked,
             ];
-            return ok(domainWrite.fromEvents({ snapshot, buttonClicked, newValue }, events));
+            return ok(
+              domainWrite.fromEvents(
+                { snapshot, buttonClicked, newValue, recordActors: result.recordActors },
+                events
+              )
+            );
           })
       );
       const { snapshot, buttonClicked, newValue } = committed.value;
@@ -271,7 +278,8 @@ export class ClickButtonHandler implements ICommandHandler<ClickButtonCommand, C
           command.fieldId.toString(),
           workflowResult.runId,
           responseRecord,
-          events
+          events,
+          committed.value.recordActors
         )
       );
     });

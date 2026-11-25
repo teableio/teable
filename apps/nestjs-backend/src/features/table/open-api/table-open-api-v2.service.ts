@@ -247,6 +247,7 @@ export class TableOpenApiV2Service {
         id: true,
         name: true,
         dbTableName: true,
+        actorStorageVersion: true,
         description: true,
         icon: true,
         order: true,
@@ -258,6 +259,7 @@ export class TableOpenApiV2Service {
       id: table.id,
       name: table.name,
       dbTableName: table.dbTableName,
+      actorStorageVersion: table.actorStorageVersion === 1 ? 1 : 0,
       ...(table.description != null ? { description: table.description } : {}),
       ...(table.icon != null ? { icon: table.icon } : {}),
       order: table.order,
@@ -403,6 +405,7 @@ export class TableOpenApiV2Service {
     return {
       id: table.id,
       name: table.name,
+      actorStorageVersion: table.actorStorageVersion,
       dbTableName,
       description: table.description ?? undefined,
       icon: table.icon ?? undefined,

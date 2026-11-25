@@ -24,6 +24,14 @@ export interface IShareViewInfo {
   shareMeta?: IShareViewMeta;
 }
 
+/** What the caller of a link view presents: the page it reads from, and its cookies. */
+export interface ILinkViewCaller {
+  templateHeader?: string;
+  shareViewHeader?: string;
+  baseShareHeader?: string;
+  cookieHeader?: string;
+}
+
 export interface IJwtShareInfo {
   shareId: string;
   // sha256 over shareId + password (see hashSharePassword); never the password.
@@ -136,21 +144,18 @@ export class ShareAuthService {
 
   async getLinkViewInfo(
     linkFieldId: string,
-    templateHeader?: string,
-    shareViewHeader?: string,
-    cookieHeader?: string,
+    caller: ILinkViewCaller = {},
     useV2 = false
   ): Promise<IShareViewInfo> {
     if (useV2) {
       const target = await this.sharedViewAccessV2Service.findLinkShareTarget(linkFieldId);
-      await this.authorizeLinkFieldAccess(
+      const baseShareId = await this.authorizeLinkFieldAccess(
         target.hostTableId,
         linkFieldId,
-        templateHeader,
-        shareViewHeader,
-        cookieHeader,
+        caller,
         true
       );
+      await this.assertBaseShareReaches(baseShareId, target.tableId);
       return {
         shareId: linkFieldId,
         tableId: target.tableId,
@@ -194,16 +199,15 @@ export class ShareAuthService {
       );
     }
 
-    await this.authorizeLinkFieldAccess(
+    const baseShareId = await this.authorizeLinkFieldAccess(
       fieldRaw.tableId,
       fieldRaw.id,
-      templateHeader,
-      shareViewHeader,
-      cookieHeader,
+      caller,
       false
     );
 
     const { tableId, linkOptions } = await this.resolveLinkShareTarget(field);
+    await this.assertBaseShareReaches(baseShareId, tableId);
 
     return {
       shareId: linkFieldId,
@@ -216,14 +220,13 @@ export class ShareAuthService {
     };
   }
 
+  /** Resolves to the project share that vouched for the caller, when one did. */
   private async authorizeLinkFieldAccess(
     tableId: string,
     fieldId: string,
-    templateHeader: string | undefined,
-    shareViewHeader: string | undefined,
-    cookieHeader: string | undefined,
+    { templateHeader, shareViewHeader, baseShareHeader, cookieHeader }: ILinkViewCaller,
     useV2: boolean
-  ) {
+  ): Promise<string | undefined> {
     if (templateHeader) {
       const templateId = this.permissionService.getTemplateIdByHeader(templateHeader);
       if (!templateId) {
@@ -238,11 +241,13 @@ export class ShareAuthService {
         );
       }
     }
-    // Authorize the lookup. Three legitimate callers:
+    // Authorize the lookup. Four legitimate callers:
     //   1. Template preview pages → templateHeader / cls.template carry the proof
-    //   2. Share-view pages → X-Tea-Share-View points at this field's parent
+    //   2. Project share pages → X-Tea-Base-Share names a share that covers this
+    //      field's parent table
+    //   3. Share-view pages → X-Tea-Share-View points at this field's parent
     //      table and the link field is visible in that shared view
-    //   3. The caller is a base collaborator with table read access
+    //   4. The caller is a base collaborator with table read access
     const hasTemplateContext = Boolean(templateHeader || this.cls.get('template'));
     if (hasTemplateContext) {
       await this.permissionService.validTemplatePermissions(tableId, [
@@ -250,7 +255,15 @@ export class ShareAuthService {
         'record|read',
         'field|read',
       ]);
-      return;
+      return undefined;
+    }
+    const baseShareId = await this.validLinkFieldBaseShareContext(
+      tableId,
+      baseShareHeader,
+      cookieHeader
+    );
+    if (baseShareId) {
+      return baseShareId;
     }
     const hasShareViewContext = await this.validLinkFieldShareViewContext(
       tableId,
@@ -266,6 +279,7 @@ export class ShareAuthService {
         'field|read',
       ]);
     }
+    return undefined;
   }
 
   private async resolveLinkShareTarget(
@@ -339,6 +353,48 @@ export class ShareAuthService {
     );
   }
 
+  /**
+   * A project share page shows the field's table, so its visitor reads the field's link view
+   * as well, when the share covers that table. The share is the ceiling here as on any route,
+   * so a share that does not cover the table refuses, whoever asks.
+   */
+  private async validLinkFieldBaseShareContext(
+    tableId: string,
+    baseShareHeader?: string,
+    cookieHeader?: string
+  ): Promise<string | undefined> {
+    const shareId =
+      baseShareHeader && this.permissionService.getBaseShareIdByHeader(baseShareHeader);
+    if (!shareId) {
+      return undefined;
+    }
+    if (!(await this.permissionService.baseSharePasswordPresented(shareId, cookieHeader))) {
+      throw new CustomHttpException('Unauthorized', HttpErrorCode.UNAUTHORIZED_SHARE);
+    }
+    if (!(await this.permissionService.isTableSharedByBaseShare(shareId, tableId))) {
+      throw new CustomHttpException(
+        `Table ${tableId} is not accessible via share ${shareId}`,
+        HttpErrorCode.RESTRICTED_RESOURCE
+      );
+    }
+    return shareId;
+  }
+
+  /**
+   * Through a project share a link view reads no further than the share does: the share has to
+   * cover the table the field links to as well, as a share of the whole base or of a folder
+   * holding both tables does.
+   */
+  private async assertBaseShareReaches(baseShareId: string | undefined, tableId: string) {
+    if (baseShareId) {
+      await this.permissionService.validBaseSharePermissions(baseShareId, tableId, [
+        'table|read',
+        'record|read',
+        'field|read',
+      ]);
+    }
+  }
+
   private async validLinkFieldShareViewContext(
     tableId: string,
     fieldId: string,
@@ -392,10 +448,7 @@ export class ShareAuthService {
     return true;
   }
 
-  async findShareViewInfo(
-    shareId: string,
-    useV2: boolean
-  ): Promise<IShareViewInfo | undefined> {
+  async findShareViewInfo(shareId: string, useV2: boolean): Promise<IShareViewInfo | undefined> {
     if (useV2) {
       return (await this.sharedViewAccessV2Service.findByShareId(shareId)) ?? undefined;
     }

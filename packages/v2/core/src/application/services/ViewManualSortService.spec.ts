@@ -5,14 +5,14 @@ import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
 import type { DomainError } from '../../domain/shared/DomainError';
 import { FieldName } from '../../domain/table/fields/FieldName';
-import { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
+import type { SetRowOrderValueSpec } from '../../domain/table/records/specs/values/SetRowOrderValueSpec';
+import { TableEnsureViewRowOrderSpec } from '../../domain/table/specs/TableEnsureViewRowOrderSpec';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
-import { TableEnsureViewRowOrderSpec } from '../../domain/table/specs/TableEnsureViewRowOrderSpec';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
-import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
   UpdateManyStreamBatchInput,
@@ -110,6 +110,10 @@ describe('ViewManualSortService', () => {
         version: 1,
         autoNumber: 2,
         orders: { [viewId.toString()]: 2 },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: `rec${'b'.repeat(16)}`,
@@ -117,6 +121,10 @@ describe('ViewManualSortService', () => {
         version: 1,
         autoNumber: 1,
         orders: { [viewId.toString()]: 1 },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const findStream = vi.fn(async function* (

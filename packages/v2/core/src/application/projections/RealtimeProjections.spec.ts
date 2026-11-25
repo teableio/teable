@@ -44,6 +44,7 @@ import { NumberField } from '../../domain/table/fields/types/NumberField';
 import { NumberFormatting } from '../../domain/table/fields/types/NumberFormatting';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import { RecordId } from '../../domain/table/records/RecordId';
+import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import { TableAddSelectOptionsSpec } from '../../domain/table/specs/TableAddSelectOptionsSpec';
 import { TableUpdateFieldTypeSpec } from '../../domain/table/specs/TableUpdateFieldTypeSpec';
 import { TableUpdateViewShareIdSpec } from '../../domain/table/specs/TableUpdateViewShareIdSpec';
@@ -55,7 +56,9 @@ import type { View } from '../../domain/table/views/View';
 import { ViewId } from '../../domain/table/views/ViewId';
 import { ViewName } from '../../domain/table/views/ViewName';
 import { ViewOrder } from '../../domain/table/views/ViewOrder';
+import type { ViewSourceFilterDTO } from '../../domain/table/views/ViewSourceFilter';
 import type { IAttachmentUrlSignerService } from '../../ports/AttachmentUrlSignerService';
+import { NoopTableRecordQueryRepository } from '../../ports/defaults/NoopTableRecordQueryRepository';
 import { createEventDispatchScope } from '../../ports/EventHandler';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { DefaultTableMapper } from '../../ports/mappers/defaults/DefaultTableMapper';
@@ -67,7 +70,9 @@ import type {
   RealtimeApplyChangeOptions,
   RealtimeEnsureOptions,
 } from '../../ports/RealtimeEngine';
+import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type { ITableRepository } from '../../ports/TableRepository';
+import type { RecordFilterNode } from '../../queries/RecordFilterDto';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { FieldCreatedRealtimeProjection } from './FieldCreatedRealtimeProjection';
 import { FieldDeletedRealtimeProjection } from './FieldDeletedRealtimeProjection';
@@ -271,6 +276,29 @@ class FakeTableRepository implements ITableRepository {
   }
 }
 
+const unknownActors = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+};
+
+class FakeActorRecordRepository extends NoopTableRecordQueryRepository {
+  actors: Pick<TableRecordReadModel, keyof typeof unknownActors> = unknownActors;
+  findCount = 0;
+  version = 2;
+
+  async find(_context: IExecutionContext, _table: Table, spec?: unknown) {
+    this.findCount += 1;
+    if (!(spec instanceof RecordByIdsSpec))
+      return err(domainError.unexpected({ message: 'Expected exact write IDs' }));
+    const records = spec
+      .recordIds()
+      .map((id) => ({ id: id.toString(), fields: {}, version: this.version, ...this.actors }));
+    return ok({ records, total: records.length });
+  }
+}
+
 class FakeTableMapper implements ITableMapper {
   constructor(private readonly factory: (table: Table) => ITablePersistenceDTO) {}
 
@@ -330,11 +358,176 @@ describe('Realtime projections', () => {
     expect(buildRecordCollection('tbl123')).toBe('rec_tbl123');
   });
 
+  it('projects physical actors into create snapshots and clears unknown modifiers without using the current executor', async () => {
+    const table = buildTable('a', 'b', 'c');
+    const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const rows = new FakeActorRecordRepository();
+    rows.version = 1;
+    rows.actors = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apuStable',
+      lastModifiedByActorType: 'appUser',
+      lastModifiedByActorId: 'apuStable',
+    };
+    const tables = new FakeTableRepository(table);
+    const created = new RecordCreatedRealtimeProjection(engine, tables, rows);
+    (
+      await created.handle(
+        createContext(),
+        RecordCreated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          recordId,
+          fieldValues: [{ fieldId: table.primaryFieldId().toString(), value: 'A' }],
+        })
+      )
+    )._unsafeUnwrap();
+    expect(JSON.parse(JSON.stringify(engine.ensures[0].initial))).toMatchObject(rows.actors);
+
+    rows.version = 2;
+    rows.actors = { ...rows.actors, lastModifiedByActorType: null, lastModifiedByActorId: null };
+    const updated = new RecordUpdatedRealtimeProjection(engine, tables, rows);
+    (
+      await updated.handle(
+        createContext(),
+        RecordUpdated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          recordId,
+          oldVersion: 1,
+          newVersion: 2,
+          source: 'user',
+          changes: [{ fieldId: table.primaryFieldId().toString(), oldValue: 'A', newValue: 'B' }],
+        })
+      )
+    )._unsafeUnwrap();
+    expect(engine.changes[0]).toMatchObject({
+      options: { version: 1 },
+      change: expect.arrayContaining([
+        { type: 'set', path: ['createdByActorId'], value: 'apuStable' },
+        { type: 'set', path: ['lastModifiedByActorType'], value: null },
+        { type: 'set', path: ['lastModifiedByActorId'], value: null },
+      ]),
+    });
+    expect(rows.findCount).toBe(2);
+  });
+
+  it('never attaches a newer physical actor to an older create or update event', async () => {
+    const table = buildTable('a', 'b', 'c');
+    const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const rows = new FakeActorRecordRepository();
+    rows.version = 3;
+    rows.actors = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apuCreator',
+      lastModifiedByActorType: 'user',
+      lastModifiedByActorId: 'usrLater',
+    };
+    const tables = new FakeTableRepository(table);
+    (
+      await new RecordCreatedRealtimeProjection(engine, tables, rows).handle(
+        createContext(),
+        RecordCreated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          recordId,
+          fieldValues: [{ fieldId: table.primaryFieldId().toString(), value: 'A' }],
+        })
+      )
+    )._unsafeUnwrap();
+    expect(engine.ensures[0].initial).toMatchObject(unknownActors);
+    (
+      await new RecordUpdatedRealtimeProjection(engine, tables, rows).handle(
+        createContext(),
+        RecordUpdated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          recordId,
+          oldVersion: 1,
+          newVersion: 2,
+          source: 'user',
+          changes: [{ fieldId: table.primaryFieldId().toString(), oldValue: 'A', newValue: 'B' }],
+        })
+      )
+    )._unsafeUnwrap();
+    (
+      await new RecordsBatchUpdatedRealtimeProjection(engine, tables, rows).handle(
+        createContext(),
+        RecordsBatchUpdated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          source: 'user',
+          updates: [
+            {
+              recordId: recordId.toString(),
+              oldVersion: 1,
+              newVersion: 2,
+              changes: [
+                { fieldId: table.primaryFieldId().toString(), oldValue: 'A', newValue: 'B' },
+              ],
+            },
+          ],
+        })
+      )
+    )._unsafeUnwrap();
+    for (const change of engine.changes) {
+      expect(change.change).toEqual([
+        {
+          type: 'set',
+          path: ['fields', table.primaryFieldId().toString()],
+          oldValue: 'A',
+          value: 'B',
+        },
+      ]);
+    }
+  });
+
+  it('does not query or emit actor changes for no-op single and batch updates', async () => {
+    const table = buildTable('a', 'b', 'c');
+    const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
+    const engine = new FakeRealtimeEngine();
+    const rows = new FakeActorRecordRepository();
+    const tables = new FakeTableRepository(table);
+    (
+      await new RecordUpdatedRealtimeProjection(engine, tables, rows).handle(
+        createContext(),
+        RecordUpdated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          recordId,
+          oldVersion: 1,
+          newVersion: 1,
+          source: 'user',
+          changes: [],
+        })
+      )
+    )._unsafeUnwrap();
+    (
+      await new RecordsBatchUpdatedRealtimeProjection(engine, tables, rows).handle(
+        createContext(),
+        RecordsBatchUpdated.create({
+          baseId: table.baseId(),
+          tableId: table.id(),
+          source: 'user',
+          updates: [{ recordId: recordId.toString(), oldVersion: 1, newVersion: 1, changes: [] }],
+        })
+      )
+    )._unsafeUnwrap();
+    expect(rows.findCount).toBe(0);
+    expect(engine.changes).toEqual([]);
+  });
+
   it('projects record creation', async () => {
     const table = buildTable('a', 'b', 'c');
     const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordCreatedRealtimeProjection(engine);
+    const projection = new RecordCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordCreated.create({
       baseId: table.baseId(),
@@ -357,7 +550,12 @@ describe('Realtime projections', () => {
     const recordId = RecordId.create(`rec${'d'.repeat(16)}`)._unsafeUnwrap();
     const attachmentFieldId = `fld${'p'.repeat(16)}`;
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordCreatedRealtimeProjection(engine, buildAttachmentValueDecorator());
+    const projection = new RecordCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository(),
+      buildAttachmentValueDecorator()
+    );
 
     const event = RecordCreated.create({
       baseId: table.baseId(),
@@ -387,6 +585,7 @@ describe('Realtime projections', () => {
 
     expect(engine.ensures[0]?.initial).toEqual({
       id: recordId.toString(),
+      ...unknownActors,
       fields: {
         [attachmentFieldId]: [
           expect.objectContaining({
@@ -406,7 +605,11 @@ describe('Realtime projections', () => {
     const table = buildTable('a', 'e', 'f');
     const recordId = RecordId.create(`rec${'g'.repeat(16)}`)._unsafeUnwrap();
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordUpdatedRealtimeProjection(engine);
+    const projection = new RecordUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordUpdated.create({
       baseId: table.baseId(),
@@ -438,6 +641,7 @@ describe('Realtime projections', () => {
         value: 'New',
         oldValue: 'Old',
       },
+      ...Object.entries(unknownActors).map(([key, value]) => ({ type: 'set', path: [key], value })),
     ]);
   });
 
@@ -446,7 +650,12 @@ describe('Realtime projections', () => {
     const recordId = RecordId.create(`rec${'g'.repeat(16)}`)._unsafeUnwrap();
     const attachmentFieldId = `fld${'q'.repeat(16)}`;
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordUpdatedRealtimeProjection(engine, buildAttachmentValueDecorator());
+    const projection = new RecordUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository(),
+      buildAttachmentValueDecorator()
+    );
 
     const event = RecordUpdated.create({
       baseId: table.baseId(),
@@ -490,13 +699,18 @@ describe('Realtime projections', () => {
           }),
         ],
       },
+      ...Object.entries(unknownActors).map(([key, value]) => ({ type: 'set', path: [key], value })),
     ]);
   });
 
   it('projects batch record updates', async () => {
     const table = buildTable('h', 'i', 'j');
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
+    const projection = new RecordsBatchUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchUpdated.create({
       baseId: table.baseId(),
@@ -532,13 +746,18 @@ describe('Realtime projections', () => {
         value: 'New',
         oldValue: 'Old',
       },
+      ...Object.entries(unknownActors).map(([key, value]) => ({ type: 'set', path: [key], value })),
     ]);
   });
 
   it('skips per-record realtime ops for large batch updates', async () => {
     const table = buildTable('m', 'n', 'o');
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
+    const projection = new RecordsBatchUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchUpdated.create({
       baseId: table.baseId(),
@@ -644,7 +863,11 @@ describe('Realtime projections', () => {
   it('projects batch record creations', async () => {
     const table = buildTable('1', '2', '3');
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+    const projection = new RecordsBatchCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchCreated.create({
       baseId: table.baseId(),
@@ -672,6 +895,7 @@ describe('Realtime projections', () => {
     expect(engine.ensures[0]?.docId.toString()).toBe(`${collection}/rec${'a'.repeat(16)}`);
     expect(engine.ensures[0]?.initial).toEqual({
       id: `rec${'a'.repeat(16)}`,
+      ...unknownActors,
       fields: {
         [table.primaryFieldId().toString()]: 'Record A',
       },
@@ -681,6 +905,7 @@ describe('Realtime projections', () => {
     expect(engine.ensures[1]?.docId.toString()).toBe(`${collection}/rec${'b'.repeat(16)}`);
     expect(engine.ensures[1]?.initial).toEqual({
       id: `rec${'b'.repeat(16)}`,
+      ...unknownActors,
       fields: {
         [table.primaryFieldId().toString()]: 'Record B',
       },
@@ -690,7 +915,11 @@ describe('Realtime projections', () => {
   it('skips per-record realtime creates for large batch creations when orchestration carries total count', async () => {
     const table = buildTable('1', '2', '3');
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+    const projection = new RecordsBatchCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchCreated.create({
       baseId: table.baseId(),
@@ -718,7 +947,11 @@ describe('Realtime projections', () => {
   it('skips per-record realtime creates when streamed orchestration reaches the total threshold', async () => {
     const table = buildTable('1', '2', '3');
     const engine = new FakeRealtimeEngine();
-    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+    const projection = new RecordsBatchCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchCreated.create({
       baseId: table.baseId(),
@@ -760,7 +993,11 @@ describe('Realtime projections', () => {
       invalidateCollection: async () => ok(undefined),
       notifyTableComputeActivity: async () => ok(undefined),
     };
-    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+    const projection = new RecordsBatchCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchCreated.create({
       baseId: table.baseId(),
@@ -817,7 +1054,11 @@ describe('Realtime projections', () => {
       invalidateCollection: async () => ok(undefined),
       notifyTableComputeActivity: async () => ok(undefined),
     };
-    const projection = new RecordsBatchCreatedRealtimeProjection(engine);
+    const projection = new RecordsBatchCreatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const event = RecordsBatchCreated.create({
       baseId: table.baseId(),
@@ -1003,7 +1244,11 @@ describe('Realtime projections', () => {
       invalidateCollection: async () => ok(undefined),
       notifyTableComputeActivity: async () => ok(undefined),
     };
-    const projection = new RecordsBatchUpdatedRealtimeProjection(engine);
+    const projection = new RecordsBatchUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository()
+    );
 
     const updates = Array.from({ length: REALTIME_TASK_CONCURRENCY_LIMIT + 5 }, (_, index) => ({
       recordId: `rec${index.toString().padStart(16, '0')}`,
@@ -1224,15 +1469,19 @@ describe('Realtime projections', () => {
   it('creates standalone View documents with HTTP-compatible query fields', async () => {
     const table = buildTable('v', 'c', 'q');
     const view = table.views()[0]!;
-    const filter = {
+    const sourceFilter: ViewSourceFilterDTO = {
       conjunction: 'and',
       filterSet: [{ fieldId: table.primaryFieldId().toString(), operator: 'is', value: 'ready' }],
     };
+    const recordFilter: RecordFilterNode = {
+      conjunction: 'and',
+      items: [{ fieldId: table.primaryFieldId().toString(), operator: 'is', value: 'ready' }],
+    };
     const sort = {
-      sortObjs: [{ fieldId: table.primaryFieldId().toString(), order: 'desc' }],
+      sortObjs: [{ fieldId: table.primaryFieldId().toString(), order: 'desc' as const }],
       manualSort: false,
     };
-    const group = [{ fieldId: table.primaryFieldId().toString(), order: 'asc' }];
+    const group = [{ fieldId: table.primaryFieldId().toString(), order: 'asc' as const }];
     const engine = new FakeRealtimeEngine();
     const repository = new FakeTableRepository(table);
     const mapper = new FakeTableMapper((candidate) => {
@@ -1241,8 +1490,8 @@ describe('Realtime projections', () => {
         ...snapshot,
         views: snapshot.views.map((viewDto) => ({
           ...viewDto,
-          query: { filter, sort: sort.sortObjs, manualSort: sort.manualSort, group },
-          sourceFilter: filter,
+          query: { filter: recordFilter, sort: sort.sortObjs, manualSort: sort.manualSort, group },
+          sourceFilter,
         })),
       };
     });
@@ -1263,7 +1512,7 @@ describe('Realtime projections', () => {
     )._unsafeUnwrap();
     await realtimeTasks[0]!();
 
-    expect(engine.ensures[0]?.initial).toMatchObject({ filter, sort, group });
+    expect(engine.ensures[0]?.initial).toMatchObject({ filter: sourceFilter, sort, group });
     expect(engine.ensureOptions[0]).toEqual({ version: 11 });
   });
 
@@ -1640,9 +1889,13 @@ describe('Realtime projections', () => {
     const table = buildTable('q', 'u', 'e');
     const view = table.views()[0]!;
     const fieldId = table.primaryFieldId().toString();
-    const filter = {
+    const sourceFilter: ViewSourceFilterDTO = {
       conjunction: 'and',
       filterSet: [{ fieldId, operator: 'is', value: 'ready' }],
+    };
+    const recordFilter: RecordFilterNode = {
+      conjunction: 'and',
+      items: [{ fieldId, operator: 'is', value: 'ready' }],
     };
     const sort = {
       sortObjs: [{ fieldId, order: 'desc' as const }],
@@ -1657,8 +1910,8 @@ describe('Realtime projections', () => {
         ...snapshot,
         views: snapshot.views.map((viewDto) => ({
           ...viewDto,
-          query: { filter, sort: sort.sortObjs, manualSort: sort.manualSort, group },
-          sourceFilter: filter,
+          query: { filter: recordFilter, sort: sort.sortObjs, manualSort: sort.manualSort, group },
+          sourceFilter,
         })),
       };
     });
@@ -1677,7 +1930,7 @@ describe('Realtime projections', () => {
           tableId: table.id(),
           viewId: view.id(),
           previousFilter: undefined,
-          nextFilter: filter,
+          nextFilter: sourceFilter,
           oldVersion: 12,
           newVersion: 13,
         }),
@@ -1723,7 +1976,7 @@ describe('Realtime projections', () => {
     expect(standaloneChange?.options).toEqual({ version: 12 });
     expect(standaloneChange?.change).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ path: ['filter'], value: filter }),
+        expect.objectContaining({ path: ['filter'], value: sourceFilter }),
         expect.objectContaining({ path: ['sort'], value: sort }),
         expect.objectContaining({ path: ['group'], value: group }),
       ])

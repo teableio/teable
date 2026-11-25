@@ -142,8 +142,24 @@ describe('PastePreparationService', () => {
   it('uses the requested range and search to split selected updates from overflow creates', async () => {
     const { table, tableId, titleFieldId, statusFieldId, viewId } = buildTable();
     const records: TableRecordReadModel[] = [
-      { id: `rec${'a'.repeat(16)}`, version: 1, fields: { [titleFieldId]: 'A' } },
-      { id: `rec${'b'.repeat(16)}`, version: 1, fields: { [titleFieldId]: 'B' } },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        version: 1,
+        fields: { [titleFieldId]: 'A' },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        version: 1,
+        fields: { [titleFieldId]: 'B' },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     const repository = new CapturingRecordQueryRepository(records);
     const command = PasteCommand.create({
@@ -195,7 +211,15 @@ describe('PastePreparationService', () => {
   it('applies the execution write scope to update and create candidates', async () => {
     const { table, tableId, titleFieldId, viewId } = buildTable();
     const repository = new CapturingRecordQueryRepository([
-      { id: `rec${'d'.repeat(16)}`, version: 1, fields: { [titleFieldId]: 'Old' } },
+      {
+        id: `rec${'d'.repeat(16)}`,
+        version: 1,
+        fields: { [titleFieldId]: 'Old' },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ]);
     const command = PasteCommand.create({
       tableId: tableId.toString(),
@@ -234,6 +258,10 @@ describe('PastePreparationService', () => {
         id: `rec${'c'.repeat(16)}`,
         version: 1,
         fields: { [titleFieldId]: 'Old title' },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
     const command = PasteCommand.create({

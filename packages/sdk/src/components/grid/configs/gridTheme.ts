@@ -48,6 +48,8 @@ export interface IGridTheme {
   appendRowBgHovered: string;
   avatarBg: string;
   avatarTextColor: string;
+  appUserChipBg: string;
+  appUserAvatarBg: string;
   avatarSizeXS: number;
   avatarSizeSM: number;
   avatarSizeMD: number;
@@ -126,6 +128,8 @@ export const gridTheme: IGridTheme = {
   // Avatar Theme
   avatarBg: colors.gray[100],
   avatarTextColor: colors.gray[950],
+  appUserChipBg: colors.blue[50],
+  appUserAvatarBg: colors.blue[600],
   avatarSizeXS: 16,
   avatarSizeSM: 20,
   avatarSizeMD: 24,

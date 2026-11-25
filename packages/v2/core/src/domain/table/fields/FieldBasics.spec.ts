@@ -41,9 +41,15 @@ describe('FieldId', () => {
 });
 
 describe('DbFieldName', () => {
-  it('rehydrates and validates', () => {
-    expect(DbFieldName.rehydrate('db_field').isOk()).toBe(true);
-    expect(DbFieldName.rehydrate('').isErr()).toBe(true);
+  it('rehydrates reserved actor names so persisted legacy fields stay loadable', () => {
+    for (const name of [
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
+    ]) {
+      expect(DbFieldName.rehydrate(name)._unsafeUnwrap().value()._unsafeUnwrap()).toBe(name);
+    }
   });
 
   it('requires rehydrate before access', () => {

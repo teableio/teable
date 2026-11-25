@@ -1,4 +1,4 @@
-import type { BulkCopyTableInput } from '@teable/v2-core';
+import type { BulkCopyTableInput, RecordInitiator } from '@teable/v2-core';
 import type { Knex } from 'knex';
 import { DuplicateTableQueryAbstract } from './abstract';
 
@@ -19,9 +19,19 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
       minAutoNumberExclusive?: number;
       maxAutoNumberInclusive?: number;
     },
+    actor?: { type: RecordInitiator['type'] | null; id: string | null },
     dateTimeZoneConversions: BulkCopyTableInput['dateTimeZoneConversions'] = []
   ) {
-    const newColumnList = newColumns.map((col) => `"${col}"`).join(', ');
+    const columns = actor
+      ? [
+          ...newColumns,
+          '__created_by_actor_type',
+          '__created_by_actor_id',
+          '__last_modified_by_actor_type',
+          '__last_modified_by_actor_id',
+        ]
+      : newColumns;
+    const newColumnList = columns.map((col) => `"${col}"`).join(', ');
     const dateConversions = new Map(
       dateTimeZoneConversions.map((conversion) => [conversion.dbFieldName, conversion])
     );
@@ -68,8 +78,14 @@ export class DuplicateTableQueryPostgres extends DuplicateTableQueryAbstract {
     }
     const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
     return this.knex.raw(
-      `INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList} FROM ??${whereSql} ORDER BY "__auto_number"`,
-      [targetTable, ...projectionBindings, sourceTable, ...whereBindings]
+      `INSERT INTO ?? (${newColumnList}) SELECT ${oldColumnList}${actor ? ', ?::text, ?::text, NULL, NULL' : ''} FROM ??${whereSql} ORDER BY "__auto_number"`,
+      [
+        targetTable,
+        ...projectionBindings,
+        ...(actor ? [actor.type, actor.id] : []),
+        sourceTable,
+        ...whereBindings,
+      ]
     );
   }
 }

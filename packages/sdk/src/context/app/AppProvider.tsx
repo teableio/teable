@@ -20,6 +20,7 @@ interface IAppProviderProps {
   disabledWs?: boolean;
   template?: IGetBaseVo['template'];
   shareId?: string;
+  baseShareId?: string;
   maxSearchFieldCount?: number;
 }
 
@@ -34,6 +35,7 @@ export const AppProvider = (props: IAppProviderProps) => {
     dehydratedState,
     template,
     shareId,
+    baseShareId,
     maxSearchFieldCount,
   } = props;
   // Canvas renderers read the gate from a module-level flag rather than from
@@ -50,9 +52,10 @@ export const AppProvider = (props: IAppProviderProps) => {
       locale: isObject(locale) ? merge({}, defaultLocale, locale) : defaultLocale,
       template,
       shareId,
+      baseShareId,
       maxSearchFieldCount,
     }),
-    [lang, locale, template, shareId, maxSearchFieldCount]
+    [lang, locale, template, shareId, baseShareId, maxSearchFieldCount]
   );
 
   if (disabledWs) {

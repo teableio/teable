@@ -170,10 +170,11 @@ export class SessionStoreService extends Store {
           next.meta = { ...next.meta, lastActiveAt: new Date().toISOString() };
         }
         await this.setCache(sid, next);
-        callback?.();
-        return;
       }
-      callback?.(new Error('Session not found'));
+      // If the session expired or was revoked while a request (or long-lived SSE stream) was in
+      // flight, skip renewing without resurrecting it and without passing an Error to
+      // express-session (which calls defer(next, err) after res.end()).
+      callback?.();
     } catch (error) {
       callback?.(error);
     }

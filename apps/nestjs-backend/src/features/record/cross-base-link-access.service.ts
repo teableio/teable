@@ -77,6 +77,16 @@ export class CrossBaseLinkAccessService {
   }
 
   /**
+   * Admission exemption for introducing a NEW cross-base reference. Unlike {@link isExempt}
+   * it does not wave through robots or base-scoped internal tokens: those are the principals
+   * that must still be checked against the foreign base. Only a user-less internal job and a
+   * share context are exempt.
+   */
+  private isAdmissionExempt(): boolean {
+    return !this.cls.get('user.id') || Boolean(this.cls.get('shareViewId'));
+  }
+
+  /**
    * @param fieldKeys the fields the write touches, as ids, names or db field
    * names; omit to check every link field of the table.
    */
@@ -98,11 +108,27 @@ export class CrossBaseLinkAccessService {
   }
 
   /**
-   * For a field about to reference `foreignTableId` from `tableId` (a new link,
-   * lookup, rollup or conditional variant).
+   * A caller-facing read of one foreign table (filter-link, field read). The same
+   * exemptions as the link-cell write path: a robot or share reading inside what it
+   * was already scoped to is settled elsewhere.
    */
   async assertForeignTableReadable(tableId: string, foreignTableId: string) {
     if (this.isExempt()) {
+      return;
+    }
+    await this.assertReadableAcrossBases(tableId, new Set([foreignTableId]));
+  }
+
+  /**
+   * Admission of a NEW foreign-table reference on a field being created or converted.
+   * Narrower than {@link isExempt}: a base-scoped internal token (chat script) carries
+   * a real user whose own `record|read` must decide, and an App/automation robot is
+   * scoped to one base, so a reference reaching another base is denied by the same
+   * permission check (the robot holds no role on the foreign base). Only a user-less
+   * internal job (import, duplication) and a share context stay exempt.
+   */
+  async assertNewForeignTableReference(tableId: string, foreignTableId: string) {
+    if (this.isAdmissionExempt()) {
       return;
     }
     await this.assertReadableAcrossBases(tableId, new Set([foreignTableId]));
@@ -164,6 +190,29 @@ export class CrossBaseLinkAccessService {
     }
   }
 
+  /**
+   * For the fields of a table about to be created in `baseId`. The table has no
+   * row yet, so the base it is created in stands in for it.
+   */
+  async assertForeignTablesReadableFromBase(baseId: string, foreignTableIds: Iterable<string>) {
+    if (this.isAdmissionExempt()) {
+      return;
+    }
+    const candidates = new Set(foreignTableIds);
+    if (!candidates.size) {
+      return;
+    }
+    const tables = await this.prismaService.txClient().tableMeta.findMany({
+      where: { id: { in: [...candidates] }, deletedTime: null },
+      select: { id: true, baseId: true },
+    });
+    await this.assertReadableFromBase(
+      baseId,
+      candidates,
+      new Map(tables.map(({ id, baseId: tableBaseId }) => [id, tableBaseId]))
+    );
+  }
+
   private async assertReadableAcrossBases(tableId: string, foreignTableIds: Set<string>) {
     foreignTableIds.delete(tableId);
     if (!foreignTableIds.size) {
@@ -178,6 +227,14 @@ export class CrossBaseLinkAccessService {
     if (!hostBaseId) {
       return;
     }
+    await this.assertReadableFromBase(hostBaseId, foreignTableIds, baseIdByTable);
+  }
+
+  private async assertReadableFromBase(
+    hostBaseId: string,
+    foreignTableIds: Iterable<string>,
+    baseIdByTable: ReadonlyMap<string, string>
+  ) {
     for (const foreignTableId of foreignTableIds) {
       const foreignBaseId = baseIdByTable.get(foreignTableId);
       // A missing foreign table is left to the caller's own not-found handling.

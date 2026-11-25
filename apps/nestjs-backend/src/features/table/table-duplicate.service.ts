@@ -24,7 +24,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
-import { Events } from '../../event-emitter/events';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { CUSTOM_KNEX, DATA_KNEX } from '../../global/knex/knex.module';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
@@ -42,10 +42,15 @@ import { FieldDuplicateService } from '../field/field-duplicate/field-duplicate.
 import { createFieldInstanceByRaw, rawField2FieldObj } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { FieldOpenApiService } from '../field/open-api/field-open-api.service';
+import {
+  RecordActorStorageService,
+  resolveRecordInitiator,
+} from '../record-attribution/record-actor-storage.service';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { createViewVoByRaw } from '../view/model/factory';
-import { TableService } from './table.service';
 import { TableDuplicatePolicyService } from './table-duplicate-policy.service';
+import { TableService } from './table.service';
 
 type IDataPrismaExecutor = {
   $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
@@ -54,6 +59,7 @@ type IDataPrismaExecutor = {
 
 type IDataPrismaScopedClient = IDataPrismaExecutor & {
   txClient?: () => IDataPrismaExecutor;
+  $tx: <T>(action: (prisma: IDataPrismaExecutor) => Promise<T>) => Promise<T>;
 };
 
 type IDuplicateTableDataProgress = {
@@ -66,6 +72,8 @@ type IDuplicateTableDataProgress = {
 type IDuplicateTableDataOptions = {
   batchSize?: number;
   onProgress?: (progress: IDuplicateTableDataProgress) => void;
+  /** Internal only: this workflow just completed the destination's physical CREATE. */
+  createdTableActorStorage?: true;
   dateTimeZoneConversions?: BulkCopyTableInput['dateTimeZoneConversions'];
 };
 
@@ -104,6 +112,9 @@ export class TableDuplicateService {
     @InjectModel(DATA_KNEX) private readonly dataKnex: Knex,
     private readonly dataDbClientManager: DataDbClientManager,
     private readonly audit: AuditScope,
+    private readonly recordActorStorageService: RecordActorStorageService,
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
     private readonly duplicatePolicy: TableDuplicatePolicyService
   ) {}
 
@@ -191,33 +202,43 @@ export class TableDuplicateService {
 
       if (includeRecords) {
         await this.assertSameDataDatabaseForRecordCopy(tableId, baseId);
-        const dataPrisma = this.getDataPrismaExecutor(
-          await this.dataDbClientManager.dataPrismaForTable(newTableVo.id, {
-            useTransaction: true,
-          })
+        const targetTable = newTableVo;
+        await this.recordActorStorageService.withTableWrite(
+          targetTable.id,
+          async () => {
+            const scopedDataPrisma = (await this.dataDbClientManager.dataPrismaForTable(
+              targetTable.id,
+              {
+                useTransaction: true,
+              }
+            )) as IDataPrismaScopedClient;
+            await scopedDataPrisma.$tx(async (transactionPrisma) => {
+              const dataPrisma = transactionPrisma;
+              await this.duplicateTableData(
+                dbTableName,
+                targetTable.dbTableName,
+                sourceToTargetViewMap,
+                sourceToTargetFieldMap,
+                [],
+                dataPrisma,
+                { createdTableActorStorage: true }
+              );
+              await this.duplicateAttachments(
+                sourceTableId,
+                targetTable.id,
+                sourceToTargetFieldMap,
+                dataPrisma
+              );
+              await this.duplicateLinkJunction(
+                { [sourceTableId]: targetTable.id },
+                sourceToTargetFieldMap,
+                true,
+                dataPrisma
+              );
+            });
+          },
+          { provisioning: true }
         );
-        await this.duplicateTableData(
-          dbTableName,
-          newTableVo.dbTableName,
-          sourceToTargetViewMap,
-          sourceToTargetFieldMap,
-          [],
-          dataPrisma
-        );
-
-        await this.duplicateAttachments(
-          sourceTableId,
-          newTableVo.id,
-          sourceToTargetFieldMap,
-          dataPrisma
-        );
-        await this.duplicateLinkJunction(
-          { [sourceTableId]: newTableVo.id },
-          sourceToTargetFieldMap,
-          true,
-          dataPrisma
-        );
-        // Audit row emitted manually inside duplicateTableData (raw SQL bypasses v2 events).
       }
 
       const viewPlain = await this.prismaService.txClient().view.findMany({
@@ -272,13 +293,8 @@ export class TableDuplicateService {
     }
   }
 
-  // Raw SQL bulk insert (no v2 events fire). Emits one atomic record-create row using
-  // the caller's active operation (TableDuplicate / BaseDuplicate / TemplateApply /
-  // ShareBaseCopy).
-  @Audit({
-    action: Events.TABLE_RECORD_CREATE,
-    emit: (result: unknown) => ({ recordCount: result as number }),
-  })
+  // SQL-only record creation: persist its operation attribution in the data transaction.
+  // The caller's active audit scope supplies the authorized root operation.
   async duplicateTableData(
     sourceDbTableName: string,
     targetDbTableName: string,
@@ -288,217 +304,275 @@ export class TableDuplicateService {
     dataPrisma: IDataPrismaExecutor,
     options?: IDuplicateTableDataOptions
   ): Promise<number> {
-    const prisma = dataPrisma;
-    const metaPrisma = this.prismaService.txClient();
-    const qb = this.dataKnex.queryBuilder();
+    const targetTable = await this.prismaService.txClient().tableMeta.findFirstOrThrow({
+      where: { dbTableName: targetDbTableName, deletedTime: null },
+      select: { id: true },
+    });
+    await this.recordMutationPolicy.assertAllowed({
+      tableId: targetTable.id,
+      operation: 'create',
+      payload: { sourceDbTableName, targetDbTableName, sourceToTargetFieldMap },
+    });
+    return this.recordActorStorageService.withTableWrite(
+      targetTable.id,
+      async (targetMeta) => {
+        const initiator = resolveRecordInitiator(this.cls);
+        const actor =
+          targetMeta.actorStorageVersion === 1 || options?.createdTableActorStorage
+            ? { type: initiator?.type ?? null, id: initiator?.id ?? null }
+            : undefined;
+        const prisma = dataPrisma;
+        const metaPrisma = this.prismaService.txClient();
+        const qb = this.dataKnex.queryBuilder();
 
-    const columnInfoQuery = this.dbProvider.columnInfo(sourceDbTableName);
+        const columnInfoQuery = this.dbProvider.columnInfo(sourceDbTableName);
 
-    const newColumnsInfoQuery = this.dbProvider.columnInfo(targetDbTableName);
+        const newColumnsInfoQuery = this.dbProvider.columnInfo(targetDbTableName);
 
-    const allSourceColumns = (
-      await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery)
-    ).map(({ name }) => name);
+        const allSourceColumns = (
+          await prisma.$queryRawUnsafe<{ name: string }[]>(columnInfoQuery)
+        ).map(({ name }) => name);
 
-    // Only filter by crossBaseLinkInfo if it's not empty
-    // When crossBaseLinkInfo is empty (normal table duplication), include all columns
-    const oldOriginColumns =
-      crossBaseLinkInfo.length === 0
-        ? allSourceColumns
-        : allSourceColumns.filter((name) =>
-            crossBaseLinkInfo
-              .map(({ selfKeyName }) => selfKeyName)
-              .filter((selfKeyName) => selfKeyName !== '__id' && selfKeyName)
-              .includes(name)
+        // Only filter by crossBaseLinkInfo if it's not empty
+        // When crossBaseLinkInfo is empty (normal table duplication), include all columns
+        const oldOriginColumns =
+          crossBaseLinkInfo.length === 0
+            ? allSourceColumns
+            : allSourceColumns.filter((name) =>
+                crossBaseLinkInfo
+                  .map(({ selfKeyName }) => selfKeyName)
+                  .filter((selfKeyName) => selfKeyName !== '__id' && selfKeyName)
+                  .includes(name)
+              );
+
+        const crossBaseLinkDbFieldNames = crossBaseLinkInfo.map(
+          ({ dbFieldName, isMultipleCellValue }) => ({
+            dbFieldName,
+            isMultipleCellValue,
+          })
+        );
+
+        const newOriginColumns = (
+          await prisma.$queryRawUnsafe<{ name: string }[]>(newColumnsInfoQuery)
+        ).map(({ name }) => name);
+
+        const oldRowColumns = oldOriginColumns.filter((name) =>
+          name.startsWith(ROW_ORDER_FIELD_PREFIX)
+        );
+
+        // Physical actor columns must never reinterpret a legacy business field.
+        const targetFields = await metaPrisma.field.findMany({
+          where: { tableId: targetMeta.id, deletedTime: null },
+          select: { dbFieldName: true, isComputed: true },
+        });
+        const actorColumnNames = [
+          '__created_by_actor_type',
+          '__created_by_actor_id',
+          '__last_modified_by_actor_type',
+          '__last_modified_by_actor_id',
+        ];
+        if (targetFields.some((field) => actorColumnNames.includes(field.dbFieldName))) {
+          throw new CustomHttpException(
+            'Actor columns conflict with an existing business field',
+            HttpErrorCode.VALIDATION_ERROR
+          );
+        }
+        const computedDbFieldNames = targetFields
+          .filter((field) => field.isComputed)
+          .map((field) => field.dbFieldName);
+
+        const computedSet = new Set(computedDbFieldNames);
+
+        const newFieldColumns = newOriginColumns.filter(
+          (name) =>
+            !name.startsWith(ROW_ORDER_FIELD_PREFIX) &&
+            !name.startsWith('__fk_fld') &&
+            !computedSet.has(name)
+        );
+        const sourceColumnSet = new Set(allSourceColumns);
+        const copyableFieldColumns = newFieldColumns.filter((name) => sourceColumnSet.has(name));
+
+        const oldFkColumns = oldOriginColumns.filter((name) => name.startsWith('__fk_fld'));
+
+        const newRowColumns = oldRowColumns.map((name) =>
+          sourceToTargetViewMap[name.slice(6)]
+            ? `__row_${sourceToTargetViewMap[name.slice(6)]}`
+            : name
+        );
+
+        const newFkColumns = oldFkColumns.map((name) =>
+          sourceToTargetFieldMap[name.slice(5)]
+            ? `__fk_${sourceToTargetFieldMap[name.slice(5)]}`
+            : name
+        );
+
+        for (const name of newRowColumns) {
+          await this.createRowOrderField(targetDbTableName, name.slice(6), prisma);
+        }
+
+        for (const name of newFkColumns) {
+          await this.createFkField(targetDbTableName, name.slice(5), prisma);
+        }
+
+        // following field should not be duplicated
+        const systemColumns = [
+          '__auto_number',
+          '__created_time',
+          '__last_modified_time',
+          '__last_modified_by',
+          '__created_by_actor_type',
+          '__created_by_actor_id',
+          '__last_modified_by_actor_type',
+          '__last_modified_by_actor_id',
+        ];
+
+        const excludeFields = await metaPrisma.field.findMany({
+          where: {
+            id: {
+              in: Object.keys(sourceToTargetFieldMap),
+            },
+            type: FieldType.Button,
+          },
+          select: {
+            dbFieldName: true,
+          },
+        });
+        const excludeDbFieldNames = excludeFields.map(({ dbFieldName }) => dbFieldName);
+        const excludeColumnsSet = new Set([
+          ...systemColumns,
+          ...excludeDbFieldNames,
+          ...computedDbFieldNames,
+        ]);
+
+        // use new table field columns info
+        // old table contains ghost columns or customer columns
+        const oldColumns = copyableFieldColumns
+          .concat(oldRowColumns)
+          .concat(oldFkColumns)
+          .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
+
+        const newColumns = copyableFieldColumns
+          .concat(newRowColumns)
+          .concat(newFkColumns)
+          .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
+
+        const buildDuplicateSql = (range?: {
+          minAutoNumberExclusive?: number;
+          maxAutoNumberInclusive?: number;
+        }) =>
+          this.dbProvider
+            .duplicateTableQuery(this.dataKnex.queryBuilder())
+            .duplicateTableData(
+              sourceDbTableName,
+              targetDbTableName,
+              newColumns,
+              oldColumns,
+              crossBaseLinkDbFieldNames,
+              range,
+              actor,
+              options?.dateTimeZoneConversions
+            )
+            .toQuery();
+
+        const sql = this.dbProvider
+          .duplicateTableQuery(qb)
+          .duplicateTableData(
+            sourceDbTableName,
+            targetDbTableName,
+            newColumns,
+            oldColumns,
+            crossBaseLinkDbFieldNames,
+            undefined,
+            actor,
+            options?.dateTimeZoneConversions
+          )
+          .toQuery();
+
+        const sourceTableCountSql = this.dataKnex(sourceDbTableName)
+          .count('*', { as: 'count' })
+          .toQuery();
+
+        const sourceTableCountResult =
+          await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(sourceTableCountSql);
+        const totalRows = Number(sourceTableCountResult[0]?.count || 0);
+
+        if (!options?.onProgress || totalRows === 0) {
+          return this.executeDuplicateWithAudit(targetMeta.id, sql, prisma);
+        }
+
+        const batchSize = options.batchSize ?? duplicateTableDataDefaultBatchSize;
+        let lastAutoNumber = 0;
+        let processedRows = 0;
+        let currentBatch = 0;
+
+        while (processedRows < totalRows) {
+          const autoNumberRowsSql = this.dataKnex(sourceDbTableName)
+            .select(autoNumberFieldName)
+            .where(autoNumberFieldName, '>', lastAutoNumber)
+            .orderBy(autoNumberFieldName, 'asc')
+            .limit(batchSize)
+            .toQuery();
+          const autoNumberRows =
+            await prisma.$queryRawUnsafe<
+              Array<Record<typeof autoNumberFieldName, bigint | number | string>>
+            >(autoNumberRowsSql);
+          if (!autoNumberRows.length) {
+            break;
+          }
+
+          const batchLastAutoNumber = Number(
+            autoNumberRows[autoNumberRows.length - 1]![autoNumberFieldName]
+          );
+          const insertedCount = await this.executeDuplicateWithAudit(
+            targetMeta.id,
+            buildDuplicateSql({
+              minAutoNumberExclusive: lastAutoNumber,
+              maxAutoNumberInclusive: batchLastAutoNumber,
+            }),
+            prisma
           );
 
-    const crossBaseLinkDbFieldNames = crossBaseLinkInfo.map(
-      ({ dbFieldName, isMultipleCellValue }) => ({
-        dbFieldName,
-        isMultipleCellValue,
-      })
-    );
+          currentBatch += 1;
+          processedRows += insertedCount;
+          options.onProgress({
+            processedRows,
+            batchProcessedRows: insertedCount,
+            currentBatch,
+            totalRows,
+          });
+          lastAutoNumber = batchLastAutoNumber;
+        }
 
-    const newOriginColumns = (
-      await prisma.$queryRawUnsafe<{ name: string }[]>(newColumnsInfoQuery)
-    ).map(({ name }) => name);
-
-    const oldRowColumns = oldOriginColumns.filter((name) =>
-      name.startsWith(ROW_ORDER_FIELD_PREFIX)
-    );
-
-    // Exclude computed field columns (formula/lookup/rollup/created time/etc.) from data insertion
-    // because generated columns cannot be directly inserted into
-    let computedDbFieldNames: string[] = [];
-    try {
-      const targetTable = await metaPrisma.tableMeta.findFirst({
-        where: { dbTableName: targetDbTableName, deletedTime: null },
-        select: { id: true },
-      });
-      if (targetTable?.id) {
-        const computedFields = await metaPrisma.field.findMany({
-          where: { tableId: targetTable.id, deletedTime: null, isComputed: true },
-          select: { dbFieldName: true },
-        });
-        computedDbFieldNames = computedFields.map((f) => f.dbFieldName);
-      }
-    } catch {
-      // Best effort; if query fails, fallback to existing filters
-      computedDbFieldNames = [];
-    }
-
-    const computedSet = new Set(computedDbFieldNames);
-
-    const newFieldColumns = newOriginColumns.filter(
-      (name) =>
-        !name.startsWith(ROW_ORDER_FIELD_PREFIX) &&
-        !name.startsWith('__fk_fld') &&
-        !computedSet.has(name)
-    );
-    const sourceColumnSet = new Set(allSourceColumns);
-    const copyableFieldColumns = newFieldColumns.filter((name) => sourceColumnSet.has(name));
-
-    const oldFkColumns = oldOriginColumns.filter((name) => name.startsWith('__fk_fld'));
-
-    const newRowColumns = oldRowColumns.map((name) =>
-      sourceToTargetViewMap[name.slice(6)] ? `__row_${sourceToTargetViewMap[name.slice(6)]}` : name
-    );
-
-    const newFkColumns = oldFkColumns.map((name) =>
-      sourceToTargetFieldMap[name.slice(5)] ? `__fk_${sourceToTargetFieldMap[name.slice(5)]}` : name
-    );
-
-    for (const name of newRowColumns) {
-      await this.createRowOrderField(targetDbTableName, name.slice(6), prisma);
-    }
-
-    for (const name of newFkColumns) {
-      await this.createFkField(targetDbTableName, name.slice(5), prisma);
-    }
-
-    // following field should not be duplicated
-    const systemColumns = [
-      '__auto_number',
-      '__created_time',
-      '__last_modified_time',
-      '__last_modified_by',
-    ];
-
-    const excludeFields = await metaPrisma.field.findMany({
-      where: {
-        id: {
-          in: Object.keys(sourceToTargetFieldMap),
-        },
-        type: FieldType.Button,
+        return totalRows;
       },
-      select: {
-        dbFieldName: true,
-      },
-    });
-    const excludeDbFieldNames = excludeFields.map(({ dbFieldName }) => dbFieldName);
-    const excludeColumnsSet = new Set([
-      ...systemColumns,
-      ...excludeDbFieldNames,
-      ...computedDbFieldNames,
-    ]);
+      options?.createdTableActorStorage ? { provisioning: true } : undefined
+    );
+  }
 
-    // use new table field columns info
-    // old table contains ghost columns or customer columns
-    const oldColumns = copyableFieldColumns
-      .concat(oldRowColumns)
-      .concat(oldFkColumns)
-      .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
-
-    const newColumns = copyableFieldColumns
-      .concat(newRowColumns)
-      .concat(newFkColumns)
-      .filter((dbFieldName) => !excludeColumnsSet.has(dbFieldName));
-
-    const buildDuplicateSql = (range?: {
-      minAutoNumberExclusive?: number;
-      maxAutoNumberInclusive?: number;
-    }) =>
-      this.dbProvider
-        .duplicateTableQuery(this.dataKnex.queryBuilder())
-        .duplicateTableData(
-          sourceDbTableName,
-          targetDbTableName,
-          newColumns,
-          oldColumns,
-          crossBaseLinkDbFieldNames,
-          range,
-          options?.dateTimeZoneConversions
-        )
-        .toQuery();
-
-    const sql = this.dbProvider
-      .duplicateTableQuery(qb)
-      .duplicateTableData(
-        sourceDbTableName,
-        targetDbTableName,
-        newColumns,
-        oldColumns,
-        crossBaseLinkDbFieldNames,
-        undefined,
-        options?.dateTimeZoneConversions
-      )
-      .toQuery();
-
-    const sourceTableCountSql = this.dataKnex(sourceDbTableName)
-      .count('*', { as: 'count' })
-      .toQuery();
-
-    const sourceTableCountResult =
-      await prisma.$queryRawUnsafe<[{ count: bigint | number }]>(sourceTableCountSql);
-    const totalRows = Number(sourceTableCountResult[0]?.count || 0);
-
-    if (!options?.onProgress || totalRows === 0) {
-      await prisma.$executeRawUnsafe(sql);
-      return totalRows;
-    }
-
-    const batchSize = options.batchSize ?? duplicateTableDataDefaultBatchSize;
-    let lastAutoNumber = 0;
-    let processedRows = 0;
-    let currentBatch = 0;
-
-    while (processedRows < totalRows) {
-      const autoNumberRowsSql = this.dataKnex(sourceDbTableName)
-        .select(autoNumberFieldName)
-        .where(autoNumberFieldName, '>', lastAutoNumber)
-        .orderBy(autoNumberFieldName, 'asc')
-        .limit(batchSize)
-        .toQuery();
-      const autoNumberRows =
-        await prisma.$queryRawUnsafe<
-          Array<Record<typeof autoNumberFieldName, bigint | number | string>>
-        >(autoNumberRowsSql);
-      if (!autoNumberRows.length) {
-        break;
-      }
-
-      const batchLastAutoNumber = Number(
-        autoNumberRows[autoNumberRows.length - 1]![autoNumberFieldName]
-      );
-      await prisma.$executeRawUnsafe(
-        buildDuplicateSql({
-          minAutoNumberExclusive: lastAutoNumber,
-          maxAutoNumberInclusive: batchLastAutoNumber,
-        })
-      );
-
-      currentBatch += 1;
-      processedRows += autoNumberRows.length;
-      options.onProgress({
-        processedRows,
-        batchProcessedRows: autoNumberRows.length,
-        currentBatch,
-        totalRows,
-      });
-      lastAutoNumber = batchLastAutoNumber;
-    }
-
-    return totalRows;
+  private async executeDuplicateWithAudit(
+    tableId: string,
+    duplicateSql: string,
+    prisma: IDataPrismaExecutor
+  ): Promise<number> {
+    // Only the count and a bounded ID sample leave PostgreSQL, never copied field values.
+    const [inserted] = await prisma.$queryRawUnsafe<
+      {
+        recordCount: bigint | number | string;
+        recordIds: string[];
+      }[]
+    >(`WITH inserted AS (${duplicateSql} RETURNING "__id")
+      SELECT count(*) AS "recordCount",
+        ARRAY(SELECT "__id" FROM inserted LIMIT 200) AS "recordIds"
+      FROM inserted`);
+    if (!inserted) throw new Error('Duplicate insert did not return its operation summary');
+    const recordCount = Number(inserted.recordCount);
+    await this.eventEmitterService.persistRecordCreateOperationAudit(
+      tableId,
+      recordCount,
+      inserted.recordIds,
+      (query) => prisma.$executeRawUnsafe(query)
+    );
+    return recordCount;
   }
 
   private async createRowOrderField(

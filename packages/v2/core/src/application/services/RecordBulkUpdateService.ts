@@ -54,6 +54,7 @@ import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRe
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
+  RecordActorAttribution,
   UpdateManyStreamBatchInput,
 } from '../../ports/TableRecordRepository';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -118,6 +119,7 @@ type BulkUpdateExecutionResult = {
   readonly pluginExecution: RecordWritePluginExecution;
   readonly records?: ReadonlyArray<TableRecord>;
   readonly fieldKeyMapping?: FieldKeyMapping;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
 };
 
 type BulkUpdateWriteResult = Omit<
@@ -181,6 +183,7 @@ export interface IRecordBulkUpdateResult {
   readonly events: ReadonlyArray<IDomainEvent>;
   readonly records?: ReadonlyArray<TableRecord>;
   readonly fieldKeyMapping?: FieldKeyMapping;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
 }
 
 /**
@@ -193,6 +196,7 @@ export interface IRecordBulkUpdateTransactionResult {
   readonly updatedCount: number;
   readonly events: ReadonlyArray<IDomainEvent>;
   readonly records: ReadonlyArray<TableRecord>;
+  readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   /** Rows whose stored values actually changed (mutation applied by SQL). */
   readonly changedRecordIds: ReadonlyArray<RecordId>;
   readonly undoCommands: ReadonlyArray<UndoRedoCommandLeafData>;
@@ -599,6 +603,7 @@ export class RecordBulkUpdateService {
       return ok({
         updatedCount: executionResult.updatedCount,
         events: executionResult.events,
+        recordActorsByRecord: executionResult.recordActorsByRecord,
         ...(executionResult.records ? { records: executionResult.records } : {}),
         ...(executionResult.fieldKeyMapping
           ? { fieldKeyMapping: executionResult.fieldKeyMapping }
@@ -680,6 +685,7 @@ export class RecordBulkUpdateService {
       updatedCount: result.updatedCount,
       events: result.events,
       records: result.records ?? [],
+      recordActorsByRecord: result.recordActorsByRecord,
       changedRecordIds: result.eventData.map((update) => {
         const recordId = RecordId.create(update.recordId);
         return recordId._unsafeUnwrap();
@@ -802,6 +808,7 @@ export class RecordBulkUpdateService {
                   sideEffectUndoRedoPlan: emptyUndoRedoPlan(),
                   orderUndoCommands: [],
                   orderRedoCommands: [],
+                  recordActorsByRecord: mutationResult.recordActorsByRecord,
                 })
               );
             }
@@ -861,6 +868,7 @@ export class RecordBulkUpdateService {
                 sideEffectUndoRedoPlan: committedWrite.sideEffectUndoRedoPlan,
                 orderUndoCommands: [],
                 orderRedoCommands: [],
+                recordActorsByRecord: mutationResult.recordActorsByRecord,
               })
             );
           })
@@ -990,13 +998,13 @@ export class RecordBulkUpdateService {
         orderUndoCommands: [],
         orderRedoCommands: [],
         records: [],
+        recordActorsByRecord: new Map(),
       });
 
       // Order-column preparation can require online DDL before acquiring row locks.
-      const initialAuthorization =
-        !requiresLockedScope || input.order
-          ? yield* await prepareAuthorization(context, false)
-          : undefined;
+      const initialAuthorization = input.order
+        ? yield* await prepareAuthorization(context, false)
+        : undefined;
       if (initialAuthorization?.authorizedUpdates.length === 0) {
         return ok({ ...emptyResult(), pluginExecution, events: [] });
       }
@@ -1012,11 +1020,11 @@ export class RecordBulkUpdateService {
 
       const transactionBody = async (transactionContext: IExecutionContext) =>
         safeTry<DomainWriteDecision<BulkUpdateWriteResult>, DomainError>(async function* () {
-          // Recheck scoped writes against the rows locked by this write transaction.
-          const explicitAuthorization =
-            requiresLockedScope || !initialAuthorization
-              ? yield* await prepareAuthorization(transactionContext, true)
-              : initialAuthorization;
+          // Read actor snapshots in the write transaction and lock rows when authorization depends on them.
+          const explicitAuthorization = yield* await prepareAuthorization(
+            transactionContext,
+            requiresLockedScope
+          );
           const { authorizedUpdates, missingRecordIds, pluginFilteredRecordIds } =
             explicitAuthorization;
           if (missingRecordIds.length > 0 || pluginFilteredRecordIds.length > 0) {
@@ -1084,6 +1092,20 @@ export class RecordBulkUpdateService {
           let updatedCount = reorderResult.updatedCount;
           const pendingEventData: PendingExplicitEventData[] = [];
           const eventData: RecordUpdateDTO[] = [];
+          const recordActorsByRecord = new Map<string, RecordActorAttribution>(
+            authorizedUpdates.map(({ currentRecord }) => [
+              currentRecord.id,
+              {
+                createdByActorType: currentRecord.createdByActorType,
+                createdByActorId: currentRecord.createdByActorId,
+                lastModifiedByActorType: currentRecord.lastModifiedByActorType,
+                lastModifiedByActorId: currentRecord.lastModifiedByActorId,
+              },
+            ])
+          );
+          for (const [recordId, actors] of reorderResult.recordActorsByRecord ?? []) {
+            recordActorsByRecord.set(recordId, actors);
+          }
           const responseFieldsByRecord = new Map<string, ResponseFields>();
 
           if (fieldUpdateTargets.length > 0) {
@@ -1323,6 +1345,9 @@ export class RecordBulkUpdateService {
                   }
                 )
             );
+            for (const [recordId, actors] of persistResult.recordActorsByRecord ?? []) {
+              recordActorsByRecord.set(recordId, actors);
+            }
             yield* await traceRecordBulkUpdatePhase(
               transactionContext,
               'buildPersistedEventData',
@@ -1660,6 +1685,7 @@ export class RecordBulkUpdateService {
               orderUndoCommands: reorderResult.undoCommands,
               orderRedoCommands: reorderResult.redoCommands,
               records: materializedRecords,
+              recordActorsByRecord,
             })
           );
         });
@@ -1681,6 +1707,15 @@ export class RecordBulkUpdateService {
             );
       return ok({ ...committed.value, pluginExecution, fieldKeyMapping, events: committed.events });
     });
+  }
+
+  /** Prepare legacy order-column storage before the schema lease; recalculate values at write time. */
+  prepareOrderStorage(
+    context: IExecutionContext,
+    table: Table,
+    order: RecordInsertOrder
+  ): Promise<Result<ReadonlyArray<number>, DomainError>> {
+    return this.recordReorderService.prepareOrders(context, table, order, 1);
   }
 
   /**

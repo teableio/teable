@@ -1,8 +1,9 @@
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
+import { domainError } from '../../domain/shared/DomainError';
 import { AndSpec } from '../../domain/shared/specification/AndSpec';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
@@ -102,6 +103,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_context: IExecutionContext, _table: Table) {
+    return err(domainError.unexpected({ message: 'Unexpected table restore' }));
+  }
+
   async delete() {
     return ok(undefined);
   }
@@ -120,7 +125,15 @@ class FakeRecordQueryRepository implements ITableRecordQueryRepository {
     _recordId: unknown,
     _options?: unknown
   ) {
-    return ok({ id: 'rec', fields: {}, version: 1 });
+    return ok({
+      id: 'rec',
+      fields: {},
+      version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
+    });
   }
 
   async *findStream(
@@ -129,7 +142,15 @@ class FakeRecordQueryRepository implements ITableRecordQueryRepository {
     _spec?: unknown,
     _options?: unknown
   ) {
-    yield ok({ id: 'rec', fields: {}, version: 1 });
+    yield ok({
+      id: 'rec',
+      fields: {},
+      version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
+    });
   }
 }
 
@@ -255,7 +276,13 @@ describe('RecordMutationSpecResolverService', () => {
       },
     ]);
     const userLookup = new FakeUserLookupService([
-      { id: 'usr-1', name: 'Alice', email: 'alice@example.com' },
+      {
+        id: 'usr-1',
+        name: 'Alice',
+        email: 'alice@example.com',
+        // This resolver-composition test owns its profile result, not process storage configuration.
+        avatarUrl: '/api/attachments/read/public/avatar/usr-1',
+      },
     ]);
 
     const service = new RecordMutationSpecResolverService(

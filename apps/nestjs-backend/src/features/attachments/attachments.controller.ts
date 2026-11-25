@@ -20,6 +20,7 @@ import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { Public } from '../auth/decorators/public.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { AuthGuard } from '../auth/guard/auth.guard';
+import type { IShareViewInfo } from '../share/share-auth.service';
 import { AttachmentsService } from './attachments.service';
 import { ATTACHMENT_READ_CSP } from './constant';
 import { DynamicAuthGuardFactory } from './guard/auth.guard';
@@ -103,8 +104,15 @@ export class AttachmentsController {
   @UseGuards(AuthGuard, DynamicAuthGuardFactory)
   @Post('/signature')
   async signature(
-    @Body(new ZodValidationPipe(signatureRoSchema)) body: SignatureRo
+    @Body(new ZodValidationPipe(signatureRoSchema)) body: SignatureRo,
+    // Optional so that an override can keep the single-argument call shape.
+    @Req() req?: Request
   ): Promise<SignatureVo> {
+    // Set by the share guard when the caller came in through a view share.
+    const shareInfo = (req as (Request & { shareInfo?: IShareViewInfo }) | undefined)?.shareInfo;
+    if (shareInfo) {
+      await this.attachmentsService.assertShareCanUpload(shareInfo, body.type);
+    }
     return await this.attachmentsService.signature(body);
   }
 

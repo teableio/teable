@@ -1,5 +1,5 @@
-import { GetTableByIdQuery } from '@teable/v2-core';
 import { expect, describe, it } from 'vitest';
+import { GetTableByIdQuery } from '@teable/v2-core';
 
 describe('GetTableByIdQuery', () => {
   it('creates queries from valid input', () => {

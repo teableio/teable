@@ -84,6 +84,7 @@ import { Events } from '../../event-emitter/events';
 import type { IClsStore } from '../../types/cls';
 import { ZodValidationPipe } from '../../zod.validation.pipe';
 import { AllowAnonymous, AllowAnonymousType } from '../auth/decorators/allow-anonymous.decorator';
+import { AllowBaseShare } from '../auth/decorators/allow-base-share.decorator';
 import { Permissions } from '../auth/decorators/permissions.decorator';
 import { ResourceMeta } from '../auth/decorators/resource_meta.decorator';
 import { UseV2Feature } from '../canary/decorators/use-v2-feature.decorator';
@@ -101,6 +102,9 @@ import { BaseImportV2Service } from './base-import-v2.service';
 import { BaseImportService } from './base-import.service';
 import { BasePersonalOrderService } from './base-personal-order.service';
 import { BaseService } from './base.service';
+
+// The largest page a share page asks for (the user filter of record history).
+const SHARE_USER_MAX_TAKE = 100;
 
 @Controller('api/base/')
 export class BaseController {
@@ -367,6 +371,7 @@ export class BaseController {
   @Permissions('base|read')
   @Get(':baseId')
   @AllowAnonymous(AllowAnonymousType.PUBLIC)
+  @AllowBaseShare()
   async getBaseById(@Param('baseId') baseId: string): Promise<IGetBaseVo> {
     return await this.baseService.getBaseById(baseId);
   }
@@ -413,6 +418,7 @@ export class BaseController {
   @Permissions('base|read')
   @Get(':baseId/permission')
   @AllowAnonymous(AllowAnonymousType.PUBLIC)
+  @AllowBaseShare()
   async getPermission(): Promise<IGetBasePermissionVo> {
     return await this.baseService.getPermission();
   }
@@ -529,21 +535,28 @@ export class BaseController {
   }
 
   @Permissions('base|read')
+  @AllowBaseShare()
   @Get(':baseId/collaborators/users')
   async getUserCollaborators(
     @Param('baseId') baseId: string,
     @Query(new ZodValidationPipe(listBaseCollaboratorUserRoSchema))
     listBaseCollaboratorUserRo: IListBaseCollaboratorUserRo
   ): Promise<IListBaseCollaboratorUserVo> {
+    // A share visitor picks people for user cells, record history and mentions, but must not
+    // learn members' emails: none in the reply, no search by email, a bounded page at a time.
+    const inShare = Boolean(this.cls.get('baseShareId'));
+    const { take } = listBaseCollaboratorUserRo;
+    const options = inShare
+      ? {
+          ...listBaseCollaboratorUserRo,
+          take: take && Math.min(take, SHARE_USER_MAX_TAKE),
+          searchByEmail: false,
+        }
+      : listBaseCollaboratorUserRo;
+    const users = await this.collaboratorService.getUserCollaborators(baseId, options);
     return {
-      users: await this.collaboratorService.getUserCollaborators(
-        baseId,
-        listBaseCollaboratorUserRo
-      ),
-      total: await this.collaboratorService.getUserCollaboratorsTotal(
-        baseId,
-        listBaseCollaboratorUserRo
-      ),
+      users: inShare ? users.map((user) => ({ ...user, email: '' })) : users,
+      total: await this.collaboratorService.getUserCollaboratorsTotal(baseId, options),
     };
   }
 

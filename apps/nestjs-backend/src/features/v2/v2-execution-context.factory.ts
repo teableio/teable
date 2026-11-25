@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import {
   ActorId,
@@ -14,6 +15,17 @@ import { I18nContext, I18nService } from 'nestjs-i18n';
 import type { IClsStore } from '../../types/cls';
 import type { I18nTranslations } from '../../types/i18n.generated';
 import { V2ContainerService } from './v2-container.service';
+
+const appendWorkflowAttributes = (
+  attributes: Record<string, string | boolean>,
+  workflow: IClsStore['workflowContext']
+): void => {
+  if (!workflow?.workflowId) return;
+  for (const key of ['workflowId', 'runId', 'actionId', 'workflowName', 'triggeredBy'] as const) {
+    const value = workflow[key];
+    if (typeof value === 'string') attributes[`automation.${key}`] = value;
+  }
+};
 
 /**
  * Factory for creating V2 execution contexts with proper tracer and requestId injection.
@@ -73,6 +85,16 @@ export class V2ExecutionContextFactory {
     const allowSelectOptionAutoCreate = Array.isArray(permissions)
       ? permissions.includes('field|update')
       : undefined;
+    const audit = this.cls.get('audit');
+    const origin = this.cls.get('origin');
+    const attributes: Record<string, string | boolean> = {};
+    // Explicit public provenance allowlist; never copy CLS, headers or request data.
+    if (origin?.via) attributes['origin.via'] = origin.via;
+    if (typeof origin?.byApi === 'boolean') attributes['origin.byApi'] = origin.byApi;
+    if (origin?.client) attributes['origin.client'] = origin.client;
+    const appId = this.cls.get('appId');
+    if (appId) attributes.appId = appId;
+    appendWorkflowAttributes(attributes, this.cls.get('workflowContext'));
     const t: NonNullable<IExecutionContext['$t']> = (key, options) =>
       this.i18n.t(`table.${key}` as never, {
         args: options,
@@ -81,6 +103,14 @@ export class V2ExecutionContextFactory {
 
     const context: IExecutionContext = {
       actorId: actorIdResult.value,
+      initiator: this.cls.get('recordInitiator'),
+      requireActorStorage: this.cls.get('requireActorStorage'),
+      operationAttribution: {
+        operationId: audit?.operationId ?? randomUUID(),
+        occurredAt: audit?.occurredAt ?? new Date().toISOString(),
+        ...(audit?.rootAction ? { action: audit.rootAction } : {}),
+        attributes: Object.freeze(attributes),
+      },
       ...(requestAbortSignal ? { abortSignal: requestAbortSignal } : {}),
       tracer,
       requestId,

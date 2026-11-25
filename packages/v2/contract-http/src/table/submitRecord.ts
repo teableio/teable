@@ -10,6 +10,7 @@ import {
 } from '../shared/http';
 import type { ICreateRecordResponseDataDto } from './createRecord';
 import { createRecordResponseDataSchema, mapCreateRecordResultToDto } from './createRecord';
+import type { RecordActorDto } from './recordActorDto';
 
 export type ISubmitRecordRequestDto = ISubmitRecordCommandInput;
 
@@ -31,7 +32,8 @@ export const submitRecordOkResponseSchema = apiOkResponseDtoSchema(submitRecordR
 export { apiErrorResponseDtoSchema as submitRecordErrorResponseSchema } from '../shared/http';
 
 export const mapSubmitRecordResultToDto = (
-  result: CreateRecordResult
+  result: CreateRecordResult,
+  actors: RecordActorDto | undefined
 ): Result<ISubmitRecordResponseDataDto, DomainError> => {
-  return mapCreateRecordResultToDto(result);
+  return mapCreateRecordResultToDto(result, actors);
 };

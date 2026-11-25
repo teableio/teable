@@ -94,7 +94,8 @@ export class SubmitRecordHandler implements ICommandHandler<
           createResult.record,
           createResult.events,
           createResult.fieldKeyMapping,
-          createResult.computedChanges
+          createResult.computedChanges,
+          createResult.recordActors
         )
       );
     });

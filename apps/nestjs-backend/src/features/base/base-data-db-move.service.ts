@@ -18,10 +18,12 @@ import {
   type IResolvedDataDatabase,
 } from '../../global/data-db-client-manager.service';
 import type { IClsStore } from '../../types/cls';
-import { SpaceDataDbCopyService } from '../space/space-data-db-copy.service';
+import { ActorStorageRoutingService } from '../space/actor-storage-routing.service';
+import type { IActorRoutingLease } from '../space/actor-storage-routing.service';
 import { buildMigrationSharedTablePsqlCopyPlans } from '../space/space-data-db-copy-plan';
-import { activeSpaceDataDbMigrationStates } from '../space/space-data-db-migration.constants';
+import { SpaceDataDbCopyService } from '../space/space-data-db-copy.service';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
+import { activeSpaceDataDbMigrationStates } from '../space/space-data-db-migration.constants';
 import {
   activeBaseDataDbMoveJobStates,
   baseDataDbMoveProgressWeights,
@@ -74,7 +76,8 @@ export class BaseDataDbMoveService {
     @Inject(BASE_META_MOVE_SERVICE)
     private readonly baseService: IBaseMetaMoveService,
     @Optional()
-    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService
+    private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
+    private readonly actorStorageRouting?: ActorStorageRoutingService
   ) {}
 
   async resolveDataDbCheck(baseId: string, targetSpaceId: string): Promise<IMoveBaseDataDbCheck> {
@@ -213,24 +216,31 @@ export class BaseDataDbMoveService {
     if (!job) {
       throw new CustomHttpException(`Move job ${jobId} not found`, HttpErrorCode.NOT_FOUND);
     }
-    if (job.state !== 'failed') {
+    const inventory = this.readInventory(job.inventory);
+    const base = await this.prismaService.base.findUniqueOrThrow({
+      where: { id: baseId },
+      select: { spaceId: true },
+    });
+    const finalizing = base.spaceId === inventory.targetSpaceId;
+    if (job.state !== 'failed' && !(job.state === 'switching' && finalizing)) {
       throw new CustomHttpException(
-        `Only failed move jobs can be retried (current: ${job.state})`,
+        `Only failed moves or committed moves awaiting finalization can be retried (current: ${job.state})`,
         HttpErrorCode.VALIDATION_ERROR
       );
     }
 
-    const inventory = this.readInventory(job.inventory);
-    await this.cleanupTargetArtifacts(inventory).catch((error) => {
-      this.logger.warn(
-        `Retry cleanup for job ${jobId} failed: ${error instanceof Error ? error.message : String(error)}`
-      );
-    });
+    if (!finalizing) {
+      await this.cleanupTargetArtifacts(inventory).catch((error) => {
+        this.logger.warn(
+          `Retry cleanup for job ${jobId} failed: ${error instanceof Error ? error.message : String(error)}`
+        );
+      });
+    }
 
     const updated = await this.prismaService.baseDataDbMoveJob.update({
       where: { id: jobId },
       data: {
-        state: 'waiting_worker',
+        state: finalizing ? 'switching' : 'waiting_worker',
         lastError: null,
         completedAt: null,
         startedAt: new Date(),
@@ -277,6 +287,7 @@ export class BaseDataDbMoveService {
     }
     this.runningJobs.add(jobId);
     const workDir = path.join(tmpdir(), `teable-base-data-db-move-${jobId}`);
+    let routingLease: IActorRoutingLease | undefined;
     try {
       const job = await this.prismaService.baseDataDbMoveJob.findUnique({ where: { id: jobId } });
       if (!job) {
@@ -294,6 +305,30 @@ export class BaseDataDbMoveService {
       const sourceUrl = stripUrlSearchParamsForDump(source.url);
       const targetUrl = stripUrlSearchParamsForDump(target.url);
 
+      if (
+        source.cacheKey !== inventory.sourceCacheKey ||
+        target.cacheKey !== inventory.targetCacheKey
+      ) {
+        throw new Error('Project move database binding changed; restart the move');
+      }
+      const currentBase = await this.prismaService.base.findUniqueOrThrow({
+        where: { id: inventory.baseId },
+        select: { spaceId: true },
+      });
+      if (currentBase.spaceId === inventory.targetSpaceId) {
+        if (!this.actorStorageRouting) throw new Error('Database routing fence is unavailable');
+        routingLease = await this.actorStorageRouting.acquire(inventory.tableIds, targetUrl);
+        await routingLease.invalidateCaches([inventory.sourceCacheKey, inventory.targetCacheKey]);
+        await this.updateJob(jobId, {
+          state: 'succeeded',
+          completedAt: new Date(),
+          lastError: null,
+        });
+        return;
+      }
+      if (currentBase.spaceId !== inventory.sourceSpaceId) {
+        throw new Error('Project move source binding changed; restart the move');
+      }
       await this.assertNotCancelled(jobId);
       await this.updateJob(jobId, {
         state: 'copying_base_schema',
@@ -376,8 +411,15 @@ export class BaseDataDbMoveService {
         this.cls.set('user.id', job.createdBy);
         await this.baseService.applyMetaMoveBase(inventory.baseId, inventory.targetSpaceId, {
           dataDbChanged: true,
+          beforeDataDbSwitch: async () => {
+            if (!this.actorStorageRouting) throw new Error('Database routing fence is unavailable');
+            routingLease = await this.actorStorageRouting.acquire(inventory.tableIds, targetUrl);
+            await routingLease.invalidateInTransaction(this.prismaService.txClient());
+          },
         });
       });
+      if (!routingLease) throw new Error('Project move did not acquire its routing fence');
+      await routingLease.invalidateCaches([inventory.sourceCacheKey, inventory.targetCacheKey]);
 
       await this.cleanupSourceArtifacts(sourceUrl, inventory).catch((error) => {
         this.logger.warn(
@@ -397,38 +439,56 @@ export class BaseDataDbMoveService {
         lastError: null,
       });
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      const current = await this.prismaService.baseDataDbMoveJob.findUnique({
-        where: { id: jobId },
-        select: { state: true, inventory: true, copyStats: true },
-      });
-      if (current?.state === 'cancelled') {
-        return;
-      }
-      if (current?.inventory) {
-        await this.cleanupTargetArtifacts(this.readInventory(current.inventory)).catch(() => {
-          // best-effort
-        });
-      }
-      await this.updateJob(jobId, {
-        state: 'failed',
-        completedAt: new Date(),
-        lastError: message,
-        copyStats: {
-          ...asRecord(current?.copyStats),
-          phase: current?.state ?? 'failed',
-          progress: {
-            percent: this.readProgressPercent(current?.copyStats),
-            phase: current?.state ?? 'failed',
-          },
-          failedAt: new Date().toISOString(),
-        },
-      });
-      throw error;
+      if (await this.handleMoveFailure(jobId, error)) throw error;
     } finally {
-      this.runningJobs.delete(jobId);
-      await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+      try {
+        await routingLease?.release();
+      } finally {
+        this.runningJobs.delete(jobId);
+        await rm(workDir, { recursive: true, force: true }).catch(() => undefined);
+      }
     }
+  }
+
+  private async handleMoveFailure(jobId: string, error: unknown): Promise<boolean> {
+    const message = error instanceof Error ? error.message : String(error);
+    const current = await this.prismaService.baseDataDbMoveJob.findUnique({
+      where: { id: jobId },
+      select: { state: true, inventory: true, copyStats: true },
+    });
+    if (current?.state === 'cancelled') {
+      return false;
+    }
+    if (current?.inventory) {
+      const inventory = this.readInventory(current.inventory);
+      const base = await this.prismaService.base.findUniqueOrThrow({
+        where: { id: inventory.baseId },
+        select: { spaceId: true },
+      });
+      if (base.spaceId === inventory.targetSpaceId) {
+        // Never delete a committed destination or reopen the gate after an ambiguous commit.
+        await this.updateJob(jobId, { state: 'switching', lastError: message });
+        throw error;
+      }
+      await this.cleanupTargetArtifacts(inventory).catch(() => {
+        // best-effort
+      });
+    }
+    await this.updateJob(jobId, {
+      state: 'failed',
+      completedAt: new Date(),
+      lastError: message,
+      copyStats: {
+        ...asRecord(current?.copyStats),
+        phase: current?.state ?? 'failed',
+        progress: {
+          percent: this.readProgressPercent(current?.copyStats),
+          phase: current?.state ?? 'failed',
+        },
+        failedAt: new Date().toISOString(),
+      },
+    });
+    return true;
   }
 
   private async toEndpointSummary(
@@ -678,6 +738,9 @@ export class BaseDataDbMoveService {
 
   private async cleanupTargetArtifacts(inventory: IBaseMoveInventory) {
     const target = await this.dataDbClientManager.getDataDatabaseForSpace(inventory.targetSpaceId);
+    if (target.cacheKey !== inventory.targetCacheKey) {
+      throw new Error('Project move target binding changed; automatic cleanup is unsafe');
+    }
     const targetUrl = stripUrlSearchParamsForDump(target.url);
     await this.withPgClient(targetUrl, async (client) => {
       await client.query(`DROP SCHEMA IF EXISTS ${this.quoteIdent(inventory.baseId)} CASCADE`);

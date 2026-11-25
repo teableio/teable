@@ -513,6 +513,7 @@ export class ImportOpenApiV2Service {
     return {
       id: dto.id,
       name: dto.name,
+      actorStorageVersion: dto.actorStorageVersion,
       dbTableName: dto.dbTableName ?? '',
       ...(dto.description !== undefined ? { description: dto.description } : {}),
       ...(dto.icon !== undefined ? { icon: dto.icon } : {}),

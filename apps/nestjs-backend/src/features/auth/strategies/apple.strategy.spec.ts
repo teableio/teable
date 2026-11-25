@@ -14,6 +14,7 @@ import {
   AppleStrategy,
   appleCallbackUrl,
   appleDisplayName,
+  appleTokenEmail,
   decodeAppleIdToken,
   parseAppleUserField,
 } from './apple.strategy';
@@ -21,6 +22,7 @@ import {
 const CLIENT_ID = 'ai.teable.web';
 const SUB = '001234.5f6a7b8c9d0e.1234';
 const EMAIL = 'jane@privaterelay.appleid.com';
+const OTHER_EMAIL = 'someone-else@example.com';
 
 const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 const idTokenWith = (claims: Record<string, unknown> = {}) =>
@@ -126,15 +128,49 @@ describe('AppleStrategy', () => {
     expect(result).toMatchObject({ id: 'usrApple', email: EMAIL });
   });
 
-  it('takes the email from the first-login user field when the id_token has none', async () => {
-    await validate(idTokenWith({ email: undefined }), {
-      user: JSON.stringify({ name: { firstName: 'Jane' }, email: EMAIL }),
+  it('does not take an email from the user field when the id_token has none', async () => {
+    userService.getUserByAccount.mockResolvedValue(undefined as never);
+
+    await expect(
+      validate(idTokenWith({ email: undefined }), {
+        user: JSON.stringify({ name: { firstName: 'Jane' }, email: OTHER_EMAIL }),
+      })
+    ).rejects.toMatchObject({ reason: 'missing_email_unlinked', status: 401 });
+
+    expect(userService.getUserByAccount).toHaveBeenCalledWith('apple', SUB);
+    expect(userService.findOrCreateUser).not.toHaveBeenCalled();
+  });
+
+  it('identifies the account by the token email, whatever the user field says', async () => {
+    await validate(idTokenWith(), {
+      user: JSON.stringify({ name: { firstName: 'Jane' }, email: OTHER_EMAIL }),
     });
 
     expect(userService.findOrCreateUser).toHaveBeenCalledWith(
       expect.objectContaining({ email: EMAIL, name: 'Jane', providerId: SUB })
     );
-    expect(userService.getUserByAccount).not.toHaveBeenCalled();
+  });
+
+  it.each([false, 'false'])(
+    'does not use a token email marked unverified (%j)',
+    async (emailVerified) => {
+      userService.getUserByAccount.mockResolvedValue(undefined as never);
+
+      await expect(validate(idTokenWith({ email_verified: emailVerified }))).rejects.toMatchObject({
+        reason: 'missing_email_unlinked',
+      });
+
+      expect(userService.findOrCreateUser).not.toHaveBeenCalled();
+    }
+  );
+
+  it('still signs an existing binding in when the token email is marked unverified', async () => {
+    userService.getUserByAccount.mockResolvedValue(dbUser as never);
+
+    await expect(validate(idTokenWith({ email_verified: false }))).resolves.toMatchObject({
+      id: dbUser.id,
+    });
+    expect(userService.findOrCreateUser).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown subject when Apple sends no email', async () => {
@@ -152,11 +188,15 @@ describe('AppleStrategy', () => {
     expect(userService.findOrCreateUser).not.toHaveBeenCalled();
   });
 
-  it('uses the first-login email when the token email is empty', async () => {
-    await validate(idTokenWith({ email: '' }), { user: JSON.stringify({ email: EMAIL }) });
-    expect(userService.findOrCreateUser).toHaveBeenCalledWith(
-      expect.objectContaining({ email: EMAIL })
-    );
+  it('uses the subject binding, not the user field, when the token email is empty', async () => {
+    userService.getUserByAccount.mockResolvedValue(dbUser as never);
+
+    await expect(
+      validate(idTokenWith({ email: '' }), { user: JSON.stringify({ email: OTHER_EMAIL }) })
+    ).resolves.toMatchObject({ id: dbUser.id });
+
+    expect(userService.getUserByAccount).toHaveBeenCalledWith('apple', SUB);
+    expect(userService.findOrCreateUser).not.toHaveBeenCalled();
   });
 
   it('rejects an unknown subject with no email even if the user field is malformed', async () => {
@@ -300,6 +340,21 @@ describe('Apple id_token helpers', () => {
     });
     expect(parseAppleUserField('{oops')).toBeUndefined();
     expect(parseAppleUserField(undefined)).toBeUndefined();
+  });
+
+  it.each([
+    ['a verified email', { email: EMAIL, email_verified: 'true' }, EMAIL],
+    ['an email with no verification claim', { email: EMAIL }, EMAIL],
+    ['no email', {}, undefined],
+    ['a blank email', { email: '  ' }, undefined],
+    ['an email marked unverified', { email: EMAIL, email_verified: false }, undefined],
+    [
+      'an email marked unverified as a string',
+      { email: EMAIL, email_verified: 'false' },
+      undefined,
+    ],
+  ] as const)('reads the token email: %s', (_label, claims, expected) => {
+    expect(appleTokenEmail(claims)).toBe(expected);
   });
 
   it('derives the Return URL from the public origin', () => {

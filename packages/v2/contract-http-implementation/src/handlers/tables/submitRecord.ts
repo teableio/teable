@@ -41,7 +41,7 @@ export const executeSubmitRecordEndpoint = async (
     };
   }
 
-  const mapped = mapSubmitRecordResultToDto(result.value);
+  const mapped = mapSubmitRecordResultToDto(result.value, result.value.recordActors);
   if (mapped.isErr()) {
     const error = mapped.error;
     return {

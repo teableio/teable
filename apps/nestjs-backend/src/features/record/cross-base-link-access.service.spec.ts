@@ -282,4 +282,118 @@ describe('CrossBaseLinkAccessService', () => {
       expect(validPermissions).not.toHaveBeenCalled();
     });
   });
+
+  describe('assertForeignTablesReadableFromBase', () => {
+    it('checks record|read on each foreign table outside the base the table is created in', async () => {
+      const { service, validPermissions, tableMetaFindMany } = buildService({
+        tableMeta: [
+          { id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID },
+          { id: OTHER_FOREIGN_TABLE_ID, baseId: HOST_BASE_ID },
+        ],
+      });
+
+      await service.assertForeignTablesReadableFromBase(HOST_BASE_ID, [
+        FOREIGN_TABLE_ID,
+        OTHER_FOREIGN_TABLE_ID,
+      ]);
+
+      expect(tableMetaFindMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: { in: [FOREIGN_TABLE_ID, OTHER_FOREIGN_TABLE_ID] }, deletedTime: null },
+        })
+      );
+      expect(validPermissions).toHaveBeenCalledTimes(1);
+      expect(validPermissions).toHaveBeenCalledWith(
+        FOREIGN_TABLE_ID,
+        ['record|read'],
+        ACCESS_TOKEN_ID
+      );
+    });
+
+    it('propagates the refusal', async () => {
+      const rejection = new ForbiddenException('not allowed to operate record|read');
+      const { service } = buildService({
+        tableMeta: [{ id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID }],
+        validPermissions: vi.fn().mockRejectedValue(rejection),
+      });
+
+      await expect(
+        service.assertForeignTablesReadableFromBase(HOST_BASE_ID, [FOREIGN_TABLE_ID])
+      ).rejects.toBe(rejection);
+    });
+
+    it('leaves a missing foreign table to the caller not-found handling', async () => {
+      const { service, validPermissions } = buildService({ tableMeta: [] });
+
+      await service.assertForeignTablesReadableFromBase(HOST_BASE_ID, [FOREIGN_TABLE_ID]);
+
+      expect(validPermissions).not.toHaveBeenCalled();
+    });
+
+    it('does not check a user-less internal job (import, duplication)', async () => {
+      const { service, tableMetaFindMany, validPermissions } = buildService({
+        userId: undefined,
+        tableMeta: [{ id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID }],
+      });
+
+      await service.assertForeignTablesReadableFromBase(HOST_BASE_ID, [FOREIGN_TABLE_ID]);
+
+      expect(tableMetaFindMany).not.toHaveBeenCalled();
+      expect(validPermissions).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['an app robot (scoped to one base)', { userId: APP_ROBOT_ID }],
+      [
+        'a base-scoped internal token carrying a real user',
+        { clsValues: { tempAuthBaseId: HOST_BASE_ID } },
+      ],
+    ])('still checks %s against the foreign base', async (_label, extra) => {
+      const { service, validPermissions } = buildService({
+        ...extra,
+        tableMeta: [{ id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID }],
+      });
+
+      await service.assertForeignTablesReadableFromBase(HOST_BASE_ID, [FOREIGN_TABLE_ID]);
+
+      expect(validPermissions).toHaveBeenCalledWith(
+        FOREIGN_TABLE_ID,
+        ['record|read'],
+        ACCESS_TOKEN_ID
+      );
+    });
+  });
+
+  describe('assertNewForeignTableReference', () => {
+    const tableMeta = [
+      { id: HOST_TABLE_ID, baseId: HOST_BASE_ID },
+      { id: FOREIGN_TABLE_ID, baseId: FOREIGN_BASE_ID },
+    ];
+
+    it.each([
+      ['a robot', { userId: APP_ROBOT_ID }],
+      ['a base-scoped token with a real user', { clsValues: { tempAuthBaseId: HOST_BASE_ID } }],
+    ])('checks the foreign base for %s', async (_label, extra) => {
+      const { service, validPermissions } = buildService({ ...extra, tableMeta });
+
+      await service.assertNewForeignTableReference(HOST_TABLE_ID, FOREIGN_TABLE_ID);
+
+      expect(validPermissions).toHaveBeenCalledWith(
+        FOREIGN_TABLE_ID,
+        ['record|read'],
+        ACCESS_TOKEN_ID
+      );
+    });
+
+    it.each([
+      ['a user-less internal job', { userId: undefined }],
+      ['a share view', { clsValues: { shareViewId: 'shrShareView' } }],
+    ])('does not check %s', async (_label, extra) => {
+      const { service, validPermissions } = buildService({ ...extra, tableMeta });
+
+      await service.assertNewForeignTableReference(HOST_TABLE_ID, FOREIGN_TABLE_ID);
+
+      expect(validPermissions).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -206,6 +206,10 @@ describe('ShareAuthService.getLinkViewInfo', () => {
       validTemplatePermissions: vi.fn(),
       validPermissions: vi.fn().mockResolvedValue(undefined),
       getShareViewIdByHeader: vi.fn(),
+      getBaseShareIdByHeader: vi.fn((header: string) => header),
+      baseSharePasswordPresented: vi.fn().mockResolvedValue(true),
+      isTableSharedByBaseShare: vi.fn().mockResolvedValue(true),
+      validBaseSharePermissions: vi.fn().mockResolvedValue(['table|read']),
     };
     const cls = { get: vi.fn().mockReturnValue(undefined) };
     const sharedViewAccessV2Service = {
@@ -265,7 +269,7 @@ describe('ShareAuthService.getLinkViewInfo', () => {
     });
 
     await expect(
-      fixture.service.getLinkViewInfo('fldLookupOfLink', undefined, undefined, undefined, true)
+      fixture.service.getLinkViewInfo('fldLookupOfLink', {}, true)
     ).resolves.toMatchObject({
       shareId: 'fldLookupOfLink',
       tableId: 'tblTarget',
@@ -277,6 +281,66 @@ describe('ShareAuthService.getLinkViewInfo', () => {
     expect(fixture.prismaService.field.findFirstOrThrow).not.toHaveBeenCalled();
     expect(fixture.prismaService.field.findFirst).not.toHaveBeenCalled();
   });
+
+  describe('through a project share', () => {
+    const v2Target = { hostTableId: 'tblHost', tableId: 'tblTarget', linkOptions: {} };
+    const caller = { baseShareHeader: 'shrBase' };
+
+    it("answers a visitor whose share covers both the field's table and the one it links to", async () => {
+      const fixture = createLinkFixture({}, undefined, v2Target);
+
+      await expect(fixture.service.getLinkViewInfo('fldLink', caller, true)).resolves.toMatchObject(
+        { tableId: 'tblTarget' }
+      );
+
+      const { permissionService } = fixture;
+      expect(permissionService.isTableSharedByBaseShare).toHaveBeenCalledWith('shrBase', 'tblHost');
+      expect(permissionService.validBaseSharePermissions).toHaveBeenCalledWith(
+        'shrBase',
+        'tblTarget',
+        ['table|read', 'record|read', 'field|read']
+      );
+      // the share vouches for the visitor, who need not be a collaborator
+      expect(permissionService.validPermissions).not.toHaveBeenCalled();
+    });
+
+    it('refuses a field of a table the share does not cover', async () => {
+      const fixture = createLinkFixture({}, undefined, v2Target);
+      fixture.permissionService.isTableSharedByBaseShare.mockResolvedValue(false);
+
+      await expect(fixture.service.getLinkViewInfo('fldLink', caller, true)).rejects.toThrow(
+        'Table tblHost is not accessible via share shrBase'
+      );
+    });
+
+    it('refuses a link into a table beyond the share, such as one of another base', async () => {
+      const fixture = createLinkFixture({}, undefined, v2Target);
+      fixture.permissionService.validBaseSharePermissions.mockRejectedValue(
+        new Error('Resource tblTarget is not accessible via share shrBase')
+      );
+
+      await expect(fixture.service.getLinkViewInfo('fldLink', caller, true)).rejects.toThrow(
+        'Resource tblTarget is not accessible via share shrBase'
+      );
+    });
+
+    it('asks for the password of a protected share', async () => {
+      const fixture = createLinkFixture({}, undefined, v2Target);
+      fixture.permissionService.baseSharePasswordPresented.mockResolvedValue(false);
+      const cookieHeader = 'theme=dark';
+
+      await expect(
+        fixture.service.getLinkViewInfo('fldLink', { ...caller, cookieHeader }, true)
+      ).rejects.toMatchObject({ code: HttpErrorCode.UNAUTHORIZED_SHARE });
+      // judged on the cookies the visitor sent, before anything is said about the table
+      expect(fixture.permissionService.baseSharePasswordPresented).toHaveBeenCalledWith(
+        'shrBase',
+        cookieHeader
+      );
+      expect(fixture.permissionService.isTableSharedByBaseShare).not.toHaveBeenCalled();
+    });
+  });
+
   describe('through a parent share named in the share-view header', () => {
     const v2Target = { hostTableId: 'tblHost', tableId: 'tblTarget', linkOptions: {} };
     const refusal = new Error('not allowed to operate table|read');
@@ -296,7 +360,7 @@ describe('ShareAuthService.getLinkViewInfo', () => {
       fixture.sharedViewAccessV2Service.findByShareId.mockResolvedValue(parentShare(view));
       return {
         fixture,
-        result: fixture.service.getLinkViewInfo('fldLink', undefined, 'header', undefined, true),
+        result: fixture.service.getLinkViewInfo('fldLink', { shareViewHeader: 'header' }, true),
       };
     };
 
@@ -357,9 +421,9 @@ describe('ShareAuthService.getLinkViewInfo', () => {
         }),
       };
 
-      await expect(fixture.service.getLinkViewInfo('fldLink', undefined, 'header')).rejects.toBe(
-        refusal
-      );
+      await expect(
+        fixture.service.getLinkViewInfo('fldLink', { shareViewHeader: 'header' })
+      ).rejects.toBe(refusal);
     });
   });
 });

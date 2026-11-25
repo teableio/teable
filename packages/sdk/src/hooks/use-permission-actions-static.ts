@@ -182,6 +182,12 @@ const actionsI18nMap: Record<
   'app|update': {
     description: 'permission.actionDescription.appUpdate',
   },
+  'app|readUsers': {
+    description: 'permission.actionDescription.appReadUsers',
+  },
+  'app|readUserPii': {
+    description: 'permission.actionDescription.appReadUserPii',
+  },
   'user|email_read': {
     description: 'permission.actionDescription.userEmailRead',
   },

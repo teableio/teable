@@ -1968,6 +1968,8 @@
     "agentStartFailed": "Die KI-Engine konnte nicht gestartet werden. Bitte erneut versuchen oder eine neue Sitzung starten.",
     "agentSessionLost": "Etwas ist schiefgelaufen. Bitte senden Sie Ihre Nachricht erneut.",
     "sandboxDestroyed": "Die Umgebung von Cuppy wurde beendet, die Antwort wurde abgebrochen",
+    "streamInterrupted": "Die Ausführungsumgebung wurde unerwartet neu gestartet",
+    "streamInterruptedDescription": "Die Antwort wurde durch den Neustart der Umgebung unterbrochen. Bitte versuchen Sie es erneut.",
     "sandboxOutOfMemory": "Cuppy hat mittendrin aufgehört",
     "sandboxOutOfMemoryDescription": "Dieser Schritt hat mehr Ressourcen gebraucht, als Cuppy zur Verfügung stehen. Es liegt nicht an Ihnen. Wählen Sie „Weiter“, dann prüft Cuppy zuerst den Stand und macht dann weiter.",
     "sandboxOutOfMemoryAction": "Weiter",

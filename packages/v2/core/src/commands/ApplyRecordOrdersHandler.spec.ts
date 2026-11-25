@@ -28,8 +28,11 @@ import type {
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
+  DeleteManyStreamResult,
   ITableRecordRepository,
   RecordMutationResult,
+  PhysicalTableDuplicateResult,
+  UpdateManyResult,
   UpdateManyStreamResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
@@ -88,13 +91,6 @@ class FakeTableRepository implements ITableRepository {
     return ok(tables);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -115,6 +111,10 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(): Promise<Result<void, DomainError>> {
+    return err(domainError.unexpected({ message: 'Unexpected table restore in order tests' }));
+  }
+
   async delete(): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -131,6 +131,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
+  async duplicatePhysicalRows(): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(domainError.unexpected({ message: 'Unexpected row duplication in order tests' }));
+  }
+
   async insertManyStream(): Promise<Result<{ totalInserted: number }, DomainError>> {
     return ok({ totalInserted: 0 });
   }
@@ -139,8 +143,8 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async updateMany(): Promise<Result<BatchRecordMutationResult, DomainError>> {
-    return ok({});
+  async updateMany(): Promise<Result<UpdateManyResult, DomainError>> {
+    return ok({ totalUpdated: 0, updatedRecordIds: [], updatedRecords: [] });
   }
 
   async updateManyStream(
@@ -161,6 +165,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
   async deleteMany() {
     return ok({});
+  }
+
+  async deleteManyStream(): Promise<Result<DeleteManyStreamResult, DomainError>> {
+    return err(domainError.unexpected({ message: 'Unexpected streamed deletion in order tests' }));
   }
 }
 
@@ -350,7 +358,18 @@ describe('ApplyRecordOrdersHandler', () => {
         tableRecordRepository,
         new FakeTableRecordQueryRepository(
           ok({
-            records: [{ id: recordId, fields: {}, version: 1, orders: { [viewId.toString()]: 1 } }],
+            records: [
+              {
+                id: recordId,
+                fields: {},
+                version: 1,
+                orders: { [viewId.toString()]: 1 },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+            ],
             total: 1,
           })
         ),
@@ -408,6 +427,10 @@ describe('ApplyRecordOrdersHandler', () => {
               id,
               fields: {},
               version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
               orders: { [viewId.toString()]: index + 1 },
             })),
             total: recordIds.length,

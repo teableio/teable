@@ -3,12 +3,30 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ComputedActivityBatchChanged } from '../../domain/computed/events/ComputedActivityBatchChanged';
+import type { FieldComputeMetaDto } from '../../domain/computed/FieldComputeMeta';
 import { ActorId } from '../../domain/shared/ActorId';
 import { domainError } from '../../domain/shared/DomainError';
 import { ComputedActivityRealtimeProjection } from './ComputedActivityRealtimeProjection';
 
 const createEvent = (generation: number, extraTableId?: string) => {
   const baseId = BaseId.create('bseTestBase123456')._unsafeUnwrap();
+  const extraFields: ReadonlyArray<FieldComputeMetaDto> = extraTableId
+    ? [
+        {
+          fieldId: 'fldFormula2',
+          tableId: extraTableId,
+          baseId: baseId.toString(),
+          status: 'queued',
+          activeTaskCount: 0,
+          processingTaskCount: 0,
+          generation,
+          estimatedComplexity: 4,
+          estimatedDirtyRecords: 1,
+          hasAllTargetRecords: false,
+          updatedAt: new Date().toISOString(),
+        },
+      ]
+    : [];
   return ComputedActivityBatchChanged.create({
     baseId,
     fields: [
@@ -25,23 +43,7 @@ const createEvent = (generation: number, extraTableId?: string) => {
         hasAllTargetRecords: false,
         updatedAt: new Date().toISOString(),
       },
-      ...(extraTableId
-        ? [
-            {
-              fieldId: 'fldFormula2',
-              tableId: extraTableId,
-              baseId: baseId.toString(),
-              status: 'queued',
-              activeTaskCount: 0,
-              processingTaskCount: 0,
-              generation,
-              estimatedComplexity: 4,
-              estimatedDirtyRecords: 1,
-              hasAllTargetRecords: false,
-              updatedAt: new Date().toISOString(),
-            },
-          ]
-        : []),
+      ...extraFields,
     ],
     tables: [
       {

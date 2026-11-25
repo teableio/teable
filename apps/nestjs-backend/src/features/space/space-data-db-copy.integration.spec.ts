@@ -1,6 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
-import { readFileSync } from 'fs';
 import { spawnSync } from 'child_process';
+import { readFileSync } from 'fs';
 import { mkdtemp, mkdir, rm } from 'fs/promises';
 import { createServer } from 'net';
 import { tmpdir } from 'os';
@@ -13,9 +13,10 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { DataDbClientManager } from '../../global/data-db-client-manager.service';
 import { DataDbRuntimeCacheService } from '../../global/data-db-runtime-cache.service';
 import { BaseService } from '../base/base.service';
-import { dataDbKnexClientFactory } from './data-db-preflight.service';
+import { ActorStorageRoutingService } from './actor-storage-routing.service';
 import { DataDbBaselineService } from './data-db-baseline.service';
 import { DataDbMigrationService } from './data-db-migration.service';
+import { dataDbKnexClientFactory } from './data-db-preflight.service';
 import { encryptDataDbUrl } from './data-db-url-secret';
 import {
   invalidateSearchIndexesForDataDbRouting,
@@ -64,6 +65,16 @@ const undoTupleUpgrade = {
   sql: readFileSync(
     new URL(
       '../../../../../packages/db-data-prisma/prisma/migrations/20261101000000_add_undo_capture_old_tuple/migration.sql',
+      import.meta.url
+    ),
+    'utf8'
+  ),
+};
+const actorAttributionUpgrade = {
+  id: '20261105075405_add_actor_attribution',
+  sql: readFileSync(
+    new URL(
+      '../../../../../packages/db-data-prisma/prisma/migrations/20261105075405_add_actor_attribution/migration.sql',
       import.meta.url
     ),
     'utf8'
@@ -677,6 +688,7 @@ const seedSourceData = async (client: Client) => {
       ('record.validation.v1', 'deo-copy', now()),
       ('record.validation.v1', 'deo-other', now())`
   );
+  await client.query(actorAttributionUpgrade.sql);
 };
 
 const waitUntil = async (predicate: () => boolean, timeoutMs = 1000, pollMs = 10) => {
@@ -1118,9 +1130,14 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       state: 'ready';
       dataDbConnection: typeof targetConnection;
     } | null = null;
+    vi.stubEnv('PRISMA_META_DATABASE_URL', databaseUrl!);
+    const fenceClient = new Client({ connectionString: databaseUrl });
+    await fenceClient.connect();
     const txClient = {
-      $queryRawUnsafe: vi.fn().mockResolvedValue([]),
-      $executeRawUnsafe: vi.fn(),
+      $queryRawUnsafe: async (statement: string, ...values: unknown[]) =>
+        (await fenceClient.query(statement, values)).rows,
+      $executeRawUnsafe: async (statement: string, ...values: unknown[]) =>
+        (await fenceClient.query(statement, values)).rowCount,
       dataDbConnection: {
         update: vi.fn().mockImplementation(async (args) => {
           if (args.where?.id === targetConnectionId) {
@@ -1142,12 +1159,16 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         }),
       },
       spaceDataDbMigrationJob: {
-        update: vi.fn().mockResolvedValue(undefined),
+        update: vi.fn(async (args: { where?: { id?: string }; data?: Record<string, unknown> }) => {
+          applyMigrationJobUpdate(args);
+          return undefined;
+        }),
       },
     };
     const migrationJob = {
       id: jobId,
       spaceId,
+      state: 'copying',
       targetConnectionId,
       targetInternalSchema: targetSchema,
       switchOnCompletion: true,
@@ -1155,11 +1176,37 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       startedAt: new Date('2026-05-06T00:00:00.000Z'),
       completedAt: null,
       inventory: buildCopyInventory(),
-      copyStats: null,
-      validationStats: null,
+      copyStats: null as unknown,
+      validationStats: null as unknown,
+      lastError: null as string | null,
       targetConnection: {
         encryptedUrl: encryptDataDbUrl(targetUrl),
       },
+    };
+    function applyMigrationJobUpdate(args: {
+      where?: { id?: string };
+      data?: Record<string, unknown>;
+    }) {
+      if (args.where?.id !== migrationJob.id || !args.data) return;
+      Object.assign(migrationJob, args.data);
+    }
+    const migrationJobClient = {
+      findUnique: vi.fn(async (args: { where?: { id?: string } }) =>
+        args.where?.id === migrationJob.id ? migrationJob : null
+      ),
+      findFirst: vi.fn(
+        async (args: { where?: { id?: string }; select?: Record<string, boolean> }) => {
+          if (args.where?.id !== migrationJob.id) return null;
+          if (!args.select) return migrationJob;
+          return Object.fromEntries(
+            Object.entries(migrationJob).filter(([key]) => args.select?.[key])
+          );
+        }
+      ),
+      update: vi.fn(async (args: { where?: { id?: string }; data?: Record<string, unknown> }) => {
+        applyMigrationJobUpdate(args);
+        return undefined;
+      }),
     };
     const prismaService = {
       $tx: vi.fn(async (fn: (client: typeof txClient) => Promise<unknown>) => fn(txClient)),
@@ -1181,13 +1228,30 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             args.where?.spaceId === spaceId ? currentBinding : null
           ),
       },
-      spaceDataDbMigrationJob: {
-        findUnique: vi.fn().mockResolvedValue(migrationJob),
-        findFirst: vi.fn().mockResolvedValue({ id: jobId, spaceId, state: 'copying' }),
-        update: vi.fn().mockResolvedValue(undefined),
-      },
+      spaceDataDbMigrationJob: migrationJobClient,
     };
-    const baselineService = undoTupleBaselineService;
+    const actorStorageRouting = new ActorStorageRoutingService(
+      {
+        tableMeta: {
+          findMany: async () =>
+            buildCopyInventory().tableIds.map((id) => ({
+              id,
+              baseId,
+              dbTableName: `${baseId}.${mainRelationName}`,
+              actorStorageVersion: 0,
+            })),
+        },
+      } as never,
+      { get: () => undefined } as never,
+      new DataDbRuntimeCacheService()
+    );
+    vi.stubEnv('PRISMA_META_DATABASE_URL', sourceUrl);
+    const baselineService = new DataDbBaselineService(
+      new DataDbMigrationService(
+        [undoTupleUpgrade, actorAttributionUpgrade],
+        dataDbKnexClientFactory
+      )
+    );
     const dataDbClientManager = {
       getDataDatabaseForSpace: vi.fn().mockImplementation((_, options) => {
         if (options?.previewBinding) {
@@ -1228,7 +1292,13 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       baselineService as never,
       dataDbClientManager as never,
       service as never,
-      dataDbKnexClientFactory
+      dataDbKnexClientFactory,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      actorStorageRouting
     );
 
     try {
@@ -1690,6 +1760,8 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
       expect(dataDbClientManager.invalidateConnection).toHaveBeenCalledWith(targetConnectionId);
     } finally {
       await Promise.all([routingManager.onModuleDestroy(), sourceFallbackKnex.destroy()]);
+      await actorStorageRouting.onModuleDestroy();
+      await fenceClient.end();
       vi.unstubAllEnvs();
     }
   }, 60_000);
@@ -1738,23 +1810,53 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
         }),
       },
       spaceDataDbMigrationJob: {
-        update: vi.fn().mockResolvedValue(undefined),
+        update: vi.fn(async (args: { where?: { id?: string }; data?: Record<string, unknown> }) => {
+          applyMigrationJobUpdate(args);
+          return undefined;
+        }),
       },
     };
     const migrationJob = {
       id: mismatchJobId,
       spaceId,
+      state: 'copying',
       targetConnectionId: mismatchTargetConnectionId,
       targetInternalSchema: targetMismatchSchema,
       createdBy: 'usr',
       startedAt: new Date('2026-05-06T00:00:00.000Z'),
       completedAt: null,
       inventory: buildCopyInventory(),
-      copyStats: null,
-      validationStats: null,
+      copyStats: null as unknown,
+      validationStats: null as unknown,
+      lastError: null as string | null,
       targetConnection: {
         encryptedUrl: encryptDataDbUrl(targetUrl),
       },
+    };
+    function applyMigrationJobUpdate(args: {
+      where?: { id?: string };
+      data?: Record<string, unknown>;
+    }) {
+      if (args.where?.id !== migrationJob.id || !args.data) return;
+      Object.assign(migrationJob, args.data);
+    }
+    const migrationJobClient = {
+      findUnique: vi.fn(async (args: { where?: { id?: string } }) =>
+        args.where?.id === migrationJob.id ? migrationJob : null
+      ),
+      findFirst: vi.fn(
+        async (args: { where?: { id?: string }; select?: Record<string, boolean> }) => {
+          if (args.where?.id !== migrationJob.id) return null;
+          if (!args.select) return migrationJob;
+          return Object.fromEntries(
+            Object.entries(migrationJob).filter(([key]) => args.select?.[key])
+          );
+        }
+      ),
+      update: vi.fn(async (args: { where?: { id?: string }; data?: Record<string, unknown> }) => {
+        applyMigrationJobUpdate(args);
+        return undefined;
+      }),
     };
     const prismaService = {
       $tx: vi.fn(async (fn: (client: typeof txClient) => Promise<unknown>) => fn(txClient)),
@@ -1773,11 +1875,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
             args.where?.spaceId === spaceId ? currentBinding : null
           ),
       },
-      spaceDataDbMigrationJob: {
-        findUnique: vi.fn().mockResolvedValue(migrationJob),
-        findFirst: vi.fn().mockResolvedValue({ id: mismatchJobId, spaceId, state: 'copying' }),
-        update: vi.fn().mockResolvedValue(undefined),
-      },
+      spaceDataDbMigrationJob: migrationJobClient,
     };
     const dataDbClientManager = {
       getDataDatabaseForSpace: vi.fn().mockImplementation((_, options) => {
@@ -1815,7 +1913,12 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
     const migrationService = new SpaceDataDbMigrationService(
       prismaService as never,
       {} as never,
-      undoTupleBaselineService,
+      new DataDbBaselineService(
+        new DataDbMigrationService(
+          [undoTupleUpgrade, actorAttributionUpgrade],
+          dataDbKnexClientFactory
+        )
+      ),
       dataDbClientManager as never,
       service as never,
       dataDbKnexClientFactory
@@ -1951,7 +2054,7 @@ describeWithPostgres('SpaceDataDbCopyService integration', () => {
     const migrationService = new SpaceDataDbMigrationService(
       prismaService as never,
       {} as never,
-      { getLatestSchemaVersion: vi.fn().mockReturnValue(null) } as never,
+      { validateSchemaVersion: vi.fn().mockResolvedValue({ latest: null, exists: true }) } as never,
       dataDbClientManager as never,
       new SpaceDataDbCopyService(new SpaceDataDbProcessRunnerService()) as never,
       dataDbKnexClientFactory

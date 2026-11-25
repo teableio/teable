@@ -184,7 +184,21 @@ function applyRecordPatchesToMap(
     }
     recordMap.set(
       updated.recordId,
-      canonicalizeRecord({ ...existing, fields: nextRecordFields }, nextFields)
+      canonicalizeRecord(
+        {
+          ...existing,
+          fields: nextRecordFields,
+          ...(updated.orderChanges?.length && {
+            orders: {
+              ...existing.orders,
+              ...Object.fromEntries(
+                updated.orderChanges.map(({ viewId, after }) => [viewId, after])
+              ),
+            },
+          }),
+        },
+        nextFields
+      )
     );
   }
   for (const added of patch.recordsAdded) {
@@ -838,6 +852,7 @@ export class InMemoryLocalEngineAdapter implements IVcsLocalEnginePort {
         canonicalizeRecord(
           {
             id: rec.id,
+            autoNumber: rec.autoNumber ?? prev?.autoNumber,
             fields: prev
               ? { ...prev.fields, ...cloneVcsValue(rec.fields) }
               : cloneVcsValue(rec.fields),

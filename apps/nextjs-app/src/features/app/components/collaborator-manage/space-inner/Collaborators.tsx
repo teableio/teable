@@ -112,7 +112,9 @@ export const Collaborators: React.FC<SpaceInnerCollaboratorProps> = (props) => {
       item.type === PrincipalType.User ? (
         <UserAvatar user={{ name: item.userName, avatar: item.avatar }} className="border" />
       ) : (
-        <Building2 className="size-7 shrink-0" />
+        <span className="flex size-7 shrink-0 items-center justify-center rounded-full border bg-muted">
+          <Building2 className="size-4" />
+        </span>
       );
 
     if (item.spaceRole && item.baseCount === 0) {

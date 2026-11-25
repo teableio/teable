@@ -577,6 +577,8 @@ const recordHistoryColumns = [
   'after',
   'created_time',
   'created_by',
+  'actor_type',
+  'actor_id',
 ];
 
 const buildMigrationSharedTableDefinitions = (input: {
@@ -769,6 +771,7 @@ const buildMigrationSharedTableDefinitions = (input: {
         'schema_version',
         'aggregate_id',
         'payload',
+        'attribution',
         'payload_bytes',
         'catalog_generation',
         'required_consumers',

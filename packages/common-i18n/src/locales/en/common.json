@@ -1968,6 +1968,8 @@
     "agentStartFailed": "The AI engine failed to start. Please try again or start a new session.",
     "agentSessionLost": "Something went wrong. Please send your message again.",
     "sandboxDestroyed": "Cuppy's environment was shut down and the reply stopped",
+    "streamInterrupted": "The environment restarted unexpectedly",
+    "streamInterruptedDescription": "The reply was interrupted when the environment restarted. Please try again.",
     "sandboxOutOfMemory": "Cuppy stopped partway through",
     "sandboxOutOfMemoryDescription": "This step used more resources than Cuppy has available. It's nothing you did. Select Continue and Cuppy will check where it left off, then carry on.",
     "sandboxOutOfMemoryAction": "Continue",

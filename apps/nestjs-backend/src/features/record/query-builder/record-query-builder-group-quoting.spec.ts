@@ -111,13 +111,14 @@ const foreignFields = [
   },
 ] as unknown as IFieldVo[];
 
-function buildService() {
+function buildService(actorStorageVersion: 0 | 1 = 0) {
   const knex = knexFactory({ client: 'pg' });
   const mainDomain = new TableDomain({
     id: MAIN_TABLE_ID,
     name: 'Main',
     dbTableName: MAIN_DB_TABLE,
     lastModifiedTime: new Date().toISOString(),
+    actorStorageVersion,
     fields: mainFields.map((f) => createFieldInstanceByVo(f)),
   });
   const foreignDomain = new TableDomain({
@@ -188,4 +189,48 @@ describe('createRecordAggregateBuilder group column quoting', () => {
     expect(sql).toContain(`group by "t_${MAIN_TABLE_ID}"."Services_Synced", "Services"`);
     expect(bareIdentifiers(sql)).toBeNull();
   });
+});
+
+describe('legacy physical actor projections', () => {
+  it.each([false, true])(
+    'does not reference missing physical columns at capability zero (query model %s)',
+    async (useQueryModel) => {
+      const { service, knex } = buildService(0);
+      const { qb } = await service.createRecordQueryBuilder(MAIN_DB_TABLE, {
+        tableId: MAIN_TABLE_ID,
+        viewId: undefined,
+        useQueryModel,
+        projection: [PRIMARY_ID],
+      });
+      const sql = qb.toQuery();
+      for (const column of [
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ]) {
+        expect(sql).toContain(`NULL as "${column}"`);
+        expect(sql).not.toContain(`"t_${MAIN_TABLE_ID}"."${column}"`);
+      }
+      await knex.destroy();
+    }
+  );
+
+  it.each([false, true])(
+    'reads stored actors at capability one (query model %s)',
+    async (useQueryModel) => {
+      const { service, knex } = buildService(1);
+      const { qb } = await service.createRecordQueryBuilder(MAIN_DB_TABLE, {
+        tableId: MAIN_TABLE_ID,
+        viewId: undefined,
+        useQueryModel,
+        projection: [PRIMARY_ID],
+      });
+      const sql = qb.toQuery();
+      expect(sql).toContain(`"t_${MAIN_TABLE_ID}"."__created_by_actor_id"`);
+      expect(sql).toContain(`"t_${MAIN_TABLE_ID}"."__last_modified_by_actor_id"`);
+      expect(sql).not.toContain('NULL as "__created_by_actor_id"');
+      await knex.destroy();
+    }
+  );
 });

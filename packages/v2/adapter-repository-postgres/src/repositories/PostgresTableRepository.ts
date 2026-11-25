@@ -183,7 +183,9 @@ export class PostgresTableRepository implements core.ITableRepository {
     const now = new Date();
     const actorId = context.actorId.toString();
     const baseId = table.baseId().toString();
-    const tableToPersist = table;
+    const tableToPersistResult = this.tableForInsert(table);
+    if (tableToPersistResult.isErr()) return err(tableToPersistResult.error);
+    const tableToPersist = tableToPersistResult.value;
 
     let tableDbMeta: ITableDbMeta | undefined;
     const transaction = getPostgresTransaction<V1TeableDatabase>(context, 'meta');
@@ -285,6 +287,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         sql.ref('db_table_name'),
         sql.ref('db_view_name'),
         sql.ref('version'),
+        sql.ref('actor_storage_version'),
         sql.ref('order'),
         sql.ref('created_time'),
         sql.ref('last_modified_time'),
@@ -301,6 +304,7 @@ export class PostgresTableRepository implements core.ITableRepository {
         tableDbMetaValue.dbTableName,
         null,
         1,
+        0,
         order,
         now,
         now,
@@ -480,6 +484,7 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     const applyDbMetaResult = this.applyDbMeta(tableToPersist, tableDbMetaValue);
     if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
+    if (tableToPersist !== table) tableToPersist.recordDomainEvents(table.pullDomainEvents());
 
     return ok(tableToPersist);
   }
@@ -487,8 +492,18 @@ export class PostgresTableRepository implements core.ITableRepository {
   @core.TraceSpan()
   async insertMany(
     context: core.IExecutionContext,
-    tables: ReadonlyArray<core.Table>
+    inputTables: ReadonlyArray<core.Table>
   ): Promise<Result<ReadonlyArray<core.Table>, DomainError>> {
+    let tables = inputTables;
+    if (tables.some((table) => table.actorStorageVersion() !== 0)) {
+      const normalizedTables: core.Table[] = [];
+      for (const table of tables) {
+        const normalized = this.tableForInsert(table);
+        if (normalized.isErr()) return err(normalized.error);
+        normalizedTables.push(normalized.value);
+      }
+      tables = normalizedTables;
+    }
     if (tables.length === 0) return ok([]);
     if (!this.formulaAdmission)
       return err(domainError.infrastructure({ message: 'Formula admission is not configured' }));
@@ -575,6 +590,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           db_table_name: tableDbMeta.dbTableName,
           db_view_name: null,
           version: 1,
+          actor_storage_version: 0,
           order,
           created_time: now,
           last_modified_time: now,
@@ -651,6 +667,13 @@ export class PostgresTableRepository implements core.ITableRepository {
         return err(domainError.validation({ message: 'Missing table db metadata' }));
       const applyDbMetaResult = this.applyDbMeta(table, tableDbMeta);
       if (applyDbMetaResult.isErr()) return err(applyDbMetaResult.error);
+    }
+    if (tables !== inputTables) {
+      for (let index = 0; index < tables.length; index++) {
+        const table = tables[index]!;
+        const source = inputTables[index]!;
+        if (table !== source) table.recordDomainEvents(source.pullDomainEvents());
+      }
     }
 
     return ok([...tables]);
@@ -842,6 +865,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.base_id',
           'table_meta.db_table_name',
           'table_meta.search_index',
+          'table_meta.actor_storage_version',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -1164,6 +1188,7 @@ export class PostgresTableRepository implements core.ITableRepository {
           'table_meta.base_id',
           'table_meta.db_table_name',
           'table_meta.search_index',
+          'table_meta.actor_storage_version',
           'fields.fields',
           'views.views',
           outboundReferenceExistsExpr.as('has_outbound_reference'),
@@ -1798,12 +1823,18 @@ export class PostgresTableRepository implements core.ITableRepository {
 
     try {
       const db = resolvePostgresDbOrTx(this.db, context, 'meta');
+      const actorStoragePublication =
+        operation?.publishActorStorageVersion === 1
+          ? sql`, "actor_storage_version" = CASE
+              WHEN "actor_storage_version" = 0 THEN 1 ELSE "actor_storage_version" END`
+          : sql``;
       await sql`
         UPDATE "table_meta"
         SET
           "provision_state" = ${state},
           "last_modified_time" = ${now},
           "last_modified_by" = ${actorId}
+          ${actorStoragePublication}
         WHERE "id" IN (${sql.join(tableIds.map((tableId) => sql`${tableId}`))})
       `.execute(db);
 
@@ -1914,6 +1945,24 @@ export class PostgresTableRepository implements core.ITableRepository {
     }
   }
 
+  private tableForInsert(table: core.Table): Result<core.Table, DomainError> {
+    if (table.actorStorageVersion() === 0) return ok(table);
+    // Keep resolved field instances: DTO rehydration omits in-memory formula dependencies.
+    const dbTableName = table.dbTableName();
+    return core.Table.rehydrate({
+      id: table.id(),
+      baseId: table.baseId(),
+      name: table.name(),
+      properties: table.properties(),
+      fields: table.getFields(),
+      views: table.views(),
+      primaryFieldId: table.primaryFieldId(),
+      searchIndex: table.searchIndex(),
+      actorStorageVersion: 0,
+      ...(dbTableName.isOk() ? { dbTableName: dbTableName.value } : {}),
+    });
+  }
+
   private mapTableRow(row: {
     id: string;
     name: string;
@@ -1922,6 +1971,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     base_id: string;
     db_table_name: string | null;
     search_index?: unknown;
+    actor_storage_version?: number | null;
     fields: unknown;
     views: unknown;
     has_outbound_reference?: boolean | null;
@@ -1991,6 +2041,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(row.icon !== null ? { icon: row.icon } : {}),
       dbTableName: row.db_table_name ?? undefined,
       searchIndex: decodeTableSearchIndex(row.search_index),
+      actorStorageVersion: row.actor_storage_version ?? 0,
       primaryFieldId,
       fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
       views: [...viewsResult.value],

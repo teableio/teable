@@ -165,6 +165,40 @@ const buildRecordIds = () => ({
 });
 
 describe('UndoRedoStackService', () => {
+  it.each([false, true])(
+    'keeps only the stored creator and uses the current replay initiator (%s)',
+    async (known) => {
+      const store = new MemoryUndoRedoStore();
+      const bus = new FakeCommandBus();
+      const service = new UndoRedoStackService(store, bus);
+      const context = buildContext();
+      const { tableId, recordId } = buildRecordIds();
+      await service.appendRecordCreate(toUndoRedoStackAppendContext(context), {
+        tableId,
+        createdRecords: [
+          {
+            recordId: recordId.toString(),
+            fields: {},
+            ...(known
+              ? { createdByActorType: 'user' as const, createdByActorId: 'usrOriginal' }
+              : {}),
+            lastModifiedByActorType: 'user',
+            lastModifiedByActorId: 'oldModifier',
+          },
+        ],
+      });
+      await service.applyUndo(toUndoRedoStackReplayContext(context), tableId);
+      const replay = { ...context, initiator: { type: 'appUser' as const, id: 'apuCurrent' } };
+      await service.applyRedo(toUndoRedoStackReplayContext(replay), tableId);
+      const restore = bus.lastCommand as RestoreRecordsCommand;
+      expect(restore.trustedCreatedActorsByRecordId?.get(recordId.toString())).toEqual(
+        known ? { type: 'user', id: 'usrOriginal' } : null
+      );
+      expect(restore.records[0]).not.toHaveProperty('lastModifiedByActorId');
+      expect(bus.lastContext?.initiator).toEqual(replay.initiator);
+    }
+  );
+
   it('normalizes undefined update values to null in stored undo commands', async () => {
     const command = createUndoRedoCommand('UpdateRecord', {
       tableId: `tbl${'z'.repeat(16)}`,
@@ -247,7 +281,10 @@ describe('UndoRedoStackService', () => {
     const store = new MemoryUndoRedoStore();
     const bus = new FakeCommandBus();
     const service = new UndoRedoStackService(store, bus);
-    const context = buildContext();
+    const context = {
+      ...buildContext(),
+      initiator: { type: 'appUser' as const, id: 'apuCurrent' },
+    };
     const { tableId, recordId } = buildRecordIds();
 
     await service.appendRecordUpdate(toUndoRedoStackAppendContext(context), {
@@ -266,6 +303,7 @@ describe('UndoRedoStackService', () => {
     );
     expect(undoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('undo');
+    expect(bus.lastContext?.initiator).toEqual(context.initiator);
     expect(bus.lastContext?.undoRedo?.operationId).toEqual(expect.any(String));
     const undoCommand = bus.lastCommand as UpdateRecordCommand;
     expect(undoCommand.tableId.toString()).toBe(tableId.toString());
@@ -279,6 +317,7 @@ describe('UndoRedoStackService', () => {
     );
     expect(redoResult._unsafeUnwrap()).toEqual({ entryCount: 1 });
     expect(bus.lastContext?.undoRedo?.mode).toBe('redo');
+    expect(bus.lastContext?.initiator).toEqual(context.initiator);
     expect(bus.lastContext?.undoRedo?.operationId).toEqual(expect.any(String));
     const redoCommand = bus.lastCommand as UpdateRecordCommand;
     expect(redoCommand.fieldValues.get('fld1')).toBe('new');

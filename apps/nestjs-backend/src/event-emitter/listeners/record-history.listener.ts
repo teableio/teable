@@ -4,12 +4,14 @@ import { OnEvent } from '@nestjs/event-emitter';
 import type { ISelectFieldOptions } from '@teable/core';
 import { FieldType, generateRecordHistoryId } from '@teable/core';
 import type { Field } from '@teable/db-main-prisma';
+import type { RecordInitiator } from '@teable/v2-core';
 import { isEqual, isObject, isString } from 'lodash';
 import { BaseConfig, IBaseConfig } from '../../configs/base.config';
 import { DataLoaderService } from '../../features/data-loader/data-loader.service';
 import { rawField2FieldObj } from '../../features/field/model/factory';
 import { DatabaseRouter } from '../../global/database-router.service';
-import { EventEmitterService } from '../event-emitter.service';
+import { EventEmitterService, RECORD_HISTORY_PERSIST } from '../event-emitter.service';
+import type { IRecordHistoryPersistRequest } from '../event-emitter.service';
 import { Events, RecordUpdateEvent } from '../events';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
@@ -24,12 +26,30 @@ export class RecordHistoryListener {
     private readonly dataLoaderService: DataLoaderService
   ) {}
 
+  @OnEvent(RECORD_HISTORY_PERSIST, { suppressErrors: false })
+  async persistRecordUpdates({ event, execute }: IRecordHistoryPersistRequest): Promise<void> {
+    await this.writeRecordHistory(event, execute);
+  }
+
   @OnEvent(Events.TABLE_RECORD_UPDATE, { async: true })
   async recordUpdateListener(event: RecordUpdateEvent) {
-    if (this.baseConfig.recordHistoryDisabled) {
-      return;
+    if (this.baseConfig.recordHistoryDisabled) return;
+    if (!event.context.recordHistoryPersisted) {
+      await this.writeRecordHistory(event);
     }
+    const records = Array.isArray(event.payload.record)
+      ? event.payload.record
+      : [event.payload.record];
+    this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
+      recordIds: records.map((record) => record.id),
+    });
+  }
 
+  private async writeRecordHistory(
+    event: RecordUpdateEvent,
+    execute?: (sql: string) => Promise<unknown>
+  ): Promise<void> {
+    if (this.baseConfig.recordHistoryDisabled) return;
     const { payload, context } = event;
     const { user } = context;
     const { tableId, oldField: _oldField } = payload;
@@ -55,8 +75,10 @@ export class RecordHistoryListener {
 
     const fieldMap = new Map(fields.map((field) => [field.id, rawField2FieldObj(field)]));
 
-    const batchSize = 5000;
+    const batchSize = 200;
     const totalCount = records.length;
+    // The column is timestamp without time zone: bind UTC text, not a driver-local Date.
+    const occurredAt = event.occurredAt.toISOString();
 
     for (let i = 0; i < totalCount; i += batchSize) {
       const batch = records.slice(i, i + batchSize);
@@ -68,6 +90,9 @@ export class RecordHistoryListener {
         before: string;
         after: string;
         created_by: string;
+        actor_type: RecordInitiator['type'] | null;
+        actor_id: string | null;
+        created_time: string;
       }[] = [];
 
       batch.forEach((record) => {
@@ -120,6 +145,9 @@ export class RecordHistoryListener {
               data: newValue,
             }),
             created_by: userId as string,
+            actor_type: context.recordInitiator?.type ?? null,
+            actor_id: context.recordInitiator?.id ?? null,
+            created_time: occurredAt,
           });
         });
       });
@@ -128,19 +156,20 @@ export class RecordHistoryListener {
         const dataKnex = await this.databaseRouter.dataKnexForTable(tableId);
         const dataDbUrl = await this.databaseRouter.getDataDatabaseUrlForTable(tableId);
         const dataDbInternalSchema = new URL(dataDbUrl).searchParams.get('schema') || 'public';
-        const query = dataKnex
-          .withSchema(dataDbInternalSchema)
-          .insert(recordHistoryList)
-          .into('record_history')
-          .toQuery();
-
-        await this.databaseRouter.executeDataPrismaForTable(tableId, query);
+        for (let offset = 0; offset < recordHistoryList.length; offset += batchSize) {
+          const query = dataKnex
+            .withSchema(dataDbInternalSchema)
+            .insert(recordHistoryList.slice(offset, offset + batchSize))
+            .into('record_history')
+            .toQuery();
+          if (execute) {
+            await execute(query);
+          } else {
+            await this.databaseRouter.executeDataPrismaForTable(tableId, query);
+          }
+        }
       }
     }
-
-    this.eventEmitterService.emit(Events.RECORD_HISTORY_CREATE, {
-      recordIds: records.map((record) => record.id),
-    });
   }
 
   private minimizeFieldOptions(

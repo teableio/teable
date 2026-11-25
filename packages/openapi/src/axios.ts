@@ -92,6 +92,10 @@ export const createAxios = () => {
         );
       }
 
+      // V2 endpoints return their domain error inside the contract envelope.
+      if (data?.ok === false && typeof data.error?.message === 'string') {
+        throw new HttpError(data.error, status || 500);
+      }
       throw new HttpError(data || error?.message || 'no response from server', status || 500);
     }
   );

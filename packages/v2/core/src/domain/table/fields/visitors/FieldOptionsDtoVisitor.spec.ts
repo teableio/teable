@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Field } from '../Field';
 import {
   createAttachmentField,
   createAutoNumberField,
@@ -25,6 +26,7 @@ import {
 } from '../FieldFactory';
 import { FieldId } from '../FieldId';
 import { FieldName } from '../FieldName';
+import { AutoNumberField } from '../types/AutoNumberField';
 import { ButtonLabel } from '../types/ButtonLabel';
 import { ButtonMaxCount } from '../types/ButtonMaxCount';
 import { ButtonResetCount } from '../types/ButtonResetCount';
@@ -34,15 +36,18 @@ import { CellValueType } from '../types/CellValueType';
 import { CheckboxDefaultValue } from '../types/CheckboxDefaultValue';
 import { ConditionalLookupOptions } from '../types/ConditionalLookupOptions';
 import { ConditionalRollupConfig } from '../types/ConditionalRollupConfig';
+import { CreatedTimeField } from '../types/CreatedTimeField';
 import { DateDefaultValue } from '../types/DateDefaultValue';
 import { DateTimeFormatting } from '../types/DateTimeFormatting';
 import { FieldColor } from '../types/FieldColor';
 import { FormulaExpression } from '../types/FormulaExpression';
+import { LastModifiedTimeField } from '../types/LastModifiedTimeField';
+import { LinkField } from '../types/LinkField';
 import { LinkFieldConfig } from '../types/LinkFieldConfig';
 import { LinkRelationship } from '../types/LinkRelationship';
+import { LongTextShowAs } from '../types/LongTextShowAs';
 import { LookupField } from '../types/LookupField';
 import { LookupOptions } from '../types/LookupOptions';
-import { LongTextShowAs } from '../types/LongTextShowAs';
 import { NumberDefaultValue } from '../types/NumberDefaultValue';
 import { NumberFormatting, NumberFormattingType } from '../types/NumberFormatting';
 import { NumberShowAs, SingleNumberDisplayType } from '../types/NumberShowAs';
@@ -65,11 +70,9 @@ import { FieldOptionsDtoVisitor } from './FieldOptionsDtoVisitor';
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const createFieldName = (name: string) => FieldName.create(name)._unsafeUnwrap();
 
-const visitResult = (field: { accept: (visitor: FieldOptionsDtoVisitor) => unknown }) =>
-  field.accept(new FieldOptionsDtoVisitor()) as ReturnType<typeof LookupField.prototype.accept>;
+const visitResult = (field: Field) => field.accept(new FieldOptionsDtoVisitor());
 
-const visit = (field: { accept: (visitor: FieldOptionsDtoVisitor) => unknown }) =>
-  visitResult(field)._unsafeUnwrap();
+const visit = (field: Field) => visitResult(field)._unsafeUnwrap();
 
 describe('FieldOptionsDtoVisitor', () => {
   it('serializes text and number-like fields with and without optional values', () => {
@@ -424,6 +427,12 @@ describe('FieldOptionsDtoVisitor', () => {
     expect(visit(minimalDateField)).toEqual({
       formatting: DateTimeFormatting.default().toDto(),
     });
+    if (
+      !(lastModifiedTimeField instanceof LastModifiedTimeField) ||
+      !(minimalLastModifiedTimeField instanceof LastModifiedTimeField)
+    ) {
+      throw new Error('Expected last-modified-time fields');
+    }
     expect(visit(lastModifiedTimeField)).toEqual({
       expression: lastModifiedTimeField.expression().toString(),
       formatting: DateTimeFormatting.default().toDto(),
@@ -524,6 +533,15 @@ describe('FieldOptionsDtoVisitor', () => {
       conditionalLookupOptions,
     })._unsafeUnwrap();
 
+    if (!(createdTimeField instanceof CreatedTimeField)) {
+      throw new Error('Expected a created-time field');
+    }
+    if (!(autoNumberField instanceof AutoNumberField)) {
+      throw new Error('Expected an auto-number field');
+    }
+    if (!(linkField instanceof LinkField)) {
+      throw new Error('Expected a link field');
+    }
     expect(visit(attachmentField)).toEqual({});
     expect(visit(createdByField)).toEqual({});
     expect(visit(createdTimeField)).toEqual({

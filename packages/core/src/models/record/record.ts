@@ -12,6 +12,12 @@ export enum CellFormat {
   Json = 'json',
   Text = 'text',
 }
+/** Trusted business initiator of a record mutation; never a client-supplied identity. */
+export const recordActorTypeSchema = z.enum(['user', 'appUser', 'automation', 'system']).meta({
+  description: 'The trusted initiator kind recorded for a row actor column.',
+});
+
+export type RecordActorType = z.infer<typeof recordActorTypeSchema>;
 
 export class RecordCore {
   constructor(protected fieldMap: { [fieldId: string]: FieldCore }) {}
@@ -29,6 +35,19 @@ export class RecordCore {
   fields!: Record<string, unknown>;
 
   permissions?: Record<'read' | 'update', Record<string, boolean>>;
+
+  /**
+   * Trusted business initiator of the row. Independent of `createdBy`, which keeps its
+   * platform user / executor meaning. `null` means unknown or actor storage disabled for the
+   * table, never a guessed user.
+   */
+  createdByActorType!: RecordActorType | null;
+
+  createdByActorId!: string | null;
+
+  lastModifiedByActorType!: RecordActorType | null;
+
+  lastModifiedByActorId!: string | null;
 
   undeletable?: boolean;
 
@@ -63,6 +82,22 @@ export const recordSchema = z.object({
   }),
   lastModifiedBy: z.string().optional().meta({
     description: 'Last modified by, user name',
+  }),
+  createdByActorType: recordActorTypeSchema.nullable().optional().meta({
+    description:
+      'Trusted initiator type of the row creator. Absent or null means unknown or actor attribution disabled for the table; it never replaces createdBy.',
+  }),
+  createdByActorId: z.string().nullable().optional().meta({
+    description:
+      'Stable principal id of the row creator (user id, app user principal id, automation stable id or system service id).',
+  }),
+  lastModifiedByActorType: recordActorTypeSchema.nullable().optional().meta({
+    description:
+      'Trusted initiator type of the last actual field mutation. Absent or null means unknown or actor attribution disabled for the table; it never replaces lastModifiedBy.',
+  }),
+  lastModifiedByActorId: z.string().nullable().optional().meta({
+    description:
+      'Stable principal id of the last actual field mutation (user id, app user principal id, automation stable id or system service id).',
   }),
   permissions: z.record(z.string(), z.record(z.string(), z.boolean())).optional().meta({
     description: 'Permissions for the record',

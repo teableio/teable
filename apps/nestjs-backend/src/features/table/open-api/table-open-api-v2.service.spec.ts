@@ -44,6 +44,46 @@ const duplicatedTableId = 'tblDuplicated';
 const duplicatedTableName = 'Orders Copy';
 const duplicatedViewId = 'viwDuplicated';
 
+describe('TableOpenApiV2Service.getTables', () => {
+  it.each([0, 1] as const)(
+    'returns stored actor mode %s in navigation metadata',
+    async (actorStorageVersion) => {
+      const table = {
+        id: 'tblActorMetadata',
+        name: 'Actors',
+        dbTableName: 'actors',
+        actorStorageVersion,
+        order: 0,
+      };
+      const prisma = {
+        tableMeta: {
+          findMany: vi.fn(async ({ select }: { select: Record<string, boolean> }) => [
+            Object.fromEntries(Object.entries(table).filter(([key]) => select[key])),
+          ]),
+        },
+        view: { findMany: vi.fn().mockResolvedValue([]) },
+      };
+      const service = new TableOpenApiV2Service(
+        {} as never,
+        {} as never,
+        prisma as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        { getBaseShareVisibleResourceIds: vi.fn().mockResolvedValue(undefined) } as never
+      );
+
+      expect(await service.getTables('bseaaaaaaaaaaaaaaaa')).toMatchObject([
+        { id: table.id, actorStorageVersion },
+      ]);
+    }
+  );
+});
+
 describe('TableOpenApiV2Service.createTable', () => {
   beforeEach(() => {
     vi.clearAllMocks();

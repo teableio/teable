@@ -22,3 +22,5 @@ export * from './repair-table-index';
 export * from './duplicate';
 export * from './duplicate-check';
 export * from './get-delete-references';
+export * from './get-actor-columns';
+export * from './enable-actor-columns';

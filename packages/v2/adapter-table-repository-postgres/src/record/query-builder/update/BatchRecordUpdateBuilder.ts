@@ -1,4 +1,4 @@
-import { FieldId, FieldType, ok } from '@teable/v2-core';
+import { FieldId, ok } from '@teable/v2-core';
 import type { DomainError, ICellValueSpec, RecordId, Table } from '@teable/v2-core';
 import type { Kysely } from 'kysely';
 import { err, safeTry } from 'neverthrow';
@@ -6,7 +6,6 @@ import type { Result } from 'neverthrow';
 
 import type { AttachmentTableReplaceInput } from '../../attachments/attachmentTableMutations';
 import type { UpdateImpactHint } from '../../computed';
-import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
 import { createEmptyCollectedLinkChanges, type CollectedLinkChanges } from '../../visitors';
 import { CellValueMutateVisitor } from '../../visitors/CellValueMutateVisitor';
 import type { LinkExclusivityConstraint } from '../../visitors/LinkExclusivityConstraintCollector';
@@ -199,19 +198,6 @@ export class BatchRecordUpdateBuilder {
       const allLinkChanges = createEmptyCollectedLinkChanges();
       const recordUpdateValues = new Map<string, Map<string, unknown>>();
 
-      const lastModifiedByDbFieldNames = new Set<string>();
-      for (const field of table.getFields()) {
-        if (!field.type().equals(FieldType.lastModifiedBy())) continue;
-        const isGenerated = yield* isPersistedAsGeneratedColumn(field);
-        if (isGenerated) continue;
-
-        const dbFieldName = yield* field.dbFieldName();
-        const dbFieldNameValue = yield* dbFieldName.value();
-        lastModifiedByDbFieldNames.add(dbFieldNameValue);
-      }
-      const lastModifiedByJsonValue =
-        lastModifiedByDbFieldNames.size > 0 ? buildLastModifiedByJsonValue(context) : undefined;
-
       const existingLinkIds = context.assumeEmptyLinkState
         ? undefined
         : yield* await loadBatchExistingHostLinkIds({ db: builder.db, table, tableName, updates });
@@ -223,6 +209,7 @@ export class BatchRecordUpdateBuilder {
         const mutateVisitor = CellValueMutateVisitor.create(builder.db, table, tableName, {
           recordId: recordIdStr,
           actorId: context.actorId,
+          initiator: context.initiator,
           now: context.now,
           actorName: context.actorName,
           actorEmail: context.actorEmail,
@@ -249,11 +236,7 @@ export class BatchRecordUpdateBuilder {
           if (columnName === '__version') {
             continue;
           }
-          const resolvedValue =
-            lastModifiedByJsonValue && lastModifiedByDbFieldNames.has(columnName)
-              ? lastModifiedByJsonValue
-              : value;
-          recordSetClauses.set(columnName, resolvedValue);
+          recordSetClauses.set(columnName, value);
         }
         recordUpdateValues.set(recordIdStr, recordSetClauses);
 
@@ -414,14 +397,4 @@ export class BatchRecordUpdateBuilder {
     const sortedKeys = Array.from(lockKeysSet).sort((a, b) => Number(a > b) - Number(a < b));
     return sortedKeys.map((key) => lockMap.get(key)!);
   }
-}
-
-function buildLastModifiedByJsonValue(context: RecordUpdateBuilderContext): string {
-  const title = context.actorName ?? context.actorId;
-  const email = context.actorEmail ?? null;
-  return JSON.stringify({
-    id: context.actorId,
-    title,
-    email,
-  });
 }

@@ -1,17 +1,18 @@
-import { err, ok } from 'neverthrow';
+import { err, ok, type Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import type { BaseId } from '../domain/base/BaseId';
 import { BaseId as ConcreteBaseId } from '../domain/base/BaseId';
-import { domainError } from '../domain/shared/DomainError';
-import { FieldId } from '../domain/table/fields/FieldId';
-import { FieldName } from '../domain/table/fields/FieldName';
+import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { Field } from '../domain/table/fields/Field';
 import { createNumberField, createSingleLineTextField } from '../domain/table/fields/FieldFactory';
+import { FieldId } from '../domain/table/fields/FieldId';
+import { FieldName } from '../domain/table/fields/FieldName';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
+import type { TableBuilder } from '../domain/table/TableBuilder';
 import type { TableId } from '../domain/table/TableId';
-import { TypeConversionUpdateSpec } from './TypeConversionUpdateSpec';
 import type { ICreateTableFieldSpec } from './TableFieldSpecs';
+import { TypeConversionUpdateSpec } from './TypeConversionUpdateSpec';
 
 const createTextField = (seed: string) =>
   createSingleLineTextField({
@@ -27,15 +28,19 @@ const createNumberFieldInstance = (seed: string) =>
 
 class FakeCreateTableFieldSpec implements ICreateTableFieldSpec {
   constructor(
-    private readonly fieldResult: ReturnType<typeof ok<Field>> | ReturnType<typeof err>,
+    private readonly fieldResult: Result<Field, DomainError>,
     private readonly refs: ReadonlyArray<LinkForeignTableReference> = []
   ) {}
 
-  createField(_params?: { baseId?: BaseId; tableId?: TableId }) {
+  applyTo(_builder: TableBuilder): never {
+    throw new Error('applyTo is not supported by FakeCreateTableFieldSpec');
+  }
+
+  createField(_params?: { baseId?: BaseId; tableId?: TableId }): Result<Field, DomainError> {
     return this.fieldResult;
   }
 
-  foreignTableReferences() {
+  foreignTableReferences(): Result<ReadonlyArray<LinkForeignTableReference>, DomainError> {
     return ok(this.refs);
   }
 }

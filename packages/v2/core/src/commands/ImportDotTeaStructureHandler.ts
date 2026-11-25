@@ -31,7 +31,7 @@ import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { FieldOperationKind } from '../ports/FieldOperationPlugin';
 import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
-import { TableOperationKind } from '../ports/TableOperationPlugin';
+import { TableOperationCreateManySource, TableOperationKind } from '../ports/TableOperationPlugin';
 import * as TableRepositoryPort from '../ports/TableRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
@@ -345,6 +345,7 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
         executionContext: context,
         payload: {
           baseId: command.baseId,
+          source: TableOperationCreateManySource.importDotTea,
           tables: builtTables.map((table) => ({
             baseId: command.baseId,
             tableName: table.name(),
@@ -497,11 +498,13 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
         handler.tableRepository,
         context,
         persistedTables,
-        { type: 'table.import' }
+        { type: 'table.import', publishActorStorageVersion: 1 }
       );
 
       // Build and publish events
-      const hostEvents = builtTables.flatMap((table) => table.pullDomainEvents());
+      const hostEvents = [...builtTables, ...provisionResult.value.persistedTables].flatMap(
+        (table) => table.pullDomainEvents()
+      );
       const events = [...hostEvents, ...provisionResult.value.sideEffectEvents];
       yield* await handler.eventBus.publishMany(context, events);
       for (const execution of sideEffectPluginExecutions) {

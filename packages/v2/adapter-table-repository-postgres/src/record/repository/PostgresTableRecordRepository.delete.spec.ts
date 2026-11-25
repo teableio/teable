@@ -584,8 +584,14 @@ describe('PostgresTableRecordRepository.deleteMany', () => {
           },
           version: 7,
           createdBy: 'usr_creator',
+          // Row-level actor attribution is part of every record snapshot; a table without the
+          // capability reports them as null rather than omitting the properties.
+          createdByActorType: null,
+          createdByActorId: null,
           createdTime: '2024-12-01T00:00:00.000Z',
           lastModifiedBy: 'usr_editor',
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
           lastModifiedTime: '2024-12-02T00:00:00.000Z',
           autoNumber: 42,
           orders: { [table.views()[0].id().toString()]: 3 },

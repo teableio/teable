@@ -6,8 +6,14 @@ import { join, resolve } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { Injectable, Logger } from '@nestjs/common';
-import { HttpErrorCode, type IAttachmentItem } from '@teable/core';
-import { generateAttachmentId } from '@teable/core';
+import {
+  FieldType,
+  generateAttachmentId,
+  HttpErrorCode,
+  isAnonymous,
+  ViewType,
+  type IAttachmentItem,
+} from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import {
   axios,
@@ -29,7 +35,9 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { FileUtils, getSafeAxiosAgents } from '../../utils';
+import { isNotHiddenField } from '../../utils/is-not-hidden-field';
 import { second } from '../../utils/second';
+import type { IShareViewInfo } from '../share/share-auth.service';
 import { AttachmentsCropQueueProcessor } from './attachments-crop.processor';
 import { AttachmentsStorageService } from './attachments-storage.service';
 import { BACKEND_ONLY_DIRS, BACKEND_ONLY_UPLOAD_TYPES } from './backend-only';
@@ -45,6 +53,29 @@ import { InjectStorageAdapter } from './plugins/storage';
 import type { IPresignParams, IPresignRes } from './plugins/types';
 import { getSafeUploadContentType } from './plugins/utils';
 import { forceAttachmentDisposition, getExtensionPreview } from './utils';
+
+/**
+ * Whether a share lets its visitor put a file into a record. The set of fields a
+ * share may write is `ShareViewScopeService.getWritableFields`: with
+ * `includeHiddenField` every field, otherwise the ones `isNotHiddenField` keeps
+ * (which reads kanban/gallery `visible` and grid `hidden`, so the two rules cannot
+ * drift). A form offers its writable fields to a submitter; any other view type
+ * needs editing on and a signed-in visitor (`canEdit`). A read-only share, or one
+ * whose writable fields hold no attachment field, has nothing to upload to.
+ */
+export const shareCanUploadAttachments = (
+  shareInfo: Pick<IShareViewInfo, 'view'>,
+  attachmentFieldIds: readonly string[],
+  canEdit: boolean
+): boolean => {
+  const view = shareInfo.view;
+  if (!view) return false;
+  const includeHidden = Boolean(view.shareMeta?.includeHiddenField);
+  const writable = (id: string) => includeHidden || isNotHiddenField(id, view);
+  const hasWritableAttachment = attachmentFieldIds.some(writable);
+  if (!hasWritableAttachment) return false;
+  return view.type === ViewType.Form ? true : canEdit;
+};
 
 @Injectable()
 export class AttachmentsService {
@@ -181,6 +212,47 @@ export class AttachmentsService {
       return false;
     }
     return true;
+  }
+
+  /**
+   * The share header alone does not let a visitor upload. Only a share that can
+   * put a file into a record gets a token, and only for a table attachment: see
+   * {@link shareCanUploadAttachments}.
+   */
+  async assertShareCanUpload(shareInfo: IShareViewInfo, type: UploadType): Promise<void> {
+    if (type === UploadType.Table) {
+      const attachmentFields = await this.prismaService.txClient().field.findMany({
+        where: {
+          tableId: shareInfo.tableId,
+          type: FieldType.Attachment,
+          deletedTime: null,
+          OR: [{ isLookup: null }, { isLookup: false }],
+        },
+        select: { id: true },
+      });
+      const canEdit = Boolean(this.cls.get('permissions')?.includes('record|update'));
+      // A form that requires sign-in to submit must not hand an anonymous visitor
+      // an upload token, matching what the submit route itself allows.
+      const formNeedsLogin =
+        shareInfo.view?.type === ViewType.Form &&
+        Boolean(shareInfo.shareMeta?.submit?.requireLogin) &&
+        isAnonymous(this.cls.get('user.id'));
+      if (
+        !formNeedsLogin &&
+        shareCanUploadAttachments(
+          shareInfo,
+          attachmentFields.map(({ id }) => id),
+          canEdit
+        )
+      ) {
+        return;
+      }
+    }
+    throw new CustomHttpException(
+      'This share does not allow uploading attachments',
+      HttpErrorCode.RESTRICTED_RESOURCE,
+      { localization: { i18nKey: 'httpErrors.permission.notAllowedOperation' } }
+    );
   }
 
   async signature(signatureRo: SignatureRo & { internal?: boolean }): Promise<SignatureVo> {

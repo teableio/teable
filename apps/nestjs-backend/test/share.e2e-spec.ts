@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { type INestApplication } from '@nestjs/common';
 import type {
   IButtonFieldCellValue,
@@ -67,7 +68,11 @@ import {
   PASTE_URL,
   SHARE_VIEW_COLLABORATORS,
   SHARE_VIEW_ID_HEADER,
+  SIGNATURE_URL,
+  UploadType,
+  type SignatureVo,
   UPDATE_RECORD,
+  UPDATE_RECORDS,
   getShareViewSearchCount,
   getShareViewSearchIndex,
   getShareViewSearchCellCount,
@@ -81,6 +86,7 @@ import type {
   ICopyVo,
   IButtonClickVo,
   IGroupPoint,
+  IRecordsVo,
   ITableFullVo,
   ShareViewAuthVo,
   ShareViewGetVo,
@@ -122,6 +128,7 @@ import {
   deleteField,
   convertField,
   getRecord,
+  getView,
   updateRecordByApi,
   permanentDeleteBase,
 } from './utils/init-app';
@@ -2063,21 +2070,140 @@ describe('OpenAPI ShareController (e2e)', () => {
       await permanentDeleteTable(baseId, editTable.id);
     });
 
-    it('should allow logged-in share editors to update visible fields on visible records', async () => {
-      const result = await axios.patch<IRecord>(
-        urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
-        {
-          fieldKeyType: FieldKeyType.Id,
-          record: {
-            fields: {
-              [nameFieldId]: 'Visible',
+    it('allows a signed-in link-only editor to save a visible field change', async () => {
+      const table = await createTable(baseId, {
+        name: 'share-edit-visible-field',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'Note', type: FieldType.SingleLineText },
+        ],
+        records: [{ fields: { Name: 'Visible', Note: 'Original note' } }],
+      });
+      try {
+        const viewId = table.defaultViewId!;
+        const [nameField, noteField] = table.fields;
+        const [{ id: recordId }] = table.records;
+        await updateViewFilter(table.id, viewId, {
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: nameField.id, operator: is.value, value: 'Visible' }],
+          },
+        });
+        const { data: share } = await apiEnableShareView({ tableId: table.id, viewId });
+        await apiUpdateViewShareMeta(table.id, viewId, { allowEdit: true, includeRecords: true });
+        const editor = await createNewUserAxios({
+          email: `share-editor-${table.id.toLowerCase()}@example.com`,
+          password: `ShareEditor1-${randomUUID()}`,
+        });
+
+        const newNote = 'Edited through the share link';
+        const result = await editor.patch<IRecord>(
+          urlBuilder(UPDATE_RECORD, { tableId: table.id, recordId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            record: { fields: { [noteField.id]: newNote } },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: share.shareId } }
+        );
+
+        expect(result.status).toBe(200);
+        expect(result.data.fields[noteField.id]).toBe(newNote);
+        expect((await getRecord(table.id, recordId)).fields[noteField.id]).toBe(newNote);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
+    });
+
+    it('lists and edits the matching interval when a saved Date range has an inverted OR sibling', async () => {
+      const insideTime = '2026-07-01T10:00:00.000Z';
+      const outsideTime = '2026-07-01T14:00:00.000Z';
+      const updatedTime = '2026-07-01T10:30:00.000Z';
+      const table = await createTable(baseId, {
+        name: 'share-edit-date-range',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          {
+            name: 'Scheduled at',
+            type: FieldType.Date,
+            options: {
+              formatting: {
+                date: DateFormattingPreset.ISO,
+                time: TimeFormatting.Hour24,
+                timeZone: 'UTC',
+              },
             },
           },
-        },
-        { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
-      );
+        ],
+        records: [
+          { fields: { Name: 'Inside range', 'Scheduled at': insideTime } },
+          { fields: { Name: 'Outside range', 'Scheduled at': outsideTime } },
+        ],
+      });
+      try {
+        const viewId = table.defaultViewId!;
+        const [, { id: dateFieldId }] = table.fields;
+        const [{ id: insideId }, { id: outsideId }] = table.records;
+        const filter: IFilterRo['filter'] = {
+          conjunction: 'or',
+          filterSet: [
+            {
+              fieldId: dateFieldId,
+              operator: is.value,
+              value: {
+                mode: 'dateRange',
+                exactDate: '2026-07-01T09:30:00.000Z',
+                exactDateEnd: '2026-07-01T12:45:00.000Z',
+                timeZone: 'UTC',
+              },
+            },
+            {
+              fieldId: dateFieldId,
+              operator: is.value,
+              value: {
+                mode: 'dateRange',
+                exactDate: '2026-07-02T10:00:00.000Z',
+                exactDateEnd: '2026-07-01T10:00:00.000Z',
+                timeZone: 'UTC',
+              },
+            },
+          ],
+        };
+        await updateViewFilter(table.id, viewId, { filter });
+        expect((await getView(table.id, viewId)).filter).toEqual(filter);
+        const { data: share } = await apiEnableShareView({ tableId: table.id, viewId });
+        await apiUpdateViewShareMeta(table.id, viewId, { allowEdit: true, includeRecords: true });
+        const editor = await createNewUserAxios({
+          email: `share-editor-${table.id.toLowerCase()}@example.com`,
+          password: `ShareEditor1-${randomUUID()}`,
+        });
 
-      expect(result.data.fields[nameFieldId]).toEqual('Visible');
+        const { data } = await editor.get<IRecordsVo>(
+          urlBuilder(SHARE_VIEW_RECORDS, { shareId: share.shareId })
+        );
+        expect(data.records).toMatchObject([
+          { id: insideId, fields: { [dateFieldId]: insideTime } },
+        ]);
+
+        const result = await editor.patch<IRecord>(
+          urlBuilder(UPDATE_RECORD, { tableId: table.id, recordId: insideId }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            record: { fields: { [dateFieldId]: updatedTime } },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: share.shareId } }
+        );
+
+        expect(result.status).toBe(200);
+        expect(result.data.fields[dateFieldId]).toBe(updatedTime);
+        const [insideRecord, outsideRecord] = await Promise.all([
+          getRecord(table.id, insideId),
+          getRecord(table.id, outsideId),
+        ]);
+        expect(insideRecord.fields[dateFieldId]).toBe(updatedTime);
+        expect(outsideRecord.fields[dateFieldId]).toBe(outsideTime);
+      } finally {
+        await permanentDeleteTable(baseId, table.id);
+      }
     });
 
     it('should deny share editors from updating hidden fields', async () => {
@@ -2116,6 +2242,49 @@ describe('OpenAPI ShareController (e2e)', () => {
       );
 
       expect(error?.status).toEqual(403);
+    });
+
+    it('leaves both rows unchanged when a batch includes a row outside the shared view', async () => {
+      const ids = [visibleRecordId, filteredOutRecordId];
+      const readNames = () =>
+        Promise.all(ids.map(async (id) => (await getRecord(editTable.id, id)).fields[nameFieldId]));
+      const before = await readNames();
+      const error = await getError(() =>
+        axios.patch(
+          urlBuilder(UPDATE_RECORDS, { tableId: editTable.id }),
+          {
+            fieldKeyType: FieldKeyType.Id,
+            records: ids.map((id) => ({ id, fields: { [nameFieldId]: 'Changed' } })),
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+      expect(error?.status).toBe(403);
+      expect(await readNames()).toEqual(before);
+    });
+
+    it('preserves row order when a share editor names an anchor outside the view', async () => {
+      const path = urlBuilder(GET_RECORDS_URL, { tableId: editTable.id });
+      const readOrder = async () => {
+        const { data } = await axios.get<{ records: IRecord[] }>(path, {
+          params: { viewId: editViewId, ignoreViewQuery: true },
+        });
+        return data.records.map(({ id }) => id);
+      };
+      const before = await readOrder();
+      expect(before).toEqual([visibleRecordId, filteredOutRecordId]);
+      const error = await getError(() =>
+        axios.patch(
+          urlBuilder(UPDATE_RECORD, { tableId: editTable.id, recordId: visibleRecordId }),
+          {
+            record: { fields: {} },
+            order: { viewId: editViewId, anchorId: filteredOutRecordId, position: 'after' },
+          },
+          { headers: { [SHARE_VIEW_ID_HEADER]: editShareId } }
+        )
+      );
+      expect(error?.status).toBe(403);
+      expect(await readOrder()).toEqual(before);
     });
 
     it('should deny share editors from creating hidden-field values', async () => {
@@ -4310,6 +4479,120 @@ describe('OpenAPI ShareController (e2e)', () => {
       const currentLinkField = await getField(table1.id, linkField.data.id);
 
       expect((currentLinkField.options as ILinkFieldOptions).filter).toBeNull();
+    });
+  });
+
+  describe('attachment signature through a view share', () => {
+    let uploadTableId: string;
+    let readOnlyShareId: string;
+    let formShareId: string;
+    let editHiddenShareId: string;
+    let loginFormShareId: string;
+
+    const sign = (shareId: string, type = UploadType.Table) =>
+      anonymousUser.post(
+        SIGNATURE_URL,
+        { type, contentLength: 4, contentType: 'text/plain' },
+        { headers: { 'Tea-Share-Id': shareId } }
+      );
+    // The owner session stands in for a signed-in visitor of an editable share.
+    const signSignedIn = (shareId: string, type = UploadType.Table) =>
+      axios.post<SignatureVo>(
+        SIGNATURE_URL,
+        { type, contentLength: 4, contentType: 'text/plain' },
+        { headers: { 'Tea-Share-Id': shareId } }
+      );
+
+    beforeAll(async () => {
+      const table = await createTable(baseId, {
+        name: 'share upload',
+        fields: [
+          { name: 'Name', type: FieldType.SingleLineText },
+          { name: 'File', type: FieldType.Attachment },
+        ],
+      });
+      uploadTableId = table.id;
+      const fileFieldId = table.fields.find(({ name }) => name === 'File')!.id;
+      readOnlyShareId = (
+        await apiEnableShareView({ tableId: uploadTableId, viewId: table.defaultViewId! })
+      ).data.shareId;
+      const form = await createView(uploadTableId, formViewRo);
+      await updateViewColumnMeta(uploadTableId, form.id, [
+        { fieldId: fileFieldId, columnMeta: { visible: true } },
+      ]);
+      formShareId = (await apiEnableShareView({ tableId: uploadTableId, viewId: form.id })).data
+        .shareId;
+      // Editable grid that hides the attachment field but turns include-hidden-fields on:
+      // the share can still write that field, so it must still be able to upload into it.
+      const editView = await createView(uploadTableId, gridViewRo);
+      await updateViewColumnMeta(uploadTableId, editView.id, [
+        { fieldId: fileFieldId, columnMeta: { hidden: true } },
+      ]);
+      editHiddenShareId = (
+        await apiEnableShareView({ tableId: uploadTableId, viewId: editView.id })
+      ).data.shareId;
+      await updateViewShareMeta(uploadTableId, editView.id, {
+        allowEdit: true,
+        includeHiddenField: true,
+      });
+      // A form that requires sign-in to submit, with a visible attachment field.
+      const loginForm = await createView(uploadTableId, formViewRo);
+      await updateViewColumnMeta(uploadTableId, loginForm.id, [
+        { fieldId: fileFieldId, columnMeta: { visible: true } },
+      ]);
+      loginFormShareId = (
+        await apiEnableShareView({ tableId: uploadTableId, viewId: loginForm.id })
+      ).data.shareId;
+      await updateViewShareMeta(uploadTableId, loginForm.id, { submit: { requireLogin: true } });
+    });
+
+    afterAll(async () => {
+      await permanentDeleteTable(baseId, uploadTableId);
+    });
+
+    it('refuses a read-only share', async () => {
+      const error = await getError(() => sign(readOnlyShareId));
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('signs a table attachment for a form that shows an attachment field', async () => {
+      const response = await sign(formShareId);
+
+      expect(response.status).toBe(201);
+      expect(response.data.token).toBeTruthy();
+    });
+
+    it('refuses another upload type through the same form', async () => {
+      const error = await getError(() => sign(formShareId, UploadType.Avatar));
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('signs for an editable include-hidden-fields share writing a hidden attachment field', async () => {
+      const response = await signSignedIn(editHiddenShareId);
+
+      expect(response.status).toBe(201);
+      expect(response.data.token).toBeTruthy();
+    });
+
+    it('refuses an anonymous visitor of that editable share', async () => {
+      const error = await getError(() => sign(editHiddenShareId));
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('refuses an anonymous visitor of a login-required form', async () => {
+      const error = await getError(() => sign(loginFormShareId));
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('signs for a signed-in visitor of a login-required form', async () => {
+      const response = await signSignedIn(loginFormShareId);
+
+      expect(response.status).toBe(201);
+      expect(response.data.token).toBeTruthy();
     });
   });
 });

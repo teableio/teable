@@ -135,6 +135,7 @@ const createTrackedLastModifiedByField = (params: {
 
 const createTable = (...fields: Array<ReturnType<typeof createField>>) => ({
   id: () => mkTableId('table'),
+  actorStorageVersion: () => 0,
   getField: (predicate: (field: ReturnType<typeof createField>) => boolean) => {
     const field = fields.find(predicate);
     return field ? ok(field) : err(domainError.notFound({ message: 'Field not found' }));
@@ -158,11 +159,12 @@ const createVisitor = (...fields: Array<ReturnType<typeof createField>>) =>
 
 const createVisitorWithContext = (
   fields: Array<ReturnType<typeof createField>>,
-  context: Partial<Parameters<typeof CellValueMutateVisitor.create>[3]>
+  context: Partial<Parameters<typeof CellValueMutateVisitor.create>[3]>,
+  actorStorageVersion: 0 | 1 = 0
 ) =>
   CellValueMutateVisitor.create(
     createTestDb() as never,
-    createTable(...fields) as never,
+    { ...createTable(...fields), actorStorageVersion: () => actorStorageVersion } as never,
     'public.records',
     {
       recordId: mkRecordId('source'),
@@ -720,6 +722,127 @@ describe('CellValueMutateVisitor', () => {
       email: 'nee@teable.io',
     });
   });
+
+  it('stores the initiating actor for tracked changes without borrowing executor profile data', () => {
+    const tracked = createField({
+      fieldId: 'trackedText',
+      type: 'singleLineText',
+      dbFieldName: 'text_col',
+    });
+    const unrelated = createField({
+      fieldId: 'otherText',
+      type: 'singleLineText',
+      dbFieldName: 'other_col',
+    });
+    const modifier = createTrackedLastModifiedByField({
+      fieldId: 'trackedBy',
+      dbFieldName: 'lmb_col',
+      trackedFieldIds: [tracked.id()],
+    });
+    for (const [field, shouldTrack] of [
+      [tracked, true],
+      [unrelated, false],
+    ] as const) {
+      const visitor = createVisitorWithContext(
+        [tracked, unrelated, modifier as never],
+        {
+          initiator: { type: 'appUser', id: 'apuInitiator' },
+          actorName: 'Executor',
+          actorEmail: 'executor@example.invalid',
+        },
+        1
+      );
+      expect(
+        visitor
+          .visitSetSingleLineTextValue({
+            fieldId: field.id(),
+            value: CellValue.fromValidated('changed'),
+          } as never)
+          .isOk()
+      ).toBe(true);
+      const result = visitor.finalize()._unsafeUnwrap();
+      expect(result.setClauses.__last_modified_by).toBe('usrActor000000001');
+      expect(result.setClauses.__last_modified_by_actor_id).toBe('apuInitiator');
+      if (shouldTrack) {
+        expect(JSON.parse(result.setClauses.lmb_col as string)).toEqual({
+          id: 'apuInitiator',
+          title: 'apuInitiator',
+          email: null,
+        });
+      } else {
+        expect(result.setClauses).not.toHaveProperty('lmb_col');
+      }
+    }
+  });
+
+  it.each([
+    {
+      type: 'user' as const,
+      id: 'usrActor000000001',
+      expectedId: 'usrActor000000001',
+      expectedTitle: 'Executor',
+      expectedEmail: 'executor@example.invalid',
+    },
+    {
+      type: 'user' as const,
+      id: 'usrInitiator',
+      expectedId: 'usrInitiator',
+      expectedTitle: 'usrInitiator',
+      expectedEmail: null,
+    },
+    {
+      type: 'automation' as const,
+      id: 'automationRun',
+      expectedId: 'usrActor000000001',
+      expectedTitle: 'Executor',
+      expectedEmail: 'executor@example.invalid',
+    },
+    {
+      type: 'system' as const,
+      id: 'systemOperation',
+      expectedId: 'usrActor000000001',
+      expectedTitle: 'Executor',
+      expectedEmail: 'executor@example.invalid',
+    },
+  ])(
+    'keeps $type initiator metadata separate from supported User-cell presentation',
+    ({ type, id, expectedId, expectedTitle, expectedEmail }) => {
+      const tracked = createField({
+        fieldId: 'trackedText',
+        type: 'singleLineText',
+        dbFieldName: 'text_col',
+      });
+      const modifier = createTrackedLastModifiedByField({
+        fieldId: 'trackedBy',
+        dbFieldName: 'lmb_col',
+        trackedFieldIds: [tracked.id()],
+      });
+      const visitor = createVisitorWithContext(
+        [tracked, modifier as never],
+        {
+          initiator: { type, id },
+          actorName: 'Executor',
+          actorEmail: 'executor@example.invalid',
+        },
+        1
+      );
+      visitor
+        .visitSetSingleLineTextValue({
+          fieldId: tracked.id(),
+          value: CellValue.fromValidated('changed'),
+        } as never)
+        ._unsafeUnwrap();
+      const result = visitor.finalize()._unsafeUnwrap();
+      expect(result.setClauses.__last_modified_by).toBe('usrActor000000001');
+      expect(result.setClauses.__last_modified_by_actor_type).toBe(type);
+      expect(result.setClauses.__last_modified_by_actor_id).toBe(id);
+      expect(JSON.parse(result.setClauses.lmb_col as string)).toEqual({
+        id: expectedId,
+        title: expectedTitle,
+        email: expectedEmail,
+      });
+    }
+  );
 
   it('finalizes tracked fields without compiling SQL or touching unrelated tracked fields', () => {
     const textField = createField({

@@ -726,7 +726,9 @@ export class PushBaseVcsService {
   }
 
   async execute(input?: IPushBaseVcsInput): Promise<Result<IVcsPushResult, DomainError>> {
-    const loadedRes = await loadIndexedWorkspaceDiff(this.stateRepository, this.localEngine);
+    const loadedRes = await loadIndexedWorkspaceDiff(this.stateRepository, this.localEngine, {
+      requireWritable: true,
+    });
     if (loadedRes.isErr()) return err(loadedRes.error);
 
     const { config, baseSchema, baseSnapshot, workingSnapshot, conflicts, isIndexed } =

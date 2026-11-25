@@ -3,7 +3,9 @@ import { DataPrismaService } from '@teable/db-data-prisma';
 import { getDatabaseUrl, MetaPrismaService } from '@teable/db-main-prisma';
 import { Knex } from 'knex';
 import { InjectModel } from 'nest-knexjs';
+import { ClsService } from 'nestjs-cls';
 import type { PoolClient } from 'pg';
+import type { IClsStore } from '../types/cls';
 import { DataDbClientManager } from './data-db-client-manager.service';
 import type { IDataDbRoutingOptions } from './data-db-client-manager.service';
 import { DATA_KNEX, META_KNEX } from './knex';
@@ -58,7 +60,8 @@ export class DatabaseRouter {
     private readonly dataPrismaService: DataPrismaService,
     @InjectModel(META_KNEX) private readonly metaKnexClient: Knex,
     @InjectModel(DATA_KNEX) private readonly dataKnexClient: Knex,
-    private readonly dataDbClientManager: DataDbClientManager
+    private readonly dataDbClientManager: DataDbClientManager,
+    private readonly cls: ClsService<IClsStore>
   ) {}
 
   metaPrisma() {
@@ -237,6 +240,18 @@ export class DatabaseRouter {
     return await prisma.$executeRawUnsafe(query, ...queryValues);
   }
 
+  private withActorLeaseCheck<T>(fn: (executor: IDataPrismaQueryExecutor) => Promise<T>) {
+    return async (executor: IDataPrismaQueryExecutor) => {
+      const result = await fn(executor);
+      const scope =
+        this.cls.get('actorStorageScope') ??
+        this.cls.get('dataTx.actorStorageScope') ??
+        this.cls.get('tx.actorStorageScope');
+      await scope?.assertHeld();
+      return result;
+    };
+  }
+
   async dataPrismaTransactionForTable<T>(
     tableId: string,
     fn: (prisma: IDataPrismaQueryExecutor) => Promise<T>,
@@ -251,16 +266,17 @@ export class DatabaseRouter {
       tableId,
       routingOptions
     )) as IDataPrismaScopedClient;
+    const execute = this.withActorLeaseCheck(fn);
 
     if (prisma.$tx) {
-      return await prisma.$tx(fn, options);
+      return await prisma.$tx(execute, options);
     }
 
     if (prisma.$transaction) {
-      return await prisma.$transaction(fn, options);
+      return await prisma.$transaction(execute, options);
     }
 
-    return await fn(this.getDataPrismaExecutor(prisma));
+    return await execute(this.getDataPrismaExecutor(prisma));
   }
 
   async dataPrismaTransactionForBase<T>(
@@ -277,16 +293,17 @@ export class DatabaseRouter {
       baseId,
       routingOptions
     )) as IDataPrismaScopedClient;
+    const execute = this.withActorLeaseCheck(fn);
 
     if (prisma.$tx) {
-      return await prisma.$tx(fn, options);
+      return await prisma.$tx(execute, options);
     }
 
     if (prisma.$transaction) {
-      return await prisma.$transaction(fn, options);
+      return await prisma.$transaction(execute, options);
     }
 
-    return await fn(this.getDataPrismaExecutor(prisma));
+    return await execute(this.getDataPrismaExecutor(prisma));
   }
 
   private isRoutingOptions(value: unknown): value is IDataDbRoutingOptions {

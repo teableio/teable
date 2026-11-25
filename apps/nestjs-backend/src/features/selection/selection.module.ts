@@ -6,6 +6,7 @@ import { FieldModule } from '../field/field.module';
 import { FieldOpenApiModule } from '../field/open-api/field-open-api.module';
 import { RecordOpenApiModule } from '../record/open-api/record-open-api.module';
 import { RecordModule } from '../record/record.module';
+import { RecordMutationPolicyModule } from '../record-mutation-policy/record-mutation-policy.module';
 import { SelectionController } from './selection.controller';
 import { SelectionService } from './selection.service';
 
@@ -18,6 +19,7 @@ import { SelectionService } from './selection.service';
     forwardRef(() => FieldOpenApiModule),
     FieldCalculateModule,
     CanaryModule,
+    RecordMutationPolicyModule,
   ],
   controllers: [SelectionController],
   providers: [SelectionService],

@@ -15,7 +15,7 @@ class FakeMigrationClient implements IDataDbPreflightClient {
   async raw<T = unknown>(sql: string, bindings?: unknown[]) {
     this.calls.push({ sql, bindings });
 
-    if (sql.includes('SELECT "id", "checksum" FROM "__teable_data_schema_migrations"')) {
+    if (sql.includes('SELECT "id", "checksum" FROM')) {
       return {
         rows: Array.from(this.applied).map(([id, checksum]) => ({ id, checksum })) as T[],
       };
@@ -131,6 +131,20 @@ describe('DataDbMigrationService', () => {
     );
   });
 
+  it('requires every bundled receipt and checksum before switching to a target schema', async () => {
+    const applied = new Map([[migrations[1].id, checksumSql(migrations[1].sql)]]);
+    const client = new FakeMigrationClient(applied);
+    const service = new DataDbMigrationService(migrations);
+    const validate = () => service.validateSchemaVersion(client, 'target_schema');
+    const latest = service.getLatestSchemaVersion();
+    await expect(validate()).resolves.toEqual({ latest, exists: false });
+    applied.set(migrations[0].id, 'stale-checksum');
+    await expect(validate()).resolves.toEqual({ latest, exists: false });
+    applied.set(migrations[0].id, checksumSql(migrations[0].sql));
+    await expect(validate()).resolves.toEqual({ latest, exists: true });
+    expect(client.calls[0].sql).toContain('"target_schema"."__teable_data_schema_migrations"');
+  });
+
   it('skips already applied migrations', async () => {
     const client = new FakeMigrationClient(
       new Map([[migrations[0].id, checksumSql(migrations[0].sql)]])
@@ -180,7 +194,7 @@ describe('DataDbMigrationService', () => {
       where: { id: 'dcnxxx' },
       data: expect.objectContaining({
         status: 'ready',
-        schemaVersion: migrations[1].id,
+        schemaVersion: service.getLatestSchemaVersion(),
         lastError: null,
       }),
     });
@@ -237,9 +251,18 @@ describe('DataDbMigrationService', () => {
     });
   });
 
-  it('scans existing connections that need schema upgrades', async () => {
+  it.each([
+    ['legacy last ID', migrations[1].id],
+    ['previous manifest', new DataDbMigrationService(migrations).getLatestSchemaVersion()],
+  ])('upgrades a ready connection with a backfilled migration and %s', async (_, schemaVersion) => {
     const dataUrl = 'postgresql://teable:secret@example.com:5432/data';
-    const client = new FakeMigrationClient();
+    const backfill = {
+      id: '20260501000000_backfill',
+      sql: 'ALTER TABLE "fixture_table" ADD COLUMN "actor_id" TEXT;',
+    };
+    const client = new FakeMigrationClient(
+      new Map(migrations.map(({ id, sql }) => [id, checksumSql(sql)]))
+    );
     const prismaService = {
       dataDbConnection: {
         findMany: vi.fn().mockResolvedValue([
@@ -249,23 +272,28 @@ describe('DataDbMigrationService', () => {
             internalSchema: 'teable_test',
           },
         ]),
-        findUnique: vi.fn().mockResolvedValue({ status: 'ready', schemaVersion: null }),
+        findUnique: vi.fn().mockResolvedValue({ status: 'ready', schemaVersion }),
         update: vi.fn().mockResolvedValue({}),
       },
       spaceDataDbBinding: {
         updateMany: vi.fn().mockResolvedValue({ count: 1 }),
       },
     };
-    const service = new DataDbMigrationService(migrations, () => client, prismaService as never);
+    const service = new DataDbMigrationService(
+      [migrations[0], backfill, migrations[1]],
+      () => client,
+      prismaService as never
+    );
 
     await service.migrateExistingConnections();
+    expect(client.executedMigrationSql).toEqual([backfill.sql]);
 
     expect(prismaService.dataDbConnection.findMany).toHaveBeenCalledWith({
       where: {
         status: { not: 'disabled' },
         OR: [
           { schemaVersion: null },
-          { schemaVersion: { not: migrations[1].id } },
+          { schemaVersion: { not: service.getLatestSchemaVersion() } },
           { status: { in: ['migrating', 'error'] } },
         ],
       },
@@ -279,7 +307,7 @@ describe('DataDbMigrationService', () => {
       where: { id: 'dcnxxx' },
       data: expect.objectContaining({
         status: 'ready',
-        schemaVersion: migrations[1].id,
+        schemaVersion: service.getLatestSchemaVersion(),
       }),
     });
   });

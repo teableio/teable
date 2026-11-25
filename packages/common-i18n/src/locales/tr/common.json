@@ -1968,6 +1968,8 @@
     "agentStartFailed": "Yapay zekâ motoru başlatılamadı. Lütfen tekrar deneyin veya yeni bir oturum başlatın.",
     "agentSessionLost": "Bir sorun oluştu. Lütfen mesajınızı tekrar gönderin.",
     "sandboxDestroyed": "Cuppy'nin çalışma ortamı kapatıldı, yanıt durdu",
+    "streamInterrupted": "Çalışma ortamı beklenmedik şekilde yeniden başladı",
+    "streamInterruptedDescription": "Ortam yeniden başladığı için yanıt kesildi. Lütfen tekrar deneyin.",
     "sandboxOutOfMemory": "Cuppy işin ortasında durdu",
     "sandboxOutOfMemoryDescription": "Bu adım, Cuppy'nin kullanabileceğinden daha fazla kaynak gerektirdi. Sizin yaptığınız bir şeyden kaynaklanmıyor. Devam'ı seçin; Cuppy önce nerede kaldığını kontrol edip devam etsin.",
     "sandboxOutOfMemoryAction": "Devam",

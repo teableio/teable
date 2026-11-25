@@ -16,6 +16,9 @@ interface IDataTxStore {
   timeStr?: string;
   id?: string;
   rawOpMaps?: unknown;
+  completionCallbacks?: Array<() => Promise<void>>;
+  afterCommitCallbacks?: Array<() => Promise<void>>;
+  schemaLeaseChecks?: Set<() => Promise<void>>;
 }
 
 function proxyClient(tx: Prisma.TransactionClient) {
@@ -80,6 +83,48 @@ export class DataPrismaService
     this.afterTxCb = fn;
   }
 
+  afterCommit(callback: () => Promise<void>): boolean {
+    const dataCallbacks = this.cls.get('dataTx.afterCommitCallbacks');
+    if (this.cls.get('dataTx.client') && dataCallbacks) {
+      dataCallbacks.push(callback);
+      return true;
+    }
+    if (this.getMetaTxClient()) {
+      const callbacks = this.cls.get('tx.afterCommitCallbacks' as never) as
+        | Array<() => Promise<void>>
+        | undefined;
+      if (callbacks) {
+        callbacks.push(callback);
+        return true;
+      }
+    }
+    return false;
+  }
+
+  afterRollback(callback: () => Promise<void>): boolean {
+    const scope = this.cls.get('dataTx.client')
+      ? 'dataTx'
+      : this.getMetaTxClient()
+        ? 'tx'
+        : undefined;
+    if (!scope) return false;
+    const completion = this.cls.get(`${scope}.completionCallbacks` as never) as
+      | Array<() => Promise<void>>
+      | undefined;
+    const afterCommit = this.cls.get(`${scope}.afterCommitCallbacks` as never) as
+      | Array<() => Promise<void>>
+      | undefined;
+    if (!completion || !afterCommit) return false;
+    let committed = false;
+    afterCommit.unshift(async () => {
+      committed = true;
+    });
+    completion.push(async () => {
+      if (!committed) await callback();
+    });
+    return true;
+  }
+
   private getMetaTxClient(): Prisma.TransactionClient | undefined {
     if (!this.sharedMetaDataDatabase) {
       return;
@@ -114,20 +159,36 @@ export class DataPrismaService
     };
 
     await this.cls.runWith(this.cls.get(), async () => {
-      result = await super.$transaction<R>(async (prisma) => {
-        prisma = proxyClient(prisma);
-        this.cls.set('dataTx.client', prisma);
-        this.cls.set('dataTx.id', nanoid());
-        this.cls.set('dataTx.timeStr', new Date().toISOString());
-        try {
-          return await fn(prisma);
-        } finally {
-          this.cls.set('dataTx.client', undefined);
-          this.cls.set('dataTx.id', undefined);
-          this.cls.set('dataTx.timeStr', undefined);
-        }
-      }, txOptions);
-      this.afterTxCb?.();
+      const completionCallbacks: Array<() => Promise<void>> = [];
+      const afterCommitCallbacks: Array<() => Promise<void>> = [];
+      try {
+        result = await super.$transaction<R>(async (prisma) => {
+          prisma = proxyClient(prisma);
+          this.cls.set('dataTx.client', prisma);
+          this.cls.set('dataTx.id', nanoid());
+          this.cls.set('dataTx.timeStr', new Date().toISOString());
+          this.cls.set('dataTx.completionCallbacks', completionCallbacks);
+          this.cls.set('dataTx.afterCommitCallbacks', afterCommitCallbacks);
+          try {
+            const value = await fn(prisma);
+            for (const check of this.cls.get('dataTx.schemaLeaseChecks') ?? []) {
+              await check();
+            }
+            return value;
+          } finally {
+            this.cls.set('dataTx.client', undefined);
+            this.cls.set('dataTx.id', undefined);
+            this.cls.set('dataTx.timeStr', undefined);
+            this.cls.set('dataTx.completionCallbacks', undefined);
+            this.cls.set('dataTx.afterCommitCallbacks', undefined);
+            this.cls.set('dataTx.schemaLeaseChecks', undefined);
+          }
+        }, txOptions);
+        for (const callback of afterCommitCallbacks) await callback();
+        this.afterTxCb?.();
+      } finally {
+        for (const release of completionCallbacks.reverse()) await release();
+      }
     });
 
     return result;

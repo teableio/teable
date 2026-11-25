@@ -356,6 +356,8 @@ export interface IRecordWritePlugin<TPreparedState = unknown> {
    * the transaction and must not fan out parallel work.
    */
   readonly enforce?: RecordWritePluginEnforce;
+  /** Policies that authorize each concrete mutation must survive orchestration skip lists. */
+  readonly skipPolicy?: 'allow' | 'never';
 
   supports(operation: RecordWriteOperationKind): boolean;
 

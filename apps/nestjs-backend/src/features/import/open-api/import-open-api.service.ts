@@ -22,6 +22,7 @@ import { BaseNodeService } from '../../base-node/base-node.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
 import { NotificationService } from '../../notification/notification.service';
 import { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { SpaceDataDbMigrationGuardService } from '../../space/space-data-db-migration-guard.service';
 import { DEFAULT_VIEWS, DEFAULT_FIELDS } from '../../table/constant';
 import { TableOpenApiService } from '../../table/open-api/table-open-api.service';
@@ -67,6 +68,7 @@ export class ImportOpenApiService {
     private readonly cacheService: CacheService,
     private readonly audit: AuditScope,
     private readonly baseNodeService: BaseNodeService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
     @Optional()
     private readonly spaceDataDbMigrationGuard?: SpaceDataDbMigrationGuardService,
     @Optional() private readonly importMetrics?: ImportMetricsService
@@ -207,6 +209,7 @@ export class ImportOpenApiService {
                 baseId,
                 table: { id: created.id, name: created.name },
                 userId,
+                recordInitiator: this.cls.get('recordInitiator'),
                 origin,
                 importerParams: { attachmentUrl, fileType, maxRowCount },
                 options: {
@@ -294,6 +297,11 @@ export class ImportOpenApiService {
     projection?: string[]
   ) {
     await this.spaceDataDbMigrationGuard?.assertTableWritable(tableId);
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'create',
+      payload: inplaceImportRo,
+    });
     await this.checkImportConcurrencyLimit();
 
     const userId = this.cls.get('user.id');
@@ -369,6 +377,7 @@ export class ImportOpenApiService {
               name: tableRaw.name,
             },
             userId,
+            recordInitiator: this.cls.get('recordInitiator'),
             origin,
             importerParams: {
               attachmentUrl,

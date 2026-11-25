@@ -123,7 +123,10 @@ describe('createHeadlessHttpApp', () => {
           ],
         }),
       });
-      const tableBody = (await tableResponse.json()) as { data: { table: { id: string } } };
+      const tableBody = (await tableResponse.json()) as {
+        data: { table: { id: string; actorStorageVersion: number } };
+      };
+      expect(tableBody.data.table.actorStorageVersion).toBe(1);
 
       const imported = await app.request('/tables/importRecords', {
         method: 'POST',
@@ -143,12 +146,30 @@ describe('createHeadlessHttpApp', () => {
         { headers }
       );
       const listedBody = (await listed.json()) as {
-        data: { records: Array<{ fields: Record<string, unknown> }> };
+        data: {
+          records: Array<{
+            fields: Record<string, unknown>;
+            createdByActorType: string | null;
+            createdByActorId: string | null;
+            lastModifiedByActorType: string | null;
+            lastModifiedByActorId: string | null;
+          }>;
+        };
       };
       expect(listedBody.data.records.map(({ fields }) => fields)).toEqual([
         { fldName: 'Alpha', fldAmount: 12 },
         { fldName: 'Beta', fldAmount: 34 },
       ]);
+      for (const record of listedBody.data.records) {
+        expect(record).toEqual(
+          expect.objectContaining({
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          })
+        );
+      }
 
       // Y3382 step 3: an identical import appends, it never updates or dedupes.
       const repeated = await app.request('/tables/importRecords', {

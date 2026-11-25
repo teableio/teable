@@ -306,6 +306,9 @@ importers:
       '@teable/v2-adapter-undo-redo-keyv':
         specifier: workspace:*
         version: link:../../packages/v2/adapter-undo-redo-keyv
+      '@teable/v2-command-explain':
+        specifier: workspace:*
+        version: link:../../packages/v2/command-explain
       '@teable/v2-container-node':
         specifier: workspace:*
         version: link:../../packages/v2/container-node
@@ -616,6 +619,9 @@ importers:
       '@nestjs/testing':
         specifier: 12.0.3
         version: 12.0.3(@nestjs/common@12.0.3(class-transformer@0.5.1)(class-validator@0.14.1)(reflect-metadata@0.2.1)(rxjs@7.8.1)(supports-color@10.2.2))(@nestjs/core@12.0.3)(@nestjs/platform-express@12.0.3)
+      '@opentelemetry/sdk-metrics':
+        specifier: 2.12.0
+        version: 2.12.0(@opentelemetry/api@1.9.1)
       '@rspack/core':
         specifier: 2.2.5
         version: 2.2.5(@swc/helpers@0.5.23)
@@ -3840,6 +3846,9 @@ importers:
       '@teable/v2-vcs':
         specifier: workspace:*
         version: link:../vcs
+      neverthrow:
+        specifier: 8.2.0
+        version: 8.2.0
     devDependencies:
       '@teable/eslint-config-bases':
         specifier: workspace:^
@@ -3859,9 +3868,6 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.1.12
         version: 4.1.12(vitest@4.1.12)
-      neverthrow:
-        specifier: 8.2.0
-        version: 8.2.0
       oxfmt:
         specifier: 0.74.0
         version: 0.74.0

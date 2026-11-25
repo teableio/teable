@@ -9,6 +9,7 @@ import { err, type Result } from 'neverthrow';
 
 import type { IBaseVcsLogRepository, IVcsAccessPolicy, IVcsEnableResult } from '../../ports/server';
 import { v2VcsServerTokens } from '../../ports/tokens';
+import { BaseVcsCheckpointReader } from '../../snapshot/BaseVcsCheckpointReader';
 import { resolveExistingBase } from './serverHelpers';
 
 export interface IEnableBaseVcsInput {
@@ -23,7 +24,9 @@ export class EnableBaseVcsService {
     @inject(v2VcsServerTokens.logRepository)
     private readonly logRepository: IBaseVcsLogRepository,
     @inject(v2VcsServerTokens.accessPolicy)
-    private readonly accessPolicy: IVcsAccessPolicy
+    private readonly accessPolicy: IVcsAccessPolicy,
+    @inject(BaseVcsCheckpointReader)
+    private readonly checkpoints: BaseVcsCheckpointReader
   ) {}
 
   async execute(
@@ -41,6 +44,6 @@ export class EnableBaseVcsService {
       return err(authRes.error);
     }
 
-    return this.logRepository.enable(ctx, baseId);
+    return this.logRepository.enable(ctx, baseId, this.checkpoints.capture);
   }
 }

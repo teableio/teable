@@ -18,6 +18,7 @@ import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrder
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import type { RecordActorAttribution } from '../ports/TableRecordRepository';
 import {
   NoopTableSchemaCoordination,
   type ITableSchemaCoordination,
@@ -32,16 +33,24 @@ export class CreateRecordResult {
     readonly record: TableRecord,
     readonly events: ReadonlyArray<IDomainEvent>,
     readonly fieldKeyMapping: Map<string, string>,
-    readonly computedChanges?: ReadonlyMap<string, unknown>
+    readonly computedChanges?: ReadonlyMap<string, unknown>,
+    readonly recordActors?: RecordActorAttribution
   ) {}
 
   static create(
     record: TableRecord,
     events: ReadonlyArray<IDomainEvent>,
     fieldKeyMapping: Map<string, string> = new Map(),
-    computedChanges?: ReadonlyMap<string, unknown>
+    computedChanges?: ReadonlyMap<string, unknown>,
+    recordActors?: RecordActorAttribution
   ): CreateRecordResult {
-    return new CreateRecordResult(record, [...events], fieldKeyMapping, computedChanges);
+    return new CreateRecordResult(
+      record,
+      [...events],
+      fieldKeyMapping,
+      computedChanges,
+      recordActors
+    );
   }
 }
 
@@ -135,7 +144,8 @@ export class CreateRecordHandler implements ICommandHandler<
           result.record,
           result.events,
           result.fieldKeyMapping,
-          result.computedChanges
+          result.computedChanges,
+          result.recordActors
         )
       );
     });

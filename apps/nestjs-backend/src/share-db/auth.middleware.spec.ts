@@ -25,16 +25,23 @@ const tableBase: Record<string, string> = {
   tblMine: 'bseMine',
   tblOther: 'bseOther',
   tblShared: 'bseShared',
+  tblUnshared: 'bseShared',
   tblTpl: 'bseTpl',
 };
 // viewId -> table (for action_trigger keyed by a view id)
 const viewTable: Record<string, string> = { viwShared: 'tblShared' };
 // a view share: shareId -> the shared table (enableShare = true)
-const viewShareTable: Record<string, string> = { shrView: 'tblShared' };
-// a base share: shareId -> { baseId, enabled }
-const baseShares: Record<string, { baseId: string; enabled: boolean }> = {
+const viewShareTable: Record<string, string> = { shrView: 'tblShared', shrViewLocked: 'tblShared' };
+// a base share: shareId -> { baseId, enabled }; `tables` names what a share of one node covers
+const baseShares: Record<string, { baseId: string; enabled: boolean; tables?: string[] }> = {
   shrBase: { baseId: 'bseShared', enabled: true },
+  shrNode: { baseId: 'bseShared', enabled: true, tables: ['tblShared'] },
+  shrLocked: { baseId: 'bseShared', enabled: true },
 };
+// shares with a password: shareId -> the token its password page sets as the cookie `shareId`
+const shareTokens: Record<string, string> = { shrLocked: 'tokLocked', shrViewLocked: 'tokView' };
+const passwordPresented = async (shareId: string, cookie = '') =>
+  !shareTokens[shareId] || cookie.split('; ').includes(`${shareId}=${shareTokens[shareId]}`);
 // which bases each signed-in user can read
 const userBaseAccess: Record<string, Set<string>> = { usrMe: new Set(['bseMine']) };
 
@@ -58,6 +65,14 @@ const createDeps = (): IAuthMiddlewareDeps => {
       if (currentUserId && userBaseAccess[currentUserId]?.has(baseId)) return ['base|read'];
       throw new Error('no permission');
     }),
+    getBaseSharePermissions: vi.fn(async (shareId: string, tableId: string) => {
+      const share = baseShares[shareId];
+      const covered = share?.baseId === tableBase[tableId] && (share.tables ?? [tableId]);
+      if (covered && covered.includes(tableId)) return ['table|read'];
+      throw new Error('not accessible via share');
+    }),
+    baseSharePasswordPresented: vi.fn(passwordPresented),
+    shareViewPasswordPresented: vi.fn(passwordPresented),
   };
   const prismaService = {
     tableMeta: {
@@ -98,11 +113,17 @@ const createBackend = (deps: IAuthMiddlewareDeps = createDeps()) => {
 
 /**
  * A browser connection, signed in as `userId` and/or carrying a share id or a template preview
- * header (or anonymous).
+ * header (or anonymous). `cookie` is what an anonymous visitor's browser holds besides.
  */
 const connectBrowser = (
   backend: ShareDBClass,
-  opts: { userId?: string; shareId?: string; baseShareId?: string; templateHeader?: string } = {}
+  opts: {
+    userId?: string;
+    shareId?: string;
+    baseShareId?: string;
+    templateHeader?: string;
+    cookie?: string;
+  } = {}
 ): Connection => {
   const params = new URLSearchParams();
   if (opts.shareId) params.set('shareId', opts.shareId);
@@ -110,7 +131,7 @@ const connectBrowser = (
   if (opts.templateHeader) params.set('templateHeader', opts.templateHeader);
   const query = params.toString();
   const connection = backend.connect(undefined, {
-    headers: { cookie: opts.userId ? `session=${opts.userId}` : undefined },
+    headers: { cookie: opts.userId ? `session=${opts.userId}` : opts.cookie },
     url: query ? `/socket?${query}` : '/socket',
   }) as Connection & { agent: { stream: { isServer: boolean } } };
   // backend.connect() is the in-process transport; mark it remote like a WebSocket client.
@@ -380,6 +401,68 @@ describe('public-share presence is scoped to the share', () => {
       ).rejects.toBeDefined();
     }
   );
+
+  it('keeps a share of one node to the tables it covers', async () => {
+    const backend = createBackend();
+    const visitor = () => connectBrowser(backend, { baseShareId: 'shrNode' });
+    await expect(subscribe(visitor(), getActionTriggerChannel('tblShared'))).resolves.toBeDefined();
+    await expect(subscribe(visitor(), getActionTriggerChannel('viwShared'))).resolves.toBeDefined();
+    // the base's own channels serve every share of the base
+    await expect(subscribe(visitor(), getBaseNodeChannel('bseShared'))).resolves.toBeDefined();
+    // another table of the same base is none of the share's
+    for (const channel of [
+      getActionTriggerChannel('tblUnshared'),
+      getTableButtonClickChannel('tblUnshared'),
+      getTableImportChannel('tblUnshared'),
+    ]) {
+      await expect(subscribe(visitor(), channel)).rejects.toBeDefined();
+    }
+    // while a share of the whole base still reaches it
+    await expect(
+      subscribe(
+        connectBrowser(backend, { baseShareId: 'shrBase' }),
+        getActionTriggerChannel('tblUnshared')
+      )
+    ).resolves.toBeDefined();
+  });
+
+  it('gives a share with a password no presence until the connection presents it', async () => {
+    const backend = createBackend();
+    const tableChannel = getActionTriggerChannel('tblShared');
+    const withoutToken = { baseShareId: 'shrLocked' };
+    const withToken = { ...withoutToken, cookie: 'theme=dark; shrLocked=tokLocked' };
+
+    await expect(
+      subscribe(connectBrowser(backend, withoutToken), tableChannel)
+    ).rejects.toBeDefined();
+    await expect(
+      subscribe(connectBrowser(backend, withoutToken), getBaseNodeChannel('bseShared'))
+    ).rejects.toBeDefined();
+    // the token of another share is not this one's
+    await expect(
+      subscribe(
+        connectBrowser(backend, { ...withoutToken, cookie: 'shrViewLocked=tokView' }),
+        tableChannel
+      )
+    ).rejects.toBeDefined();
+    await expect(
+      subscribe(connectBrowser(backend, withToken), tableChannel)
+    ).resolves.toBeDefined();
+    await expect(
+      subscribe(connectBrowser(backend, withToken), getBaseNodeChannel('bseShared'))
+    ).resolves.toBeDefined();
+
+    // a shared view asks the same of its visitors
+    await expect(
+      subscribe(connectBrowser(backend, { shareId: 'shrViewLocked' }), tableChannel)
+    ).rejects.toBeDefined();
+    await expect(
+      subscribe(
+        connectBrowser(backend, { shareId: 'shrViewLocked', cookie: 'shrViewLocked=tokView' }),
+        tableChannel
+      )
+    ).resolves.toBeDefined();
+  });
 
   it('rejects a base-share visitor reaching a base outside the share', async () => {
     const backend = createBackend();

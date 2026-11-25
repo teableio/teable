@@ -1,7 +1,6 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 /* eslint-disable @typescript-eslint/naming-convention */
 import { Injectable, Logger } from '@nestjs/common';
-import { EventEmitter2 } from '@nestjs/event-emitter';
 import { Prisma } from '@prisma/client';
 import * as Sentry from '@sentry/nestjs';
 import type {
@@ -18,6 +17,7 @@ import type {
   ILinkFieldOptions,
   ILinkCellValue,
   IRecord,
+  LastModifiedByFieldCore,
   ISnapshotBase,
   ISortItem,
 } from '@teable/core';
@@ -67,7 +67,9 @@ import { ThresholdConfig, IThresholdConfig } from '../../configs/threshold.confi
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import { EventEmitterService } from '../../event-emitter/event-emitter.service';
 import { DatabaseRouter } from '../../global/database-router.service';
+import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
 import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
@@ -89,6 +91,17 @@ import type { IVisualTableDefaultField } from '../field/constant';
 import type { IFieldInstance } from '../field/model/factory';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import { UserFieldDto } from '../field/model/field-dto/user-field.dto';
+import {
+  RecordActorResolverService,
+  type RecordActorMap,
+} from '../record-attribution/record-actor-resolver.service';
+import type { RecordActorTableMeta } from '../record-attribution/record-actor-storage.service';
+import {
+  RecordActorStorageService,
+  resolveRecordInitiator,
+} from '../record-attribution/record-actor-storage.service';
+import { TRUSTED_CREATED_ACTOR } from '../record-attribution/trusted-created-actor';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { TableIndexService } from '../table-index/table-index.service';
 import { ROW_ORDER_FIELD_PREFIX } from '../view/constant';
 import { InjectRecordQueryBuilder, IRecordQueryBuilder } from './query-builder';
@@ -123,6 +136,7 @@ export interface IRecordInnerRo {
   lastModifiedTime?: string;
   autoNumber?: number;
   order?: Record<string, number>; // viewId: index
+  [TRUSTED_CREATED_ACTOR]?: IClsStore['recordInitiator'] | null;
 }
 
 /**
@@ -136,6 +150,81 @@ export interface IRecordInnerRo {
 export interface IRecordQueryInternalOptions {
   linkSelectedHostFilter?: IFilter | null;
 }
+
+type UserCellSource = { name: string; email: string | null };
+/** A user-ish cell the read path still has to resolve: a bare id, or `{id, title: id}`. */
+const isUnresolvedUserCell = (cell: unknown): cell is { id: string } => {
+  if (!cell || typeof cell !== 'object' || Array.isArray(cell)) return false;
+  const { id, title } = cell as { id?: unknown; title?: unknown };
+  if (typeof id !== 'string') return false;
+  if (!id.startsWith(IdPrefix.User) && !isAppPrincipalId(id)) return false;
+  return typeof title !== 'string' || title === id;
+};
+
+/** The audit actor a CreatedBy/LastModifiedBy cell should display, if the write carried one. */
+const auditActorOf = (
+  row: Record<string, unknown>,
+  field: IFieldInstance
+): { type: unknown; id: unknown } | null => {
+  if (field.isLookup) return null;
+  const type = field.type;
+  if (type === FieldType.CreatedBy) {
+    return { type: row.__created_by_actor_type, id: row.__created_by_actor_id };
+  }
+  if (type === FieldType.LastModifiedBy && (field as LastModifiedByFieldCore).isTrackAll()) {
+    return { type: row.__last_modified_by_actor_type, id: row.__last_modified_by_actor_id };
+  }
+  return null;
+};
+
+const collectHydratableUserIds = (value: unknown, target: Set<string>): void => {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectHydratableUserIds(item, target));
+    return;
+  }
+  if (
+    value &&
+    typeof value === 'object' &&
+    'id' in value &&
+    typeof value.id === 'string' &&
+    (isAppPrincipalId(value.id) || isUnresolvedUserCell(value))
+  ) {
+    target.add(value.id);
+  }
+};
+
+type AppPrincipalCellSource = { id: string; title: string };
+
+/** Native users retain historical values; App labels always come from authorized profile reads. */
+const resolveActorCellValue = (
+  value: unknown,
+  userMap: ReadonlyMap<string, UserCellSource>,
+  appUserMap: ReadonlyMap<string, AppPrincipalCellSource>,
+  isUnresolved: (cell: unknown) => cell is { id: string }
+): unknown => {
+  if (Array.isArray(value)) {
+    return value.map((item) => resolveActorCellValue(item, userMap, appUserMap, isUnresolved));
+  }
+  if (value && typeof value === 'object' && 'id' in value && isAppPrincipalId(value.id)) {
+    return { id: value.id, title: appUserMap.get(value.id)?.title ?? value.id };
+  }
+  if (!isUnresolved(value)) return value;
+  const cell = value as { id: string; email?: unknown };
+  const user = userMap.get(value.id);
+  if (user) {
+    return {
+      ...cell,
+      title: user.name,
+      ...(typeof cell.email === 'string' ? {} : { email: user.email }),
+    };
+  }
+  return value;
+};
+
+// App principals (`apu_…`) live in app_user, not in the platform user table.
+const APP_PRINCIPAL_PREFIX = 'apu_';
+const isAppPrincipalId = (value: unknown): value is string =>
+  typeof value === 'string' && value.startsWith(APP_PRINCIPAL_PREFIX);
 
 @Injectable()
 // Untraced host: hydrateSelectedUserCells — Host user-profile hydration, independent of the record engine.
@@ -195,7 +284,10 @@ export class RecordService {
     @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly dataLoaderService: DataLoaderService,
     @InjectRecordQueryBuilder() private readonly recordQueryBuilder: IRecordQueryBuilder,
-    private readonly eventEmitter: EventEmitter2
+    private readonly eventEmitterService: EventEmitterService,
+    private readonly recordActorStorageService: RecordActorStorageService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
+    private readonly recordActorResolver: RecordActorResolverService
   ) {}
 
   /**
@@ -335,18 +427,41 @@ export class RecordService {
    * Operates on raw db rows so both Json and Text cell formats resolve.
    */
   private async hydrateUnresolvedUserCellTitles(
+    tableId: string,
     rows: Record<string, unknown>[],
     fields: IFieldInstance[]
   ): Promise<void> {
-    const userLikeColumns = fields
-      .filter((field) =>
-        [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)
-      )
-      .map((field) => this.getQueryColumnName(field));
-    await this.hydrateUnresolvedUserValues(rows, userLikeColumns);
+    const userLikeFields = fields.filter((field) =>
+      [FieldType.User, FieldType.CreatedBy, FieldType.LastModifiedBy].includes(field.type)
+    );
+    this.preferAppPrincipalActors(rows, userLikeFields);
+    await this.hydrateUnresolvedUserValues(
+      tableId,
+      rows,
+      userLikeFields.map((field) => this.getQueryColumnName(field))
+    );
+  }
+
+  /**
+   * A write made by an App principal is attributed to that principal, not to the platform
+   * account the App runs as. Point the audit cells at the actor so the shared user-cell
+   * hydration resolves it; the stored platform id stays in `__created_by`.
+   */
+  private preferAppPrincipalActors(
+    rows: Record<string, unknown>[],
+    fields: readonly IFieldInstance[]
+  ): void {
+    for (const row of rows) {
+      for (const field of fields) {
+        const actor = auditActorOf(row, field);
+        if (actor?.type !== 'appUser' || !isAppPrincipalId(actor.id)) continue;
+        row[this.getQueryColumnName(field)] = { id: actor.id, title: actor.id };
+      }
+    }
   }
 
   async hydrateSelectedUserCells(
+    tableId: string,
     records: Pick<IRecord, 'fields'>[],
     fields: ReadonlyArray<{ id: string; type: FieldType; isLookup?: boolean | null }>
   ): Promise<void> {
@@ -354,82 +469,64 @@ export class RecordService {
       .filter((field) => field.type === FieldType.User && !field.isLookup)
       .map((field) => field.id);
     await this.hydrateUnresolvedUserValues(
+      tableId,
       records.map((record) => record.fields),
       userFieldIds
     );
   }
 
   private async hydrateUnresolvedUserValues(
+    tableId: string,
     rows: Record<string, unknown>[],
     userLikeColumns: readonly string[]
   ): Promise<void> {
     if (!rows.length || !userLikeColumns.length) return;
-    const isUnresolvedUserId = (cell: unknown): cell is { id: string } => {
-      if (!cell || typeof cell !== 'object' || Array.isArray(cell)) {
-        return false;
-      }
-      const { id, title } = cell as { id?: unknown; title?: unknown };
-      return (
-        typeof id === 'string' &&
-        id.startsWith(IdPrefix.User) &&
-        (typeof title !== 'string' || title === id)
-      );
-    };
-    const collectUnresolvedIds = (value: unknown, target: Set<string>) => {
-      if (Array.isArray(value)) {
-        value.forEach((item) => collectUnresolvedIds(item, target));
-        return;
-      }
-      if (isUnresolvedUserId(value)) {
-        target.add(value.id);
-      }
-    };
-
     const unresolvedIds = new Set<string>();
     for (const row of rows) {
       for (const column of userLikeColumns) {
-        collectUnresolvedIds(row[column], unresolvedIds);
+        collectHydratableUserIds(row[column], unresolvedIds);
       }
     }
-    if (!unresolvedIds.size) {
-      return;
-    }
-
-    const users = await this.prismaService.txClient().user.findMany({
-      where: { id: { in: [...unresolvedIds] } },
-      select: { id: true, name: true, email: true },
-    });
-    if (!users.length) {
-      return;
-    }
-    const userMap = new Map(users.map((user) => [user.id, user]));
-
-    const resolveCellValue = (value: unknown): unknown => {
-      if (Array.isArray(value)) {
-        return value.map((item) => resolveCellValue(item));
-      }
-      if (!isUnresolvedUserId(value)) {
-        return value;
-      }
-      const user = userMap.get(value.id);
-      if (!user) {
-        return value;
-      }
-      const cell = value as { id: string; email?: unknown };
-      return {
-        ...cell,
-        title: user.name,
-        ...(typeof cell.email === 'string' ? {} : { email: user.email }),
-      };
-    };
-
+    if (!unresolvedIds.size) return;
+    const { userMap, appUserMap } = await this.loadUserCellDirectories(tableId, [...unresolvedIds]);
     for (const row of rows) {
       for (const column of userLikeColumns) {
         if (row[column] != null) {
-          row[column] = resolveCellValue(row[column]);
+          row[column] = resolveActorCellValue(
+            row[column],
+            userMap,
+            appUserMap,
+            isUnresolvedUserCell
+          );
         }
       }
     }
+  }
+
+  /** App identity-domain email is private; only the table-scoped profile resolver supplies labels. */
+  private async loadUserCellDirectories(tableId: string, ids: readonly string[]) {
+    const platformIds = ids.filter((id) => id.startsWith(IdPrefix.User));
+    const appUserIds = ids.filter(isAppPrincipalId);
+    const [users, appActors] = await Promise.all([
+      platformIds.length
+        ? this.prismaService.txClient().user.findMany({
+            where: { id: { in: platformIds } },
+            select: { id: true, name: true, email: true },
+          })
+        : Promise.resolve([]),
+      appUserIds.length
+        ? this.recordActorResolver.resolve(
+            tableId,
+            appUserIds.map((id) => ({ actorType: 'appUser' as const, actorId: id }))
+          )
+        : Promise.resolve<RecordActorMap>({}),
+    ]);
+    return {
+      userMap: new Map(users.map((user) => [user.id, user])),
+      appUserMap: new Map(
+        appUserIds.map((id) => [id, { id, title: appActors[`appUser:${id}`]?.name || id }])
+      ),
+    };
   }
 
   async getAllRecordCount(dbTableName: string, tableId?: string) {
@@ -1408,8 +1505,9 @@ export class RecordService {
       useQueryModel
     );
 
+    const records = recordSnapshot.map((r) => r.data);
     return {
-      records: recordSnapshot.map((r) => r.data),
+      records,
       extra: queryResult.extra,
     };
   }
@@ -1486,41 +1584,63 @@ export class RecordService {
   }
 
   async batchDeleteRecords(tableId: string, recordIds: string[]) {
-    const dbTableName = await this.getDbTableName(tableId);
-    // get version by recordIds, __id as id, __version as version
-    const nativeQuery = this.knex(dbTableName)
-      .select('__id as id', '__version as version')
-      .whereIn('__id', recordIds)
-      .toQuery();
-    const recordRaw = await this.databaseRouter.queryDataPrismaForTable<
-      { id: string; version: number }[]
-    >(tableId, nativeQuery);
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'delete',
+      payload: { recordIds },
+    });
+    return this.recordActorStorageService.withTableWrite(tableId, async (tableMeta) => {
+      const dbTableName = tableMeta.dbTableName;
+      return this.databaseRouter.dataPrismaTransactionForTable(
+        tableId,
+        async (tx) => {
+          // get version by recordIds, __id as id, __version as version
+          const nativeQuery = this.knex(dbTableName)
+            .select('__id as id', '__version as version')
+            .whereIn('__id', recordIds)
+            .toQuery();
+          const recordRaw =
+            await tx.$queryRawUnsafe<{ id: string; version: number }[]>(nativeQuery);
 
-    if (recordIds.length !== recordRaw.length) {
-      throw new CustomHttpException(
-        `Some records to be deleted cannot be found, ids: ${difference(
-          recordIds,
-          recordRaw.map((r) => r.id)
-        ).join(',')}`,
-        HttpErrorCode.VALIDATION_ERROR,
-        {
-          localization: {
-            i18nKey: 'httpErrors.record.deletedIdsNotFound',
-          },
-        }
+          if (recordIds.length !== recordRaw.length) {
+            throw new CustomHttpException(
+              `Some records to be deleted cannot be found, ids: ${difference(
+                recordIds,
+                recordRaw.map((r) => r.id)
+              ).join(',')}`,
+              HttpErrorCode.VALIDATION_ERROR,
+              {
+                localization: {
+                  i18nKey: 'httpErrors.record.deletedIdsNotFound',
+                },
+              }
+            );
+          }
+
+          const recordRawMap = keyBy(recordRaw, 'id');
+
+          const dataList = recordIds.map((recordId) => ({
+            docId: recordId,
+            version: recordRawMap[recordId].version,
+          }));
+
+          await this.batchDel(recordIds, dbTableName, tx);
+          const rawOps = this.rawOpStagingService.saveRawOps(
+            tableId,
+            RawOpType.Del,
+            IdPrefix.Record,
+            dataList,
+            { publish: false }
+          );
+          await this.eventEmitterService.persistRecordOperationAudit([rawOps], (sql) =>
+            tx.$executeRawUnsafe(sql)
+          );
+          this.rawOpStagingService.publishRawOps(rawOps);
+        },
+        undefined,
+        { useTransaction: true }
       );
-    }
-
-    const recordRawMap = keyBy(recordRaw, 'id');
-
-    const dataList = recordIds.map((recordId) => ({
-      docId: recordId,
-      version: recordRawMap[recordId].version,
-    }));
-
-    this.rawOpStagingService.saveRawOps(tableId, RawOpType.Del, IdPrefix.Record, dataList);
-
-    await this.batchDel(tableId, recordIds);
+    });
   }
 
   private async getViewIndexColumns(tableId: string, dbTableName: string) {
@@ -1629,14 +1749,45 @@ export class RecordService {
     fieldKeyType: FieldKeyType,
     fields: readonly FieldCore[]
   ) {
-    const snapshots = await this.createBatch(table, records, fieldKeyType, fields);
+    await this.recordMutationPolicy.assertAllowed({
+      tableId: table.id,
+      operation: 'create',
+      payload: { records, fieldKeyType },
+    });
+    return this.recordActorStorageService.withTableWrite(table.id, async (tableMeta) => {
+      return this.databaseRouter.dataPrismaTransactionForTable(
+        table.id,
+        async (tx) => {
+          const snapshots = await this.createBatch(
+            table,
+            records,
+            fieldKeyType,
+            fields,
+            tableMeta,
+            tx
+          );
 
-    const dataList = snapshots.map((snapshot) => ({
-      docId: snapshot.__id,
-      version: snapshot.__version == null ? 0 : snapshot.__version - 1,
-    }));
+          const dataList = snapshots.map((snapshot) => ({
+            docId: snapshot.__id,
+            version: snapshot.__version == null ? 0 : snapshot.__version - 1,
+          }));
 
-    this.rawOpStagingService.saveRawOps(table.id, RawOpType.Create, IdPrefix.Record, dataList);
+          const rawOps = this.rawOpStagingService.saveRawOps(
+            table.id,
+            RawOpType.Create,
+            IdPrefix.Record,
+            dataList,
+            { publish: false }
+          );
+          await this.eventEmitterService.persistRecordOperationAudit([rawOps], (sql) =>
+            tx.$executeRawUnsafe(sql)
+          );
+          this.rawOpStagingService.publishRawOps(rawOps);
+        },
+        undefined,
+        { useTransaction: true }
+      );
+    });
   }
 
   @Timing()
@@ -1647,76 +1798,107 @@ export class RecordService {
     }[],
     fieldKeyType: FieldKeyType = FieldKeyType.Id
   ) {
-    const user = this.cls.get('user');
-    const userId = user.id;
-    await this.creditCheck(table.id);
-    const dbTableName = table.dbTableName;
-    const fields = await this.getFieldsByProjection(table.id);
-    const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
-      table.id,
-      dbTableName,
-      fields
-    );
-    const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
-      table.id,
-      dbTableName,
-      fields
-    );
-    const auditUserValue =
-      user &&
-      UserFieldDto.fullAvatarUrl({
-        id: user.id,
-        title: user.name,
-        email: user.email,
-      });
-    const createdByFields = fields.filter(
-      (f) =>
-        f.type === FieldType.CreatedBy &&
-        f.shouldPersistAuditValue?.() &&
-        writableCreatedByFieldNames.has(f.dbFieldName)
-    ) as IFieldInstance[];
-    const fieldInstanceMap = fields.reduce(
-      (map, curField) => {
-        map[curField[fieldKeyType]] = curField;
-        return map;
-      },
-      {} as Record<string, IFieldInstance>
-    );
-
-    // Imported records intentionally write no record history: creation is already
-    // attributed by __created_by/__created_time, and per-cell null→value entries
-    // would add rows × non-empty-cells of history on large imports.
-    const newRecords = records.map((record) => {
-      const createdTime =
-        writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined;
-      const fieldsValues: Record<string, unknown> = {};
-      const recordId = generateRecordId();
-      Object.entries(record.fields).forEach(([fieldId, value]) => {
-        const fieldInstance = fieldInstanceMap[fieldId];
-        fieldsValues[fieldInstance.dbFieldName] = fieldInstance.convertCellValue2DBValue(value);
-      });
-      if (auditUserValue && createdByFields.length) {
-        createdByFields.forEach((field) => {
-          fieldsValues[field.dbFieldName] = field.convertCellValue2DBValue({
-            ...auditUserValue,
-          });
-        });
-      }
-      writableCreatedTimeFieldNames.forEach((dbFieldName) => {
-        if (createdTime != null) {
-          fieldsValues[dbFieldName] = createdTime;
-        }
-      });
-      return removeUndefined({
-        __id: recordId,
-        __created_by: userId,
-        __created_time: createdTime,
-        __version: 1,
-        ...fieldsValues,
-      });
+    await this.recordMutationPolicy.assertAllowed({
+      tableId: table.id,
+      operation: 'create',
+      payload: { records, fieldKeyType },
     });
-    const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
-    await this.databaseRouter.executeDataPrismaForTable(table.id, sql);
+    return this.recordActorStorageService.withTableWrite(table.id, async (tableMeta) => {
+      return this.databaseRouter.dataPrismaTransactionForTable(
+        table.id,
+        async (tx) => {
+          const user = this.cls.get('user');
+          const userId = user.id;
+          const initiator = resolveRecordInitiator(this.cls);
+          await this.creditCheck(table.id);
+          const dbTableName = tableMeta.dbTableName;
+          const fields = await this.getFieldsByProjection(table.id);
+          const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
+            table.id,
+            dbTableName,
+            fields
+          );
+          const writableCreatedByFieldNames = await this.getWritableCreatedByFieldNames(
+            table.id,
+            dbTableName,
+            fields
+          );
+          const auditUserValue =
+            initiator?.type === 'appUser'
+              ? { id: initiator.id, title: initiator.id }
+              : user &&
+                UserFieldDto.fullAvatarUrl({
+                  id: user.id,
+                  title: user.name,
+                  email: user.email,
+                });
+          const createdByFields = fields.filter(
+            (f) =>
+              f.type === FieldType.CreatedBy &&
+              f.shouldPersistAuditValue?.() &&
+              writableCreatedByFieldNames.has(f.dbFieldName)
+          ) as IFieldInstance[];
+          const fieldInstanceMap = fields.reduce(
+            (map, curField) => {
+              map[curField[fieldKeyType]] = curField;
+              return map;
+            },
+            {} as Record<string, IFieldInstance>
+          );
+
+          // Persist a bounded create-operation audit below, not per-cell creation history.
+          // Per-cell null→value entries would grow with rows × non-empty import cells.
+          const newRecords = records.map((record) => {
+            const createdTime =
+              writableCreatedTimeFieldNames.size > 0 ? new Date().toISOString() : undefined;
+            const fieldsValues: Record<string, unknown> = {};
+            const recordId = generateRecordId();
+            Object.entries(record.fields).forEach(([fieldId, value]) => {
+              const fieldInstance = fieldInstanceMap[fieldId];
+              fieldsValues[fieldInstance.dbFieldName] =
+                fieldInstance.convertCellValue2DBValue(value);
+            });
+            if (auditUserValue && createdByFields.length) {
+              createdByFields.forEach((field) => {
+                fieldsValues[field.dbFieldName] = field.convertCellValue2DBValue({
+                  ...auditUserValue,
+                });
+              });
+            }
+            writableCreatedTimeFieldNames.forEach((dbFieldName) => {
+              if (createdTime != null) {
+                fieldsValues[dbFieldName] = createdTime;
+              }
+            });
+            return removeUndefined({
+              __id: recordId,
+              __created_by: userId,
+              __created_time: createdTime,
+              __version: 1,
+              ...(tableMeta.actorStorageVersion === 1
+                ? {
+                    __created_by_actor_type: initiator?.type ?? null,
+                    __created_by_actor_id: initiator?.id ?? null,
+                    __last_modified_by_actor_type: null,
+                    __last_modified_by_actor_id: null,
+                  }
+                : {}),
+              ...fieldsValues,
+            });
+          });
+          const sql = this.dbProvider.batchInsertSql(dbTableName, newRecords);
+          await tx.$executeRawUnsafe(sql);
+          await this.eventEmitterService.persistRecordCreateOperationAudit(
+            table.id,
+            newRecords.length,
+            newRecords.map((record) => record.__id),
+            (query) => tx.$executeRawUnsafe(query)
+          );
+        },
+        undefined,
+        { useTransaction: true }
+      );
+    });
   }
 
   async creditCheck(tableId: string) {
@@ -1799,12 +1981,16 @@ export class RecordService {
     table: TableDomain,
     records: IRecordInnerRo[],
     fieldKeyType: FieldKeyType,
-    fields: readonly FieldCore[]
+    fields: readonly FieldCore[],
+    tableMeta: RecordActorTableMeta,
+    executor: IDataPrismaQueryExecutor
   ) {
     const userId = this.cls.get('user.id');
+    const initiator = resolveRecordInitiator(this.cls);
     await this.creditCheck(table.id);
 
-    const { dbTableName, name: tableName } = table;
+    const { dbTableName } = tableMeta;
+    const { name: tableName } = table;
     const maxRecordOrder = await this.getMaxRecordOrder(table.id, dbTableName);
     const writableCreatedTimeFieldNames = await this.getWritableCreatedTimeFieldNames(
       table.id,
@@ -1831,12 +2017,14 @@ export class RecordService {
 
     const user = this.cls.get('user');
     const auditUserValue =
-      user &&
-      UserFieldDto.fullAvatarUrl({
-        id: user.id,
-        title: user.name,
-        email: user.email,
-      });
+      initiator?.type === 'appUser'
+        ? { id: initiator.id, title: initiator.id }
+        : user &&
+          UserFieldDto.fullAvatarUrl({
+            id: user.id,
+            title: user.name,
+            email: user.email,
+          });
     const createdByFields = fields.filter(
       (f) =>
         f.type === FieldType.CreatedBy &&
@@ -1871,6 +2059,7 @@ export class RecordService {
       )
       .map((order, i) => {
         const snapshot = records[i];
+
         const fields = snapshot.fields;
         const createdTime =
           snapshot.createdTime ??
@@ -1905,6 +2094,11 @@ export class RecordService {
           {} as Record<string, unknown>
         );
 
+        const creator =
+          snapshot[TRUSTED_CREATED_ACTOR] === undefined
+            ? initiator
+            : snapshot[TRUSTED_CREATED_ACTOR];
+        const modifier = snapshot.lastModifiedBy ? initiator : undefined;
         return removeUndefined({
           __id: snapshot.id,
           __created_by: snapshot.createdBy || userId,
@@ -1913,6 +2107,14 @@ export class RecordService {
           __last_modified_time: snapshot.lastModifiedTime || undefined,
           __auto_number: snapshot.autoNumber == null ? undefined : snapshot.autoNumber,
           __version: 1,
+          ...(tableMeta.actorStorageVersion === 1
+            ? {
+                __created_by_actor_type: creator?.type ?? null,
+                __created_by_actor_id: creator?.id ?? null,
+                __last_modified_by_actor_type: modifier?.type ?? null,
+                __last_modified_by_actor_id: modifier?.id ?? null,
+              }
+            : {}),
           ...order,
           ...dbFieldValueMap,
           ...auditFieldValues,
@@ -1945,7 +2147,7 @@ export class RecordService {
     );
 
     await handleDBValidationErrors({
-      fn: () => this.databaseRouter.executeDataPrismaForTable(table.id, sql),
+      fn: () => executor.$executeRawUnsafe(sql),
       handleUniqueError: () => {
         throw new CustomHttpException(
           `Fields ${validationFields.map((f) => f.id).join(', ')} unique validation failed`,
@@ -1981,11 +2183,13 @@ export class RecordService {
     return snapshots;
   }
 
-  private async batchDel(tableId: string, recordIds: string[]) {
-    const dbTableName = await this.getDbTableName(tableId);
-
+  private async batchDel(
+    recordIds: string[],
+    dbTableName: string,
+    executor: IDataPrismaQueryExecutor
+  ) {
     const nativeQuery = this.knex(dbTableName).whereIn('__id', recordIds).del().toQuery();
-    await this.databaseRouter.executeDataPrismaForTable(tableId, nativeQuery);
+    await executor.$executeRawUnsafe(nativeQuery);
   }
 
   public async getFieldsByProjection(
@@ -2323,7 +2527,7 @@ export class RecordService {
       }
     });
 
-    await this.hydrateUnresolvedUserCellTitles(result, fields);
+    await this.hydrateUnresolvedUserCellTitles(tableId, result, fields);
     const primaryField = await this.getPrimaryField(tableId);
 
     const snapshots = result
@@ -2349,6 +2553,13 @@ export class RecordService {
             lastModifiedTime: record.__last_modified_time?.toISOString(),
             createdBy: record.__created_by,
             lastModifiedBy: record.__last_modified_by || undefined,
+            createdByActorType: (record.__created_by_actor_type ??
+              null) as IRecord['createdByActorType'],
+            createdByActorId: (record.__created_by_actor_id ?? null) as IRecord['createdByActorId'],
+            lastModifiedByActorType: (record.__last_modified_by_actor_type ??
+              null) as IRecord['lastModifiedByActorType'],
+            lastModifiedByActorId: (record.__last_modified_by_actor_id ??
+              null) as IRecord['lastModifiedByActorId'],
           },
         };
       });

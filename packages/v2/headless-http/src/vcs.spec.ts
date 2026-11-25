@@ -302,7 +302,6 @@ describe('headless-http /vcs/* routes', () => {
     const runtime = await createHeadlessRuntime({
       backend: { kind: 'pglite', dataDir: 'memory://' },
     });
-    const app = createHeadlessHttpApp(runtime, { allowVcsWrite: true });
     const localDir = mkdtempSync(join(tmpdir(), 'headless-vcs-client-'));
 
     try {
@@ -314,6 +313,10 @@ describe('headless-http /vcs/* routes', () => {
         )
       )._unsafeUnwrap() as { base: { id(): { toString(): string } } };
       const baseId = baseRes.base.id().toString();
+      const app = createHeadlessHttpApp(runtime, {
+        allowVcsWrite: true,
+        localHistoryBaseId: baseId,
+      });
 
       const tableRes = (
         await runtime.commandBus.execute(
@@ -410,6 +413,29 @@ describe('headless-http /vcs/* routes', () => {
       expect(pulled.conflicts).toEqual([]);
       expect(pulled.toRevision).toBe(pushed.newRevision);
       expect(pulled.workingSnapshot.tables[0]!.records[0]!.fields[primaryFieldId]).toBe(
+        'ClientUpdatedOne'
+      );
+
+      const target = cloned.snapshot.revision;
+      const preview = (
+        await gateway.rollbackRevision({ baseId, revision: target })
+      )._unsafeUnwrap();
+      if (!preview.dryRun) throw new Error('Expected a rollback preview');
+      const restored = (
+        await gateway.rollbackRevision({
+          baseId,
+          revision: target,
+          confirmation: preview.confirmation,
+        })
+      )._unsafeUnwrap();
+      expect(restored).toMatchObject({
+        dryRun: false,
+        result: { newRevision: pushed.newRevision + 1 },
+      });
+      const historical = (
+        await gateway.checkoutRevision(baseId, pushed.newRevision)
+      )._unsafeUnwrap();
+      expect(historical.snapshot.tables[0].records[0].fields[primaryFieldId]).toBe(
         'ClientUpdatedOne'
       );
     } finally {

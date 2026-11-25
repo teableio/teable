@@ -20,6 +20,9 @@ export class TableDomain {
   readonly baseId?: string;
   readonly dbViewName?: string;
 
+  /** Row-level actor attribution capability; `0` is the legacy, not-enabled default. */
+  readonly actorStorageVersion: 0 | 1;
+
   private readonly _fields: TableFields;
 
   constructor(params: {
@@ -32,6 +35,7 @@ export class TableDomain {
     baseId?: string;
     fields?: FieldCore[];
     dbViewName?: string;
+    actorStorageVersion?: 0 | 1;
   }) {
     this.id = params.id;
     this.name = params.name;
@@ -41,6 +45,7 @@ export class TableDomain {
     this.lastModifiedTime = params.lastModifiedTime;
     this.baseId = params.baseId;
     this.dbViewName = params.dbViewName;
+    this.actorStorageVersion = params.actorStorageVersion ?? 0;
 
     this._fields = new TableFields(params.fields);
   }
@@ -332,6 +337,7 @@ export class TableDomain {
       lastModifiedTime: this.lastModifiedTime,
       baseId: this.baseId,
       dbViewName: this.dbViewName,
+      actorStorageVersion: this.actorStorageVersion,
       fields: this._fields.toArray(),
     });
   }
@@ -349,6 +355,7 @@ export class TableDomain {
       lastModifiedTime: this.lastModifiedTime,
       baseId: this.baseId,
       dbViewName: this.dbViewName,
+      actorStorageVersion: this.actorStorageVersion,
       fields: this._fields.toArray(),
       fieldCount: this.fieldCount,
     };

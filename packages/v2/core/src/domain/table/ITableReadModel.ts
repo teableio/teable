@@ -28,6 +28,7 @@ export interface ITableReadModel {
   icon(): string | undefined;
   dbTableName(): Result<DbTableName, DomainError>;
   searchIndex(): ITableSearchIndex | undefined;
+  actorStorageVersion(): number;
   primaryFieldId(): FieldId;
   primaryField(): Result<Field, DomainError>;
   getField<T extends Field>(predicate: (field: Field) => field is T): Result<T, DomainError>;

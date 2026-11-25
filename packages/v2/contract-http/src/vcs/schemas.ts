@@ -1,4 +1,5 @@
 import {
+  baseVcsPatchSchema,
   baseVcsPushRequestSchema,
   baseVcsSnapshotSchema,
   recordVcsSnapshotSchema,
@@ -178,3 +179,51 @@ export type IVcsHeadHttpInput = z.input<typeof vcsHeadInputSchema>;
 export type IVcsCloneHttpInput = z.input<typeof vcsCloneInputSchema>;
 export type IVcsCloneRecordsHttpInput = z.input<typeof vcsCloneRecordsInputSchema>;
 export type IVcsChangesHttpInput = z.input<typeof vcsChangesInputSchema>;
+
+const revision = z.number().int().nonnegative().safe();
+const queryRevision = z.union([
+  revision,
+  z.string().regex(/^\d+$/).transform(Number).pipe(revision),
+]);
+
+export const vcsCheckoutInputSchema = vcsHeadInputSchema
+  .extend({ revision: queryRevision })
+  .strict();
+export const vcsDiffInputSchema = vcsHeadInputSchema
+  .extend({ from: queryRevision, to: queryRevision })
+  .strict();
+export const vcsRollbackInputSchema = vcsHeadInputSchema
+  .extend({
+    revision,
+    confirmation: z.string().min(1).max(256).optional(),
+    originPushId: z.string().min(1).max(128).optional(),
+  })
+  .strict();
+
+const historyPatch: z.ZodType<IBaseVcsPatch> = baseVcsPatchSchema;
+
+export const vcsDiffOutputSchema = z.object({
+  from: revision,
+  to: revision,
+  mergeBase: revision.nullable(),
+  patch: historyPatch,
+  summary: vcsPatchSummarySchema,
+});
+
+export const vcsRollbackOutputSchema = z.discriminatedUnion('dryRun', [
+  z.object({
+    dryRun: z.literal(true),
+    headRevision: revision,
+    revision,
+    confirmation: z.string(),
+    patch: historyPatch,
+    summary: vcsPatchSummarySchema,
+  }),
+  z.object({ dryRun: z.literal(false), result: vcsPushResultSchema }),
+]);
+export type IVcsCheckoutInput = z.output<typeof vcsCheckoutInputSchema>;
+export type IVcsDiffInput = z.output<typeof vcsDiffInputSchema>;
+export type IVcsRollbackInput = z.output<typeof vcsRollbackInputSchema>;
+
+export type IVcsHistoryDiffOutput = z.output<typeof vcsDiffOutputSchema>;
+export type IVcsRollbackOutput = z.output<typeof vcsRollbackOutputSchema>;

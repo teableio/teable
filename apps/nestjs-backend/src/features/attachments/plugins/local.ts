@@ -152,7 +152,9 @@ export class LocalStorage implements StorageAdapter {
         },
       });
     }
-    if (contentLength && contentLength !== size) {
+    // 0 is a size too: skipping the check for it let a zero-length signature
+    // carry a body of any size.
+    if (typeof contentLength === 'number' && contentLength !== size) {
       throw new CustomHttpException('Size mismatch', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.attachment.sizeMismatch',

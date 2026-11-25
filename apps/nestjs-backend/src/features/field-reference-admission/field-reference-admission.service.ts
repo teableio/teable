@@ -35,7 +35,11 @@ export class FieldReferenceAdmissionService {
     this.logger.warn(
       `[cross-space] reject create: tableId=${tableId} foreignTableId=${foreignTableId}`
     );
-    throw new CustomHttpException(
+    throw this.crossSpaceLinkForbidden(foreignTableId);
+  }
+
+  private crossSpaceLinkForbidden(foreignTableId: string) {
+    return new CustomHttpException(
       `Cross-space link is no longer supported (foreignTableId: ${foreignTableId})`,
       HttpErrorCode.VALIDATION_ERROR,
       {
@@ -102,7 +106,42 @@ export class FieldReferenceAdmissionService {
   /** Same-space first, then caller read access in the foreign table's actual base. */
   async assertNewForeignTableAllowed(tableId: string, foreignTableId: string): Promise<void> {
     await this.assertSameSpaceLinkTarget(tableId, foreignTableId);
-    await this.crossBaseLinkAccess.assertForeignTableReadable(tableId, foreignTableId);
+    await this.crossBaseLinkAccess.assertNewForeignTableReference(tableId, foreignTableId);
+  }
+
+  /**
+   * The same rule for the fields of a table about to be created in `baseId`,
+   * which has no table row to place it yet: every foreign table stays in the
+   * base's space, and one in another base must be readable by the caller.
+   */
+  async assertNewForeignTablesAllowedInBase(
+    baseId: string,
+    foreignTableIds: Iterable<string>
+  ): Promise<void> {
+    const ids = [...new Set(foreignTableIds)];
+    if (!ids.length) return;
+    await this.assertSameSpaceTargetsOfBase(baseId, ids);
+    await this.crossBaseLinkAccess.assertForeignTablesReadableFromBase(baseId, ids);
+  }
+
+  private async assertSameSpaceTargetsOfBase(baseId: string, foreignTableIds: string[]) {
+    if (isCrossSpaceReferenceAllowed()) return;
+    const prisma = this.prismaService.txClient();
+    const base = await prisma.base.findFirst({
+      where: { id: baseId, deletedTime: null },
+      select: { spaceId: true },
+    });
+    if (!base) return;
+    const foreignTables = await prisma.tableMeta.findMany({
+      where: { id: { in: foreignTableIds }, deletedTime: null },
+      select: { id: true, base: { select: { spaceId: true } } },
+    });
+    const crossSpace = foreignTables.find((table) => table.base.spaceId !== base.spaceId);
+    if (!crossSpace) return;
+    this.logger.warn(
+      `[cross-space] reject create table: baseId=${baseId} foreignTableId=${crossSpace.id}`
+    );
+    throw this.crossSpaceLinkForbidden(crossSpace.id);
   }
 
   /** Host field reads (including filter-link) do not inherit access to a foreign base. */

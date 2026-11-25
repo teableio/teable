@@ -11,6 +11,7 @@ import {
   isUnauthorizedError,
   isValidationError,
 } from '@teable/v2-core';
+import { VCS_WRITE_BUSY_CODE } from '@teable/v2-vcs';
 import { z } from 'zod';
 
 export interface IHttpErrorDto {
@@ -117,10 +118,13 @@ const VCS_CONFLICT_CODES = new Set([
   'vcs.non_fast_forward',
   'vcs.not_enabled',
   'vcs.enable_quiesce_timeout',
+  'vcs.stale_rollback_preview',
+  'vcs.origin_push_id_used',
 ]);
 
 export const mapDomainErrorToHttpStatus = (error: DomainError): HttpErrorStatus => {
   if (isTableProvisionPendingError(error)) return 503;
+  if (error.code === VCS_WRITE_BUSY_CODE) return 503;
   if (error.code === 'usage.max_rows_exceeded') return 402;
   if (isNotFoundError(error)) return 404;
   if (isUnauthorizedError(error)) return 401;

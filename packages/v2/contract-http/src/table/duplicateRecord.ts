@@ -16,6 +16,7 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import { mapRecordActors, type RecordActorDto } from './recordActorDto';
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
@@ -47,7 +48,8 @@ export const duplicateRecordOkResponseSchema = apiOkResponseDtoSchema(
 export { apiErrorResponseDtoSchema as duplicateRecordErrorResponseSchema } from '../shared/http';
 
 export const mapDuplicateRecordResultToDto = (
-  result: DuplicateRecordResult
+  result: DuplicateRecordResult,
+  actors: RecordActorDto | undefined
 ): Result<IDuplicateRecordResponseDataDto, DomainError> => {
   // Get base field values from the record
   const baseFields = Object.fromEntries(
@@ -75,6 +77,7 @@ export const mapDuplicateRecordResultToDto = (
   const recordDto: ITableRecordDto = {
     id: result.record.id().toString(),
     fields,
+    ...mapRecordActors(actors),
   };
 
   return ok({

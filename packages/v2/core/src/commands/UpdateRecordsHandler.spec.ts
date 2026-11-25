@@ -47,15 +47,20 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
   ITableRecordQueryRepository,
+  ITableRecordQueryResult,
 } from '../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
+  RecordActorAttribution,
   BatchRecordMutationResult,
   UpdateManyStreamBatchInput,
   UpdateManyResult,
@@ -220,13 +225,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: IExecutionContext,
-    _plan: unknown
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   findOneCalls = 0;
 
   async findOne(
@@ -266,6 +264,13 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(
+    _context: IExecutionContext,
+    _table: Table
+  ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -302,6 +307,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   updateManyStreamChangedFields = new Map<string, ReadonlyMap<string, unknown>>();
   omitUpdateManyStreamOldFieldValues = false;
   updateManyStreamUpdatedRecordIds: Set<string> | undefined;
+  recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>;
   updateManyResult: UpdateManyResult = {
     totalUpdated: 0,
     updatedRecordIds: [],
@@ -412,7 +418,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
     }
 
-    return ok({ totalUpdated, updatedRecords });
+    return ok({ totalUpdated, updatedRecords, recordActorsByRecord: this.recordActorsByRecord });
   }
 
   private createStreamSnapshot(update: RecordUpdateResult) {
@@ -448,6 +454,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
     return ok({ totalDeleted: 0 });
   }
+
+  async duplicatePhysicalRows(): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({
+        message: 'duplicatePhysicalRows is not used by update records tests',
+      })
+    );
+  }
 }
 
 class FakeRecordMutationSpecResolverService {
@@ -474,13 +488,18 @@ class FakeRecordMutationSpecResolverService {
   }
 }
 
-type FakeQueryRecord = {
-  id: string;
-  fields: Record<string, unknown>;
-  version: number;
-  autoNumber?: number;
-  orders?: Record<string, number>;
-};
+type FakeQueryRecord = Omit<
+  TableRecordReadModel,
+  'createdByActorType' | 'createdByActorId' | 'lastModifiedByActorType' | 'lastModifiedByActorId'
+>;
+
+const withUnknownActor = (record: FakeQueryRecord): TableRecordReadModel => ({
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+  ...record,
+});
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
   records: FakeQueryRecord[] = [];
@@ -491,25 +510,25 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _table: Table,
     _spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions
-  ): Promise<Result<{ records: FakeQueryRecord[]; total: number }, DomainError>> {
+  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     this.lastFindOptions = options;
     return ok({
-      records: [...this.records],
+      records: this.records.map(withUnknownActor),
       total: this.records.length,
     });
   }
 
-  async findOne(): Promise<Result<FakeQueryRecord, DomainError>> {
+  async findOne(): Promise<Result<TableRecordReadModel, DomainError>> {
     const record = this.records[0];
     if (!record) {
       return err(domainError.notFound({ message: 'Record not found' }));
     }
-    return ok(record);
+    return ok(withUnknownActor(record));
   }
 
-  async *findStream(): AsyncIterable<Result<FakeQueryRecord, DomainError>> {
+  async *findStream(): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     for (const record of this.records) {
-      yield ok(record);
+      yield ok(withUnknownActor(record));
     }
   }
 }
@@ -620,6 +639,7 @@ const createHandler = (
     recordMutationSpecResolver?: FakeRecordMutationSpecResolverService;
     recordChangedValueDecoratorService?: IRecordChangedValueDecoratorService;
     tableSchemaCoordination?: ITableSchemaCoordination;
+    orderColumnPreparer?: IRecordOrderColumnPreparer;
   }
 ) => {
   for (const record of options?.queryRepository?.records ?? []) {
@@ -649,12 +669,123 @@ const createHandler = (
     new UpdateRecordsApplicationService(
       new TableQueryService(tableRepository),
       recordBulkUpdateService,
-      options?.tableSchemaCoordination
+      options?.tableSchemaCoordination,
+      options?.orderColumnPreparer
     )
   );
 };
 
 describe('UpdateRecordsHandler', () => {
+  it.each([true, false])(
+    'returns stored mutation actors for changed=%s rows inside the write transaction',
+    async (changed) => {
+      const fixture = buildTable();
+      const { tableId, numberFieldId } = fixture;
+      // Attachment presentation already requires a transactional response readback;
+      // isolate scalar updates here so an attribution-only query would be observable.
+      const attachment = fixture.table
+        .getFields()
+        .find((field) => field.type().toString() === 'attachment')!;
+      const table = fixture.table.removeField(attachment.id())._unsafeUnwrap();
+      const recordId = `rec${'z'.repeat(16)}`;
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const recordRepository = new FakeTableRecordRepository();
+      const actors: RecordActorAttribution = {
+        createdByActorType: 'appUser',
+        createdByActorId: 'apu_creator',
+        lastModifiedByActorType: 'user',
+        lastModifiedByActorId: 'usr_persisted',
+      };
+      recordRepository.recordActorsByRecord = new Map([[recordId, actors]]);
+      if (!changed) recordRepository.updateManyStreamUpdatedRecordIds = new Set();
+      const queryRepository = new FakeTableRecordQueryRepository();
+      queryRepository.records = [
+        { id: recordId, version: 4, fields: { [numberFieldId.toString()]: 1 } },
+      ];
+      const find = queryRepository.find.bind(queryRepository);
+      const read = vi
+        .spyOn(queryRepository, 'find')
+        .mockImplementation(async (context, ...args) => {
+          expect(context.transaction?.kind).toBe('unitOfWorkTransaction');
+          return find(context, ...args);
+        });
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = createHandler(
+        tableRepository,
+        recordRepository,
+        eventBus,
+        unitOfWork,
+        new FakeUndoRedoService(),
+        { queryRepository }
+      );
+
+      const result = (
+        await handler.handle(
+          createContext(),
+          UpdateRecordsCommand.create({
+            tableId: tableId.toString(),
+            fieldKeyType: 'id',
+            records: [{ id: recordId, fields: { [numberFieldId.toString()]: changed ? 2 : 1 } }],
+          })._unsafeUnwrap()
+        )
+      )._unsafeUnwrap();
+
+      expect(result.updatedCount).toBe(changed ? 1 : 0);
+      expect(result.recordActorsByRecord?.get(recordId)).toEqual(actors);
+      expect(read).toHaveBeenCalledTimes(changed ? 1 : 2);
+    }
+  );
+
+  it('uses the existing transactional read for an empty-field noop without a mutation query', async () => {
+    const { table, tableId, numberFieldId } = buildTable();
+    const recordId = `rec${'y'.repeat(16)}`;
+    const actors: RecordActorAttribution = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apu_original',
+      lastModifiedByActorType: 'automation',
+      lastModifiedByActorId: 'workflow_last',
+    };
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const queryRepository = new FakeTableRecordQueryRepository();
+    const read = vi.spyOn(queryRepository, 'find').mockImplementation(async (context) => {
+      expect(context.transaction?.kind).toBe('unitOfWorkTransaction');
+      return ok({
+        records: [
+          { id: recordId, version: 4, fields: { [numberFieldId.toString()]: 1 }, ...actors },
+        ],
+        total: 1,
+      });
+    });
+    const handler = createHandler(
+      tableRepository,
+      recordRepository,
+      new FakeEventBus(),
+      new FakeUnitOfWork(),
+      new FakeUndoRedoService(),
+      { queryRepository }
+    );
+
+    const result = (
+      await handler.handle(
+        createContext(),
+        UpdateRecordsCommand.create({
+          tableId: tableId.toString(),
+          fieldKeyType: 'id',
+          records: [{ id: recordId, fields: {} }],
+        })._unsafeUnwrap()
+      )
+    )._unsafeUnwrap();
+
+    expect(result.updatedCount).toBe(0);
+    expect(result.recordActorsByRecord?.get(recordId)).toEqual(actors);
+    expect(recordRepository.updateManyStreamCalls).toBe(0);
+    expect(read).toHaveBeenCalledOnce();
+  });
+
   it('updates matched records and publishes batch event', async () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordIdA = `rec${'a'.repeat(16)}`;
@@ -1449,10 +1580,36 @@ describe('UpdateRecordsHandler', () => {
       const queryRepository = new FakeTableRecordQueryRepository();
       vi.spyOn(queryRepository, 'find')
         .mockResolvedValueOnce(
-          ok({ records: [{ id: recordId, version: 1, fields: beforeFields }], total: 1 })
+          ok({
+            records: [
+              {
+                id: recordId,
+                version: 1,
+                fields: beforeFields,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+            ],
+            total: 1,
+          })
         )
         .mockResolvedValueOnce(
-          ok({ records: [{ id: recordId, version: 2, fields: readbackFields }], total: 1 })
+          ok({
+            records: [
+              {
+                id: recordId,
+                version: 2,
+                fields: readbackFields,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+            ],
+            total: 1,
+          })
         );
       const eventBus = new FakeEventBus();
       const undoRedoService = new FakeUndoRedoService();
@@ -1551,6 +1708,10 @@ describe('UpdateRecordsHandler', () => {
                   [singleSelectFieldId.toString()]: null,
                   [attachmentFieldId.toString()]: [staleAttachment],
                 },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 1,
@@ -1567,6 +1728,10 @@ describe('UpdateRecordsHandler', () => {
                   [singleSelectFieldId.toString()]: null,
                   [attachmentFieldId.toString()]: null,
                 },
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
               },
             ],
             total: 1,
@@ -1833,11 +1998,21 @@ describe('UpdateRecordsHandler', () => {
     const { table, tableId, numberFieldId } = buildTable();
     const recordIdA = `rec${'o'.repeat(16)}`;
     const recordIdB = `rec${'p'.repeat(16)}`;
-    const viewId = `viw${'q'.repeat(16)}`;
+    const viewId = table.views()[0]!.id().toString();
 
     const tableRepository = new FakeTableRepository();
     tableRepository.tables.push(table);
     const recordRepository = new FakeTableRecordRepository();
+    const actors: RecordActorAttribution = {
+      createdByActorType: 'appUser',
+      createdByActorId: 'apu_before_order',
+      lastModifiedByActorType: 'automation',
+      lastModifiedByActorId: 'workflow_before_order',
+    };
+    recordRepository.recordActorsByRecord = new Map([
+      [recordIdA, actors],
+      [recordIdB, actors],
+    ]);
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
       {
@@ -1893,6 +2068,8 @@ describe('UpdateRecordsHandler', () => {
     const payload = result._unsafeUnwrap();
 
     expect(payload.updatedCount).toBe(2);
+    expect(payload.recordActorsByRecord?.get(recordIdA)).toEqual(actors);
+    expect(payload.recordActorsByRecord?.get(recordIdB)).toEqual(actors);
     expect(
       payload.records?.map((record) => ({
         id: record.id().toString(),
@@ -2120,6 +2297,7 @@ describe('UpdateRecordsHandler schema coordination', () => {
     options: {
       omitTable?: boolean;
       plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
+      orderColumnPreparer?: IRecordOrderColumnPreparer;
     } = {}
   ) => {
     const { table, tableId, textFieldId, numberFieldId, singleSelectFieldId } = buildTable();
@@ -2148,7 +2326,11 @@ describe('UpdateRecordsHandler schema coordination', () => {
       new FakeEventBus(),
       new FakeUnitOfWork(),
       new FakeUndoRedoService(),
-      { tableSchemaCoordination: coordination, plugins: options.plugins }
+      {
+        tableSchemaCoordination: coordination,
+        plugins: options.plugins,
+        orderColumnPreparer: options.orderColumnPreparer,
+      }
     );
 
     return {
@@ -2385,9 +2567,32 @@ describe('UpdateRecordsHandler schema coordination', () => {
     expect(tracked.calls.guard).toHaveLength(1);
   });
 
-  it('does not coordinate ordered bulk updates because row-order CIC cannot run inside the lease', async () => {
+  it('prepares ordered bulk storage before acquiring and reloads newly enabled actor metadata', async () => {
     const coordination = new RecordingTableSchemaCoordination();
-    const { table, tableId, numberFieldId, handler } = setup(coordination);
+    const tracked = createTrackedRecordWritePlugin([RecordWriteOperationKind.updateMany]);
+    const preparationVersions: number[] = [];
+    const { table, tableId, numberFieldId, handler, tableRepository } = setup(coordination, {
+      plugins: [tracked.plugin],
+      orderColumnPreparer: {
+        prepareOrderColumn: async (_context, candidate) => {
+          expect(coordination.calls).toEqual([]);
+          preparationVersions.push(candidate.actorStorageVersion());
+          return ok(true);
+        },
+      },
+    });
+    const enabled = Table.rehydrate({
+      id: table.id(),
+      baseId: table.baseId(),
+      name: table.name(),
+      fields: table.getFields(),
+      views: table.views(),
+      primaryFieldId: table.primaryFieldId(),
+      actorStorageVersion: 1,
+    })._unsafeUnwrap();
+    coordination.onAcquire = () => {
+      tableRepository.tables = [enabled];
+    };
 
     const result = await handler.handle(
       createContext(),
@@ -2408,8 +2613,10 @@ describe('UpdateRecordsHandler schema coordination', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(coordination.calls).toEqual([]);
-    expect(coordination.releaseCount).toBe(0);
+    expect(preparationVersions).toEqual([0]);
+    expect(coordination.calls.map((call) => call.mode)).toEqual(['shared']);
+    expect(coordination.releaseCount).toBe(1);
+    expect(tracked.calls.prepare[0]?.table.actorStorageVersion()).toBe(1);
   });
 
   it('returns the coordination failure before reading table metadata', async () => {

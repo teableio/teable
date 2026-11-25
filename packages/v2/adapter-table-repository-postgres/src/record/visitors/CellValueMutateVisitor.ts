@@ -4,6 +4,7 @@ import type {
   DomainError,
   Field,
   ICellValueSpecVisitor,
+  IExecutionContext,
   LastModifiedByField,
   LastModifiedTimeField,
   LinkField,
@@ -88,6 +89,7 @@ export interface MutationStatements extends MutationPlan {
 export interface CellValueMutateContext {
   recordId: string;
   actorId: string;
+  initiator?: IExecutionContext['initiator'];
   now: string;
   actorName?: string;
   actorEmail?: string;
@@ -145,6 +147,10 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
    * Batch callers use this to build one set-based statement for many records.
    */
   finalize(): Result<MutationPlan, DomainError> {
+    if (this.changedFieldIds.length > 0 && this.table.actorStorageVersion() === 1) {
+      this.setClauses.__last_modified_by_actor_type = this.ctx.initiator?.type ?? null;
+      this.setClauses.__last_modified_by_actor_id = this.ctx.initiator?.id ?? null;
+    }
     const lastModifiedTimeResult = this.applyTrackedLastModifiedTimeUpdates();
     if (lastModifiedTimeResult.isErr()) return err(lastModifiedTimeResult.error);
 
@@ -308,10 +314,14 @@ export class CellValueMutateVisitor implements ICellValueSpecVisitor {
   }
 
   private buildLastModifiedByValue(): string {
+    const initiator = this.ctx.initiator;
+    const initiatorId =
+      initiator?.type === 'appUser' || initiator?.type === 'user' ? initiator.id : this.ctx.actorId;
+    const isExecutor = initiatorId === this.ctx.actorId;
     return JSON.stringify({
-      id: this.ctx.actorId,
-      title: this.ctx.actorName ?? this.ctx.actorId,
-      email: this.ctx.actorEmail ?? null,
+      id: initiatorId,
+      title: isExecutor ? (this.ctx.actorName ?? initiatorId) : initiatorId,
+      email: isExecutor ? (this.ctx.actorEmail ?? null) : null,
     });
   }
 

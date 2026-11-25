@@ -128,16 +128,21 @@ export class TableDomainQueryService {
       return createFieldInstanceByVo(fieldVo) as FieldCore;
     });
 
+    // A request cache may predate enable. Writes always use metadata loaded while
+    // holding the shared schema lease, never a cached capability or binding.
+    const writeMeta = this.cls.get('actorStorageLeases')?.get(tableMeta.id);
     return new TableDomain({
       id: tableMeta.id,
       name: tableMeta.name,
-      dbTableName: tableMeta.dbTableName,
+      dbTableName: writeMeta?.dbTableName ?? tableMeta.dbTableName,
       dbViewName: tableMeta.dbViewName ?? undefined,
       icon: tableMeta.icon || undefined,
       description: tableMeta.description || undefined,
       lastModifiedTime:
         tableMeta.lastModifiedTime?.toISOString() || tableMeta.createdTime.toISOString(),
-      baseId: tableMeta.baseId,
+      baseId: writeMeta?.baseId ?? tableMeta.baseId,
+      actorStorageVersion:
+        writeMeta?.actorStorageVersion ?? (tableMeta.actorStorageVersion === 1 ? 1 : 0),
       fields: fieldInstances,
     });
   }

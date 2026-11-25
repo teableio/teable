@@ -8,6 +8,11 @@ import {
   type IHasher,
   type ILogger,
   type IRecordOrderCalculator,
+  type IExecutionContext,
+  type ITableRepository,
+  type RecordRestoreSystemValues,
+  RecordByIdsSpec,
+  SetRowOrderValueSpec,
   FieldName,
   Table,
   TableId,
@@ -15,6 +20,7 @@ import {
   ViewName,
   ok,
 } from '@teable/v2-core';
+import { Pg16TypeValidationStrategy } from '@teable/v2-formula-sql-pg';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { sql } from 'kysely';
@@ -22,15 +28,18 @@ import { afterAll, afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { createPGliteDb } from '../../schema/visitors/__tests__/helpers/createPGliteDb';
 import { installUndoCaptureGlobals } from '../../schema/visitors/__tests__/helpers/installUndoCaptureGlobals';
+import { ACTOR_COLUMNS } from '../actorColumns';
 import type {
   ComputedFieldUpdater,
   ComputedUpdatePlanner,
   IComputedUpdateOutbox,
   IUpdateStrategy,
 } from '../computed';
-import type { DynamicDB } from '../query-builder';
+import { TableRecordQueryBuilderManager, type DynamicDB } from '../query-builder';
+import { buildBatchUpdateSql } from '../query-builder/update/BatchUpdateSqlBuilder';
 import { createNoopEventBus } from './__tests__/helpers/createNoopEventBus';
 import { PostgresRecordMutationSnapshotCaptureService } from './PostgresRecordMutationSnapshotCaptureService';
+import { PostgresTableRecordQueryRepository } from './PostgresTableRecordQueryRepository';
 import { PostgresTableRecordRepository } from './PostgresTableRecordRepository';
 
 const sanitizeIdSeed = (seed: string): string => seed.replace(/[^0-9a-z]/gi, '0');
@@ -145,7 +154,8 @@ const createRepository = (db: Kysely<DynamicDB>, table: Table) => {
 
 const createTableWithStorage = async (
   db: Kysely<V1TeableDatabase>,
-  seed: string
+  seed: string,
+  actorStorageVersion = 0
 ): Promise<{
   table: Table;
   schemaName: string;
@@ -167,7 +177,17 @@ const createTableWithStorage = async (
     .primary()
     .done();
   builder.view().grid().withName(ViewName.create('Grid')._unsafeUnwrap()).done();
-  const table = builder.build()._unsafeUnwrap();
+  const builtTable = builder.build()._unsafeUnwrap();
+  const table = Table.rehydrate({
+    id: builtTable.id(),
+    baseId: builtTable.baseId(),
+    name: builtTable.name(),
+    fields: builtTable.getFields(),
+    views: builtTable.views(),
+    primaryFieldId: builtTable.primaryFieldId(),
+    dbTableName: builtTable.dbTableName()._unsafeUnwrap(),
+    actorStorageVersion,
+  })._unsafeUnwrap();
 
   const primaryField = table.getFields()[0]!;
   primaryField.setDbFieldName(DbFieldName.rehydrate('col_name')._unsafeUnwrap())._unsafeUnwrap();
@@ -191,6 +211,13 @@ const createTableWithStorage = async (
       col_name text
     )
   `.execute(db);
+  if (actorStorageVersion === 1) {
+    await sql`ALTER TABLE ${sql.table(fullTableName)}
+      ADD COLUMN __created_by_actor_type text,
+      ADD COLUMN __created_by_actor_id text,
+      ADD COLUMN __last_modified_by_actor_type text,
+      ADD COLUMN __last_modified_by_actor_id text`.execute(db);
+  }
 
   await sql`
     INSERT INTO table_meta (id, last_modified_time, last_modified_by)
@@ -299,9 +326,37 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
     await sql`
       CREATE TABLE IF NOT EXISTS table_meta (
         id text PRIMARY KEY,
+        name text,
+        base_id text,
+        deleted_time timestamptz,
         last_modified_time timestamptz,
         last_modified_by text
       )
+    `.execute(db);
+    await sql`
+      CREATE TABLE IF NOT EXISTS field (
+        id text PRIMARY KEY,
+        table_id text,
+        name text,
+        not_null boolean,
+        db_field_name text,
+        deleted_time timestamptz,
+        type text,
+        is_lookup boolean,
+        options text
+      )
+    `.execute(db);
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id text PRIMARY KEY,
+        name text,
+        email text
+      )
+    `.execute(db);
+    await sql`
+      INSERT INTO users (id, name, email)
+      VALUES ('usr_native', 'Original creator', 'original@example.com')
+      ON CONFLICT (id) DO NOTHING
     `.execute(db);
 
     await installUndoCaptureGlobals(db);
@@ -316,6 +371,402 @@ describe('PostgresTableRecordRepository.insert (pglite)', () => {
 
   afterAll(async () => {
     await destroyDb?.();
+  });
+
+  it.each([0, 1])(
+    'persists native CRUD and nullable actor values for capability %s',
+    async (version) => {
+      const { table, schemaName, tableName, primaryFieldId } = await createTableWithStorage(
+        db,
+        `actor-crud-${version}`,
+        version
+      );
+      createdSchemas.push(schemaName);
+      const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+      const queryRepository = new PostgresTableRecordQueryRepository(
+        new TableRecordQueryBuilderManager(
+          db,
+          {} as ITableRepository,
+          new Pg16TypeValidationStrategy()
+        ),
+        db,
+        createLogger()
+      );
+      const context: IExecutionContext & { actorName: string; actorEmail: string } = {
+        actorId: ActorId.create('robot')._unsafeUnwrap(),
+        actorName: 'Robot',
+        actorEmail: 'robot@example.com',
+        initiator: { type: 'appUser', id: 'apu_customer_a' },
+      };
+      const unknown: IExecutionContext = { actorId: context.actorId };
+      const user: IExecutionContext = {
+        ...context,
+        initiator: { type: 'user', id: 'usr_editor_b' },
+      };
+      const record = table
+        .createRecord(new Map([[primaryFieldId, 'Alpha']]))
+        ._unsafeUnwrap().record;
+      const transaction = <T>(
+        work: (ctx: IExecutionContext) => Promise<T>,
+        ctx: IExecutionContext = context
+      ) =>
+        db
+          .transaction()
+          .execute((trx) =>
+            work({ ...ctx, transaction: new PostgresUnitOfWorkTransaction(trx as never) })
+          );
+      const inserted = (
+        await transaction((ctx) => repository.insert(ctx, table, record))
+      )._unsafeUnwrap();
+      expect(inserted.recordActors).toEqual({
+        createdByActorType: version ? 'appUser' : null,
+        createdByActorId: version ? 'apu_customer_a' : null,
+        lastModifiedByActorType: version ? 'appUser' : null,
+        lastModifiedByActorId: version ? 'apu_customer_a' : null,
+      });
+      const read = async (mode: 'stored' | 'computed') =>
+        (await queryRepository.findOne(context, table, record.id(), { mode }))._unsafeUnwrap();
+      for (const mode of ['stored', 'computed'] as const) {
+        expect(await read(mode)).toMatchObject({
+          createdByActorType: version ? 'appUser' : null,
+          createdByActorId: version ? 'apu_customer_a' : null,
+          lastModifiedByActorType: version ? 'appUser' : null,
+          lastModifiedByActorId: version ? 'apu_customer_a' : null,
+        });
+      }
+      const update = (value: string, ctx: IExecutionContext) =>
+        transaction(
+          (tx) =>
+            repository.updateOne(
+              tx,
+              table,
+              record.id(),
+              table.updateRecord(record.id(), new Map([[primaryFieldId, value]]))._unsafeUnwrap()
+                .mutateSpec
+            ),
+          ctx
+        );
+      const mutated = (await update('Beta', user))._unsafeUnwrap();
+      expect(mutated.recordActors).toEqual({
+        createdByActorType: version ? 'appUser' : null,
+        createdByActorId: version ? 'apu_customer_a' : null,
+        lastModifiedByActorType: version ? 'user' : null,
+        lastModifiedByActorId: version ? 'usr_editor_b' : null,
+      });
+      const beforeNoop = await sql<
+        Record<string, unknown>
+      >`SELECT * FROM ${sql.table(`${schemaName}.${tableName}`)}`.execute(db);
+      const noop = (await update('Beta', unknown))._unsafeUnwrap();
+      expect(noop.mutationApplied).toBe(false);
+      expect(noop.recordActors).toEqual(mutated.recordActors);
+      const afterNoop = await sql<
+        Record<string, unknown>
+      >`SELECT * FROM ${sql.table(`${schemaName}.${tableName}`)}`.execute(db);
+      expect(afterNoop.rows).toEqual(beforeNoop.rows);
+      if (version) {
+        expect(beforeNoop.rows[0]).toMatchObject({
+          __created_by: 'robot',
+          __last_modified_by: 'robot',
+          __created_by_actor_type: 'appUser',
+          __created_by_actor_id: 'apu_customer_a',
+          __last_modified_by_actor_type: 'user',
+          __last_modified_by_actor_id: 'usr_editor_b',
+        });
+      } else {
+        expect(beforeNoop.rows[0]).not.toHaveProperty('__created_by_actor_type');
+      }
+      expect(
+        (
+          await transaction(
+            (ctx) =>
+              repository.updateOne(
+                ctx,
+                table,
+                record.id(),
+                new SetRowOrderValueSpec(table.views()[0]!.id(), 70)
+              ),
+            unknown
+          )
+        ).isOk()
+      ).toBe(true);
+      expect(await read('stored')).toMatchObject({
+        createdByActorId: version ? 'apu_customer_a' : null,
+        lastModifiedByActorId: version ? 'usr_editor_b' : null,
+      });
+      expect((await update('Gamma', unknown)).isOk()).toBe(true);
+      expect(await read('stored')).toMatchObject({
+        createdByActorId: version ? 'apu_customer_a' : null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      });
+      const target = RecordByIdsSpec.create([record.id()]);
+      const bulkMutation = table
+        .updateRecord(record.id(), new Map([[primaryFieldId, 'Bulk']]))
+        ._unsafeUnwrap().mutateSpec;
+      const bulk = (
+        await transaction((ctx) => repository.updateMany(ctx, table, target, bulkMutation), user)
+      )._unsafeUnwrap();
+      expect(bulk.totalUpdated).toBe(1);
+      expect(bulk.recordActorsByRecord?.get(record.id().toString())).toEqual(mutated.recordActors);
+      expect(await read('stored')).toMatchObject({
+        lastModifiedByActorId: version ? 'usr_editor_b' : null,
+      });
+      const bulkNoop = (
+        await transaction((ctx) => repository.updateMany(ctx, table, target, bulkMutation), unknown)
+      )._unsafeUnwrap();
+      expect(bulkNoop.totalUpdated).toBe(0);
+      expect(bulkNoop.recordActorsByRecord?.get(record.id().toString())).toEqual(
+        mutated.recordActors
+      );
+      expect(await read('stored')).toMatchObject({
+        lastModifiedByActorId: version ? 'usr_editor_b' : null,
+      });
+      const deleted = (
+        await transaction((ctx) => repository.deleteMany(ctx, table, target))
+      )._unsafeUnwrap();
+      expect(deleted.deletedRecords).toHaveLength(1);
+      expect(deleted.deletedRecords?.[0]).toMatchObject({
+        recordId: record.id().toString(),
+        createdByActorId: version ? 'apu_customer_a' : null,
+        lastModifiedByActorId: version ? 'usr_editor_b' : null,
+      });
+      expect(
+        (await sql`SELECT * FROM ${sql.table(`${schemaName}.${tableName}`)}`.execute(db)).rows
+      ).toEqual([]);
+      // A later deletion cannot change the response afterimage already frozen by SQL.
+      expect(inserted.recordActors?.createdByActorId).toBe(version ? 'apu_customer_a' : null);
+      expect(mutated.recordActors?.lastModifiedByActorId).toBe(version ? 'usr_editor_b' : null);
+    }
+  );
+
+  it('attributes batch/stream inserts and mutations and protects restore attribution', async () => {
+    const { table, schemaName, tableName, primaryFieldId } = await createTableWithStorage(
+      db,
+      'actor-stream',
+      1
+    );
+    createdSchemas.push(schemaName);
+    const repository = createRepository(db as unknown as Kysely<DynamicDB>, table);
+    const context: IExecutionContext & { actorName: string; actorEmail: string } = {
+      actorId: ActorId.create('robot')._unsafeUnwrap(),
+      initiator: { type: 'appUser', id: 'apu_live' },
+      actorName: 'Robot',
+      actorEmail: 'robot@example.com',
+    };
+    const records = ['batch', 'stream', 'restored', 'old-restore', 'imported', 'forged'].map(
+      (name) => table.createRecord(new Map([[primaryFieldId, name]]))._unsafeUnwrap().record
+    );
+    const transaction = <T>(
+      work: (ctx: IExecutionContext) => Promise<T>,
+      ctx: IExecutionContext = context
+    ) =>
+      db
+        .transaction()
+        .execute((trx) =>
+          work({ ...ctx, transaction: new PostgresUnitOfWorkTransaction(trx as never) })
+        );
+    const insertedBatch = (
+      await transaction((ctx) => repository.insertMany(ctx, table, [records[0]!]))
+    )._unsafeUnwrap();
+    expect(insertedBatch.recordActorsByRecord?.get(records[0]!.id().toString())).toMatchObject({
+      createdByActorId: 'apu_live',
+      lastModifiedByActorId: 'apu_live',
+    });
+    expect(
+      (await transaction((ctx) => repository.insertManyStream(ctx, table, [[records[1]!]]))).isOk()
+    ).toBe(true);
+    const restoreRecordsById = new Map<string, RecordRestoreSystemValues>([
+      [records[2]!.id().toString(), { createdByActor: { type: 'user', id: 'usr_original' } }],
+      [records[3]!.id().toString(), { createdByActor: null }],
+      [records[4]!.id().toString(), { createdBy: 'robot' }],
+    ]);
+    expect(
+      (
+        await transaction((ctx) =>
+          repository.insertMany(ctx, table, records.slice(2, 5), { restoreRecordsById })
+        )
+      ).isOk()
+    ).toBe(true);
+    for (const column of ACTOR_COLUMNS) {
+      const forgedOptions = {
+        restoreRecordsById: new Map([
+          [records[5]!.id().toString(), { extraColumnValues: { [column]: 'forged' } }],
+        ]),
+      };
+      expect(
+        (
+          await transaction((ctx) =>
+            repository.insertMany(ctx, table, [records[5]!], forgedOptions)
+          )
+        ).isErr()
+      ).toBe(true);
+      expect(
+        (
+          await transaction((ctx) => repository.insert(ctx, table, records[5]!, forgedOptions))
+        ).isErr()
+      ).toBe(true);
+    }
+    const selectRows = async () =>
+      (
+        await sql<
+          Record<string, unknown>
+        >`SELECT * FROM ${sql.table(`${schemaName}.${tableName}`)} ORDER BY __auto_number`.execute(
+          db
+        )
+      ).rows;
+    const created = await selectRows();
+    expect(created.map((row) => row.__created_by_actor_id)).toEqual([
+      'apu_live',
+      'apu_live',
+      'usr_original',
+      null,
+      'apu_live',
+    ]);
+    expect(created.map((row) => row.__last_modified_by_actor_id)).toEqual(
+      Array(5).fill('apu_live')
+    );
+    const nativeRestore = table
+      .createRecord(new Map([[primaryFieldId, 'native-restore']]))
+      ._unsafeUnwrap().record;
+    const nativeRestoreResult = await transaction(async (ctx) => {
+      const restored = await repository.insert(ctx, table, nativeRestore, {
+        restoreRecordsById: new Map([
+          [
+            nativeRestore.id().toString(),
+            {
+              version: 7,
+              autoNumber: 777,
+              createdTime: '2020-01-02T03:04:05.000Z',
+              createdBy: 'usr_native',
+              createdByActor: { type: 'system', id: 'svc_restore' },
+            },
+          ],
+        ]),
+      });
+      // Surface the original repository error before transaction commit can mask it.
+      return restored._unsafeUnwrap();
+    });
+    expect(nativeRestoreResult.recordSnapshot).toMatchObject({
+      version: 7,
+      autoNumber: 777,
+      createdBy: 'usr_native',
+      createdByActorType: 'system',
+      createdByActorId: 'svc_restore',
+      lastModifiedByActorId: 'apu_live',
+    });
+    const [restoredRow] = (
+      await sql<Record<string, unknown>>`
+      SELECT * FROM ${sql.table(`${schemaName}.${tableName}`)} WHERE __id = ${nativeRestore.id().toString()}
+    `.execute(db)
+    ).rows;
+    expect(restoredRow).toMatchObject({
+      __version: 7,
+      __auto_number: 777,
+      __created_by: 'usr_native',
+      __created_by_actor_type: 'system',
+      __created_by_actor_id: 'svc_restore',
+      __last_modified_by_actor_type: 'appUser',
+      __last_modified_by_actor_id: 'apu_live',
+    });
+    expect(new Date(restoredRow!.__created_time as string | Date).toISOString()).toBe(
+      '2020-01-02T03:04:05.000Z'
+    );
+    const mixedOrder = buildBatchUpdateSql({
+      table,
+      tableName: `${schemaName}.${tableName}`,
+      db: db as unknown as Kysely<DynamicDB>,
+      initiator: { type: 'user', id: 'usr_mixed' },
+      systemColumns: {
+        lastModifiedTime: '2026-01-01T00:00:00.000Z',
+        lastModifiedBy: 'robot',
+        versionIncrement: true,
+      },
+      columnUpdateData: new Map<string, Array<{ recordId: string; value: unknown }>>([
+        ['col_name', [{ recordId: records[0]!.id().toString(), value: 'mixed-field' }]],
+        [
+          table.views()[0]!.id().toRowOrderColumnName(),
+          [{ recordId: records[1]!.id().toString(), value: 50 }],
+        ],
+      ]),
+    })._unsafeUnwrap();
+    await db.executeQuery(mixedOrder);
+    expect((await selectRows()).slice(0, 2).map((row) => row.__last_modified_by_actor_id)).toEqual([
+      'usr_mixed',
+      'apu_live',
+    ]);
+    const updates = records
+      .slice(0, 2)
+      .map((record) =>
+        table.updateRecord(record.id(), new Map([[primaryFieldId, 'changed']]))._unsafeUnwrap()
+      );
+    const streamMutation = (
+      await transaction(
+        (ctx) =>
+          repository.updateManyStream(
+            ctx,
+            table,
+            (function* () {
+              yield ok(updates);
+            })()
+          ),
+        {
+          ...context,
+          initiator: { type: 'automation', id: 'workflow_stable' },
+        }
+      )
+    )._unsafeUnwrap();
+    expect(
+      [...streamMutation.recordActorsByRecord!.values()].map((actor) => actor.lastModifiedByActorId)
+    ).toEqual(['workflow_stable', 'workflow_stable']);
+    const modified = await selectRows();
+    expect(modified.slice(0, 2).map((row) => row.__last_modified_by_actor_id)).toEqual([
+      'workflow_stable',
+      'workflow_stable',
+    ]);
+    const streamNoop = (
+      await transaction(
+        (ctx) =>
+          repository.updateManyStream(
+            ctx,
+            table,
+            (function* () {
+              yield ok(updates);
+            })()
+          ),
+        { actorId: context.actorId }
+      )
+    )._unsafeUnwrap();
+    expect(streamNoop.totalUpdated).toBe(0);
+    expect(streamNoop.recordActorsByRecord).toEqual(streamMutation.recordActorsByRecord);
+    expect(await selectRows()).toEqual(modified);
+    const clearedUpdates = records
+      .slice(0, 2)
+      .map((record) =>
+        table.updateRecord(record.id(), new Map([[primaryFieldId, null]]))._unsafeUnwrap()
+      );
+    expect(
+      (
+        await transaction(
+          (ctx) =>
+            repository.updateManyStream(
+              ctx,
+              table,
+              (function* () {
+                yield ok(clearedUpdates);
+              })()
+            ),
+          { actorId: context.actorId }
+        )
+      ).isOk()
+    ).toBe(true);
+    expect(
+      (await selectRows())
+        .slice(0, 2)
+        .map((row) => [row.__last_modified_by_actor_type, row.__last_modified_by_actor_id])
+    ).toEqual([
+      [null, null],
+      [null, null],
+    ]);
   });
 
   it('sets default row order when inserting into schema-qualified table', async () => {

@@ -10,17 +10,20 @@ const createService = ({
   attachmentCellValueService = {},
   recordStoragePresenceService = {},
   coldReadService = { collectHistoryRows: vi.fn().mockResolvedValue({ rows: [] }) },
+  actorResolver = { resolve: vi.fn().mockResolvedValue({}) },
 }: {
   prismaService?: unknown;
   attachmentCellValueService?: unknown;
   recordStoragePresenceService?: unknown;
   coldReadService?: unknown;
+  actorResolver?: unknown;
 } = {}) =>
   new RecordHistoryReadService(
     prismaService as never,
     attachmentCellValueService as never,
     coldReadService as never,
-    recordStoragePresenceService as never
+    recordStoragePresenceService as never,
+    actorResolver as never
   );
 
 describe('RecordHistoryReadService', () => {
@@ -93,6 +96,8 @@ describe('RecordHistoryReadService', () => {
         after: { meta: { type: 'singleLineText' }, data: 'new' },
         createdTime: startDate,
         createdBy: userId,
+        actorType: null,
+        actorId: null,
       },
     ]);
     expect(result.userMap[userId]).toEqual({
@@ -103,6 +108,62 @@ describe('RecordHistoryReadService', () => {
     });
   });
 
+  it('expands platform actor avatar storage keys without rewriting resolved App avatars', async () => {
+    vi.stubEnv('BACKEND_STORAGE_PUBLIC_URL', 'https://avatars.example.test');
+    const appAvatar = 'https://profiles.example.test/avatar.png?signature=synthetic';
+    const actorMap = {
+      ['user:usrMember']: { name: 'Platform Member', avatar: 'avatar/member.png' },
+      ['appUser:apuMember']: { name: 'App Member', avatar: appAvatar },
+      ['automation:wfFixture']: { name: 'Workflow', avatar: null },
+      ['appUser:apuDeleted']: null,
+    };
+    const rows = [
+      { actorType: 'user', actorId: 'usrMember' },
+      { actorType: 'appUser', actorId: 'apuMember' },
+      { actorType: 'automation', actorId: 'wfFixture' },
+      { actorType: 'appUser', actorId: 'apuDeleted' },
+    ].map((actor, index) => ({
+      ...actor,
+      id: `rhAvatar${index}`,
+      recordId: 'rec1',
+      fieldId: 'fld1',
+      before: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'before' }),
+      after: JSON.stringify({ meta: { type: 'singleLineText' }, data: 'after' }),
+      createdTime: new Date(startDate),
+      createdBy: userId,
+    }));
+    const service = createService({
+      prismaService: {
+        user: {
+          findMany: vi.fn().mockResolvedValue([
+            {
+              id: userId,
+              name: 'Executor',
+              email: 'executor@example.test',
+              avatar: 'avatar/executor.png',
+            },
+          ]),
+        },
+      },
+      coldReadService: { collectHistoryRows: vi.fn().mockResolvedValue({ rows }) },
+      actorResolver: { resolve: vi.fn().mockResolvedValue(actorMap) },
+    });
+    try {
+      const result = await service.getRecordHistory('tbl1', 'rec1', {});
+
+      expect(result.actorMap?.['user:usrMember']?.avatar).toBe(
+        'https://avatars.example.test/avatar/member.png'
+      );
+      expect(result.actorMap?.['appUser:apuMember']?.avatar).toBe(appAvatar);
+      expect(result.actorMap?.['automation:wfFixture']?.avatar).toBeNull();
+      expect(result.actorMap?.['appUser:apuDeleted']).toBeNull();
+      expect(result.userMap[userId].avatar).toBe(
+        'https://avatars.example.test/avatar/executor.png'
+      );
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
   it('keeps field filtering when selected fields are outside projection', async () => {
     const collectHistoryRows = vi.fn().mockResolvedValue({ rows: [], nextCursor: undefined });
     const userFindMany = vi.fn().mockResolvedValue([]);

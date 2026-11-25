@@ -10,12 +10,15 @@ import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
+import * as RecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { teableSpanName } from '../../ports/Tracer';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
 import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
+import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { runRealtimeTasks } from './runRealtimeTasks';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 import { buildRealtimeFanoutSpanAttributes, withRealtimeFanoutSpan } from './traceRealtimeFanout';
@@ -26,6 +29,10 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tables: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableRecordQueryRepository)
+    private readonly records: RecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.attachmentValueDecoratorService)
     private readonly attachmentValueDecoratorService: AttachmentValueDecoratorService = new AttachmentValueDecoratorService(
       new NoopAttachmentUrlSignerService()
@@ -36,7 +43,7 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
     context: ExecutionContextPort.IExecutionContext,
     event: RecordsBatchUpdated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine, attachmentValueDecoratorService } = this;
+    const { realtimeEngine, attachmentValueDecoratorService, tables, records } = this;
     const orchestration = event.orchestration;
     const totalRecordCount = orchestration?.totalRecordCount ?? event.updates.length;
     const skipRealtime = shouldSkipRealtimeBatchMutation(totalRecordCount, orchestration);
@@ -62,6 +69,22 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
     }
 
     return safeTry(async function* () {
+      const changedIds = [
+        ...new Set(
+          event.updates
+            .filter((update) => update.changes.length > 0)
+            .map((update) => update.recordId)
+        ),
+      ];
+      if (!changedIds.length) return ok(undefined);
+      const actors = yield* await readRealtimeRecordActors(
+        context,
+        event.baseId,
+        event.tableId,
+        changedIds,
+        tables,
+        records
+      );
       const collection = buildRecordCollection(event.tableId.toString());
 
       // The Updated path wraps safeTry inside `async () => ...`, so the inferred
@@ -104,6 +127,12 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
                 value: newValue,
                 ...(change.oldValue === undefined ? {} : { oldValue: change.oldValue }),
               });
+            }
+            const stored = actors.get(update.recordId)!;
+            if (stored.version === update.newVersion) {
+              for (const [key, value] of Object.entries(stored.actors)) {
+                batchedChanges.push({ type: 'set', path: [key], value });
+              }
             }
 
             yield* (

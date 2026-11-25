@@ -302,6 +302,14 @@
     "addRecordComment": "コメントを追加",
     "viewRecordHistory": "レコード履歴を表示",
     "recordHistory": {
+      "actorTypes": {
+        "user": "プラットフォームユーザー",
+        "appUser": "アプリユーザー",
+        "automation": "自動化",
+        "system": "システム"
+      },
+      "actor": "開始者",
+      "actorUnknown": "不明",
       "hiddenRecordHistory": "レコードの履歴を非表示",
       "showRecordHistory": "レコードの履歴を表示",
       "createdTime": "変更日時",
@@ -460,6 +468,8 @@
       "appDelete": "アプリを削除",
       "appRead": "アプリを読み取り",
       "appUpdate": "アプリを更新",
+      "appReadUsers": "アプリユーザーとIDメタデータを読み取る",
+      "appReadUserPii": "アプリIDの個人情報を読み取る",
       "userEmailRead": "ユーザーメールの読み取り",
       "userIntegrations": "ユーザー統合の管理",
       "userSpacesRead": "ユーザーのスペース（名前・プラン・シート数）の読み取り",
@@ -484,6 +494,7 @@
     "routine": "ルーティン",
     "app": "アプリ",
     "user": "ユーザー",
+    "appUser": "アプリユーザー",
     "recordHistory": "レコード履歴",
     "you": "あなた",
     "instance": "インスタンス",
@@ -1728,7 +1739,11 @@
         "signInStateInvalid": "ログインセッションが無効か、有効期限が切れています。もう一度ログインしてください。",
         "domainNotAllowed": "新規登録は特定のメールドメインに制限されています。お使いのメールドメインは許可リストに含まれていません。",
         "inviteOnly": "このアプリは招待制です。アクセスをご希望の場合は、アプリの管理者にお問い合わせください。",
-        "emailMissing": "メールアドレスを取得できませんでした"
+        "emailMissing": "メールアドレスを取得できませんでした",
+        "accountExists": "このメールアドレスには既存のログイン方法があります。その方法でログインしてから、アカウント設定で新しい方法を連携してください。",
+        "accountExistsWithProviders": "このメールアドレスは既に{{providers}}でログインできます。既存の方法でログインしてから、アカウント設定で新しい方法を連携してください。",
+        "userTableLocked": "このアプリには既に App ユーザーがいるため、ユーザーテーブルを変更できません。",
+        "emailAmbiguous": "このメールアドレスを使うプロフィールが複数あります"
       },
       "previewOriginNotReady": "プレビューアプリの準備ができていません。プレビューを再読み込みして、もう一度お試しください。",
       "publishedOriginNotReady": "公開済みアプリの準備ができていません。アプリを公開してから、もう一度お試しください。",
@@ -1738,6 +1753,8 @@
       },
       "customDomainNotConfigured": "カスタムドメインが設定されていません",
       "vercelTokenNotConfigured": "App Builder の設定に Vercel トークンが設定されていません",
+      "managedFieldReadOnly": "この列はアプリのログインが管理しているため編集できません",
+      "managedRecordReadOnly": "ログインプロフィールの行はアプリのログインが管理しているため、ここでは追加や削除ができません",
       "deleteSandboxCloseFailed": "サンドボックスを閉じられませんでした。何も削除されていません。再試行してください"
     },
     "reward": {

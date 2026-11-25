@@ -608,7 +608,7 @@ export class RecordWritePluginRunner {
     const matchedPlugins: IRecordWritePlugin[] = [];
 
     for (const plugin of this.plugins) {
-      if (options?.skipPluginNames?.has(plugin.name)) {
+      if (options?.skipPluginNames?.has(plugin.name) && plugin.skipPolicy !== 'never') {
         continue;
       }
 

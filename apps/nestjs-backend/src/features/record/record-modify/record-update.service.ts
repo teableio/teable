@@ -15,6 +15,7 @@ import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ComputedOrchestratorService } from '../computed/services/computed-orchestrator.service';
@@ -36,7 +37,8 @@ export class RecordUpdateService {
     private readonly shared: RecordModifySharedService,
     private readonly eventEmitterService: EventEmitterService,
     private readonly tableDomainQueryService: TableDomainQueryService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    private readonly recordMutationPolicy: RecordMutationPolicyService
   ) {}
 
   @Timing({
@@ -65,6 +67,11 @@ export class RecordUpdateService {
     updateRecordsRo: IUpdateRecordsInternalRo,
     windowId?: string
   ) {
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'update',
+      payload: updateRecordsRo,
+    });
     const effectiveWindowId = windowId ?? this.cls.get('windowId');
     const {
       records,
@@ -187,6 +194,11 @@ export class RecordUpdateService {
   }
 
   async simpleUpdateRecords(tableId: string, updateRecordsRo: IUpdateRecordsInternalRo) {
+    await this.recordMutationPolicy.assertAllowed({
+      tableId,
+      operation: 'update',
+      payload: updateRecordsRo,
+    });
     const table = await this.tableDomainQueryService.getTableDomainById(tableId);
 
     const { fieldKeyType = FieldKeyType.Name, records, fieldIds } = updateRecordsRo;

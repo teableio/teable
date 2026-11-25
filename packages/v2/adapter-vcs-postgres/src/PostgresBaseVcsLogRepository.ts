@@ -2,12 +2,15 @@
 import { randomUUID } from 'node:crypto';
 import {
   getPostgresTransaction,
+  pgErrorCode,
   resolvePostgresDbOrTx,
   v2DataDbTokens,
   v2MetaDbTokens,
   type IV2PostgresDbConfig,
 } from '@teable/v2-adapter-db-postgres-shared';
 import {
+  TRANSACTION_RETRYABLE_CONTENTION_CODE,
+  domainError,
   v2CoreTokens,
   type BaseId,
   type DomainError,
@@ -20,6 +23,7 @@ import {
   err,
   ok,
   vcsDomainError,
+  type IBaseVcsSnapshot,
   type IBaseVcsPatchSummary,
   type IVcsStoredChange,
   type Result,
@@ -33,6 +37,8 @@ import {
   type IVcsCommit,
   type IVcsCommitInput,
   type IVcsEnableResult,
+  type IVcsRevisionComparison,
+  type VcsCheckpointCapture,
   type IVcsHeadState,
   type IVcsPullCursor,
   type IVcsPushMetadataLockTargets,
@@ -40,6 +46,12 @@ import {
 } from '@teable/v2-vcs/server';
 import { type ColumnType, type Kysely, sql, type Transaction, type RawBuilder } from 'kysely';
 
+import {
+  captureCheckpoint,
+  compareRevisions,
+  readCheckpointTableIds,
+  readSnapshot,
+} from './checkpointStore';
 import {
   computeVcsTableScopeTag,
   encodeVcsPullCursor,
@@ -122,6 +134,32 @@ const DEFAULT_COMPACTION_INTERVAL_COMMITS = 50;
 const DEFAULT_RETENTION_MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 const DEFAULT_RETENTION_MAX_ROWS = 100_000;
 const DIRECT_WRITE_ORIGIN_SENTINEL = '__direct_write__';
+
+// Keep microsecond precision in PostgreSQL, including when the clock moves backwards.
+const nextModificationFence = sql<Date>`GREATEST(clock_timestamp(), updated_at + interval '1 microsecond')`;
+
+function lockError(error: unknown, nowait: boolean): DomainError {
+  if (nowait && pgErrorCode(error) === '55P03') {
+    return domainError.infrastructure({
+      code: TRANSACTION_RETRYABLE_CONTENTION_CODE,
+      message: error instanceof Error ? error.message : String(error),
+      cause: error,
+    });
+  }
+  return vcsDomainError.infrastructure({
+    code: 'vcs.lock_failed',
+    message: error instanceof Error ? error.message : String(error),
+    cause: error,
+  });
+}
+
+function notEnabled(baseId: string): DomainError {
+  return vcsDomainError.conflict({
+    code: 'vcs.not_enabled',
+    message: 'Base VCS is not enabled on this base; enable VCS first.',
+    details: { baseId },
+  });
+}
 
 const delay = (ms: number): Promise<void> =>
   new Promise((resolve) => {
@@ -387,10 +425,24 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     return result.rows[0].present;
   }
 
+  private get headTable() {
+    const schema = this.dataConfig?.pg.schema;
+    return schema ? sql.id(schema, 'base_vcs_head') : sql.id('base_vcs_head');
+  }
+
   async getHead(
     ctx: IExecutionContext,
-    baseId: BaseId
+    baseId: BaseId,
+    options?: { readonly requireAtomicStorage: true }
   ): Promise<Result<IVcsHeadState, DomainError>> {
+    if (options?.requireAtomicStorage && this.isSplitDatabase()) {
+      return err(
+        vcsDomainError.invariant({
+          code: 'batch.cross_database_not_atomic',
+          message: 'Base VCS push requires meta and data tables in the same PostgreSQL database',
+        })
+      );
+    }
     try {
       const db = resolvePostgresDbOrTx(this.dataDb, ctx, 'data');
       if (!(await this.hasHeadTable(db))) {
@@ -399,11 +451,13 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
       const row = await sql<{
         enabled: boolean;
         head_revision: string | number;
+        modification_fence: string;
         min_retained_seq: string | number;
         min_retained_xid: string;
       }>`
-        SELECT enabled, head_revision, min_retained_seq, min_retained_xid::text AS min_retained_xid
-        FROM base_vcs_head
+        SELECT enabled, head_revision, min_retained_seq, min_retained_xid::text AS min_retained_xid,
+          extract(epoch FROM updated_at)::text AS modification_fence
+        FROM ${this.headTable}
         WHERE base_id = ${baseId.toString()}
         LIMIT 1
       `.execute(db);
@@ -421,6 +475,7 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
       return ok({
         enabled: Boolean(head.enabled),
         headRevision: toNumber(head.head_revision),
+        modificationFence: head.modification_fence,
         minRetainedSeq: toNumber(head.min_retained_seq),
         minRetainedXid: String(head.min_retained_xid ?? '0'),
       });
@@ -435,7 +490,11 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     }
   }
 
-  async isEnabled(ctx: IExecutionContext, baseId: BaseId): Promise<Result<boolean, DomainError>> {
+  async isEnabled(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    options?: { readonly includePendingEnable: true }
+  ): Promise<Result<boolean, DomainError>> {
     const baseKey = baseId.toString();
     const cachedExpiresAt = this.enabledTrueCache.get(baseKey);
     if (cachedExpiresAt !== undefined) {
@@ -453,14 +512,15 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
       if (!(await this.hasHeadTable(db, Boolean(activeTrx)))) {
         return ok(false);
       }
-      const rowRes = await sql<{ enabled: boolean }>`
-        SELECT enabled FROM base_vcs_head WHERE base_id = ${baseKey} LIMIT 1
+      const rowRes = await sql<{ enabled: boolean; enrolling: boolean }>`
+        SELECT enabled, enabled_barrier_xid > '0'::xid8 AS enrolling
+        FROM ${this.headTable} WHERE base_id = ${baseKey} LIMIT 1
       `.execute(db);
       const enabled = Boolean(rowRes.rows[0]?.enabled);
       if (enabled) {
         this.markEnabledAfterCommit(ctx, baseKey);
       }
-      return ok(enabled);
+      return ok(enabled || Boolean(options?.includePendingEnable && rowRes.rows[0]?.enrolling));
     } catch (error) {
       return err(
         vcsDomainError.infrastructure({
@@ -472,19 +532,13 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     }
   }
 
-  private async upsertEnabledHead(
+  private async publishEnabledHead(
     ctx: IExecutionContext,
-    baseKey: string
-  ): Promise<
-    Result<
-      {
-        readonly alreadyEnabled: boolean;
-        readonly headRevision: number;
-        readonly barrierXid: string;
-      },
-      DomainError
-    >
-  > {
+    baseId: BaseId,
+    barrierXid: string,
+    capture: VcsCheckpointCapture
+  ): Promise<Result<IVcsEnableResult, DomainError>> {
+    const baseKey = baseId.toString();
     return this.unitOfWork.withTransaction(
       ctx,
       async (txCtx) => {
@@ -500,55 +554,40 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
           );
         }
 
-        const existingRes = await sql<{
-          enabled: boolean;
-          head_revision: string | number;
-          barrier_xid: string;
-        }>`
-          SELECT enabled, head_revision, enabled_barrier_xid::text AS barrier_xid
-          FROM base_vcs_head
-          WHERE base_id = ${baseKey}
-          FOR UPDATE
-        `.execute(trx);
-        const existing = existingRes.rows[0];
-        if (existing?.enabled) {
-          return ok({
-            alreadyEnabled: true,
-            headRevision: toNumber(existing.head_revision),
-            barrierXid: String(existing.barrier_xid ?? '0'),
-          });
-        }
-
-        const upserted = await trx
-          .insertInto('base_vcs_head')
-          .values({
-            base_id: baseKey,
-            enabled: true,
-            head_revision: 0,
-            enabled_barrier_xid: sql`'0'::xid8`,
-          })
-          .onConflict((oc) =>
-            oc.column('base_id').doUpdateSet({
-              enabled: true,
-              updated_at: sql`now()`,
-            })
-          )
-          .returning(['head_revision'])
+        // Only the first enabler publishes revision zero. A concurrent enabler either
+        // sees the published head or retries on PostgreSQL's serialization failure.
+        const head = await trx
+          .selectFrom('base_vcs_head')
+          .select(['enabled', 'head_revision'])
+          .where('base_id', '=', baseKey)
+          .forUpdate()
           .executeTakeFirstOrThrow();
+        const revision = toNumber(head.head_revision);
+        if (head.enabled) return ok({ enabledAtRevision: revision });
 
-        return ok({
-          alreadyEnabled: false,
-          headRevision: toNumber(upserted.head_revision),
-          barrierXid: '0',
-        });
+        if (revision === 0) {
+          const checkpoint = await captureCheckpoint(trx, txCtx, baseId, revision, capture);
+          if (checkpoint.isErr()) return err(checkpoint.error);
+        }
+        await trx
+          .updateTable('base_vcs_head')
+          .set({
+            enabled: true,
+            enabled_barrier_xid: sql`${barrierXid}::xid8`,
+            updated_at: nextModificationFence,
+          })
+          .where('base_id', '=', baseKey)
+          .executeTakeFirstOrThrow();
+        return ok({ enabledAtRevision: revision });
       },
-      { scope: 'data' }
+      { scope: 'data', isolationLevel: 'repeatable read' }
     );
   }
 
   async enable(
     ctx: IExecutionContext,
-    baseId: BaseId
+    baseId: BaseId,
+    capture: VcsCheckpointCapture
   ): Promise<Result<IVcsEnableResult, DomainError>> {
     if (this.isSplitDatabase()) {
       return err(
@@ -564,40 +603,44 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
         vcsDomainError.invariant({
           code: 'vcs.enable_requires_autocommit',
           message:
-            'enable() must commit its enabled flag before awaiting the MVCC pre-enable quiesce barrier',
+            'enable() must enroll writers in autocommit mode before waiting for pre-enable transactions',
         })
       );
     }
 
     const baseKey = baseId.toString();
     try {
-      const upsertRes = await this.upsertEnabledHead(ctx, baseKey);
-      if (upsertRes.isErr()) {
-        return err(upsertRes.error);
-      }
+      // Enroll writers before taking the snapshot. A positive barrier on a disabled
+      // head means change tracking has started, but pushes cannot advance the head yet.
+      // The marker survives timeouts and is resumed by the next enable request.
+      await sql`
+        INSERT INTO ${this.headTable} AS h (base_id, enabled, enabled_barrier_xid)
+        VALUES (${baseKey}, false, pg_current_xact_id())
+        ON CONFLICT (base_id) DO UPDATE SET enabled_barrier_xid = EXCLUDED.enabled_barrier_xid
+        WHERE NOT h.enabled AND h.enabled_barrier_xid = '0'::xid8
+      `.execute(this.dataDb);
+      const {
+        rows: [head],
+      } = await sql<{
+        enabled: boolean;
+        revision: string;
+        barrier: string;
+      }>`
+        SELECT enabled, head_revision::text AS revision,
+          CASE WHEN enabled THEN enabled_barrier_xid ELSE pg_snapshot_xmax(pg_current_snapshot()) END::text AS barrier
+        FROM ${this.headTable} WHERE base_id = ${baseKey}
+      `.execute(this.dataDb);
 
-      let { barrierXid } = upsertRes.value;
-      if (!upsertRes.value.alreadyEnabled) {
-        const snapRes = await sql<{ xmax: string }>`
-          SELECT pg_snapshot_xmax(pg_current_snapshot())::text AS xmax
-        `.execute(this.dataDb);
-        barrierXid = String(snapRes.rows[0]?.xmax ?? '0');
-        await sql`
-          UPDATE base_vcs_head
-          SET
-            enabled_barrier_xid = GREATEST(enabled_barrier_xid, (${barrierXid})::xid8),
-            updated_at = now()
-          WHERE base_id = ${baseKey}
-        `.execute(this.dataDb);
-      }
-
-      const barrierRes = await this.waitForEnableBarrier(barrierXid);
+      const barrierRes = await this.waitForEnableBarrier(head.barrier);
       if (barrierRes.isErr()) {
         return err(barrierRes.error);
       }
 
-      this.cacheEnabledTrue(baseKey);
-      return ok({ enabledAtRevision: upsertRes.value.headRevision });
+      const result = head.enabled
+        ? ok({ enabledAtRevision: toNumber(head.revision) })
+        : await this.publishEnabledHead(ctx, baseId, head.barrier, capture);
+      if (result.isOk()) this.cacheEnabledTrue(baseKey);
+      return result;
     } catch (error) {
       return err(
         vcsDomainError.infrastructure({
@@ -607,6 +650,51 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
         })
       );
     }
+  }
+
+  private readHistory<T>(
+    ctx: IExecutionContext,
+    read: (db: Kysely<IBaseVcsDatabase>) => Promise<Result<T, DomainError>>
+  ): Promise<Result<T, DomainError>> {
+    // The UoW installs the configured schema's search path for checkpoint SQL.
+    return this.resolveWritableDataTx(ctx, async (_txCtx, trx) => {
+      try {
+        return await read(trx);
+      } catch (error) {
+        return err(
+          vcsDomainError.infrastructure({
+            code: 'vcs.checkpoint_read_failed',
+            message: error instanceof Error ? error.message : String(error),
+            cause: error,
+          })
+        );
+      }
+    });
+  }
+
+  async readHistoricalSnapshot(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>> {
+    return this.readHistory(ctx, (db) => readSnapshot(db, baseId.toString(), revision));
+  }
+
+  async readHistoricalTableIds(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number
+  ): Promise<Result<readonly string[], DomainError>> {
+    return this.readHistory(ctx, (db) => readCheckpointTableIds(db, baseId.toString(), revision));
+  }
+
+  async compareHistoricalRevisions(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    from: number,
+    to: number
+  ): Promise<Result<IVcsRevisionComparison, DomainError>> {
+    return this.readHistory(ctx, (db) => compareRevisions(db, baseId.toString(), from, to));
   }
 
   async appendChanges(
@@ -681,6 +769,10 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
   ): Promise<Result<void, DomainError>> {
     const storePayloads = this.config?.storeChangePayloads === true;
     try {
+      // FOR UPDATE alone does not invalidate an older SERIALIZABLE snapshot.
+      // Publish a new head tuple in the same transaction as the business write.
+      await sql`UPDATE ${this.headTable} SET updated_at = ${nextModificationFence}
+        WHERE base_id = ${baseId} AND (enabled OR enabled_barrier_xid > '0'::xid8)`.execute(trx);
       for (let i = 0; i < changes.length; i += CHANGE_INSERT_CHUNK_SIZE) {
         const batch = changes.slice(i, i + CHANGE_INSERT_CHUNK_SIZE);
         await trx
@@ -972,37 +1064,55 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
 
   private async lockPhysicalTableRowsIfExists(
     dataTrx: Transaction<IBaseVcsDatabase>,
-    target: IVcsPushPhysicalTableLockTarget
-  ): Promise<void> {
+    target: IVcsPushPhysicalTableLockTarget,
+    wait: boolean
+  ): Promise<Result<void, DomainError>> {
     if (target.recordIds !== undefined && target.recordIds.length === 0) {
-      return;
+      return ok(undefined);
     }
 
     const reg = await sql<{ exists: boolean }>`
       SELECT (to_regclass(${toPgRegclassIdentifier(target.dbTableName)}) IS NOT NULL) AS exists
     `.execute(dataTrx);
     if (!reg.rows[0]?.exists) {
-      return;
+      return ok(undefined);
     }
 
+    const waitClause = wait ? sql`` : sql`NOWAIT`;
     const keyCol = target.keyColumn ?? '__id';
     if (target.recordIds !== undefined) {
+      try {
+        await sql`LOCK TABLE ${sql.table(target.dbTableName)} IN ROW EXCLUSIVE MODE NOWAIT`.execute(
+          dataTrx
+        );
+      } catch (error) {
+        return err(lockError(error, true));
+      }
       const sortedIds = Array.from(new Set<string>(target.recordIds)).sort((a, b) =>
         a.localeCompare(b)
       );
-      await sql`
-        SELECT 1 FROM ${sql.table(target.dbTableName)}
-        WHERE ${sql.ref(keyCol)} IN (${sql.join(sortedIds)})
-        ORDER BY ${sql.ref(keyCol)} ASC
-        FOR UPDATE
-      `.execute(dataTrx);
-      return;
+      try {
+        await sql`
+          SELECT 1 FROM ${sql.table(target.dbTableName)}
+          WHERE ${sql.ref(keyCol)} IN (${sql.join(sortedIds)})
+          ORDER BY ${sql.ref(keyCol)} ASC
+          FOR UPDATE ${waitClause}
+        `.execute(dataTrx);
+        return ok(undefined);
+      } catch (error) {
+        return err(lockError(error, !wait));
+      }
     }
 
-    // Whole-table lock is only used for `tablesDeleted` to block concurrent inserts without scanning all rows.
-    await sql`LOCK TABLE ${sql.table(target.dbTableName)} IN SHARE ROW EXCLUSIVE MODE`.execute(
-      dataTrx
-    );
+    // Whole-table targets fence concurrent inserts without scanning all rows.
+    try {
+      await sql`
+        LOCK TABLE ${sql.table(target.dbTableName)} IN SHARE ROW EXCLUSIVE MODE ${waitClause}
+      `.execute(dataTrx);
+      return ok(undefined);
+    } catch (error) {
+      return err(lockError(error, !wait));
+    }
   }
 
   private async lockMetaTargets(
@@ -1010,61 +1120,52 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     baseKey: string,
     targets: IVcsPushMetadataLockTargets
   ): Promise<void> {
-    const explicitTableIds = Array.from(new Set(targets.tableIds)).sort((a, b) =>
-      a.localeCompare(b)
+    const schema = this.metaConfig?.pg.schema;
+    const metadata = (name: string) => (schema ? sql.id(schema, name) : sql.id(name));
+    const tables = metadata('table_meta');
+    const fields = metadata('field');
+    const views = metadata('view');
+    // A row-locking SELECT's NOWAIT does not apply to the underlying relation lock.
+    await sql`LOCK TABLE ${tables}, ${fields}, ${views} IN ROW EXCLUSIVE MODE NOWAIT`.execute(
+      metaExecutor
     );
-    const tableFilterSql =
-      explicitTableIds.length > 0 ? sql`OR id IN (${sql.join(explicitTableIds)})` : sql``;
-    const lockedTableRows = await sql<{ id: string }>`
-      SELECT id FROM table_meta
-      WHERE (base_id = ${baseKey} AND deleted_time IS NULL) ${tableFilterSql}
+    const explicitTableIds = new Set(targets.tableIds);
+    const tableFilterSql = explicitTableIds.size
+      ? sql`OR id IN (${sql.join([...explicitTableIds])})`
+      : sql``;
+    const lockedTableRows = await sql<{ id: string; deleted: boolean }>`
+      SELECT id, deleted_time IS NOT NULL AS deleted FROM ${tables}
+      WHERE base_id = ${baseKey} AND (deleted_time IS NULL ${tableFilterSql})
       ORDER BY id ASC
-      FOR UPDATE
+      FOR UPDATE NOWAIT
     `.execute(metaExecutor);
 
-    const allLockedTableIds = Array.from(
-      new Set([...lockedTableRows.rows.map((r) => r.id), ...explicitTableIds])
-    ).sort((a, b) => a.localeCompare(b));
+    const lockedTableIds = lockedTableRows.rows.map((row) => row.id);
+    if (!lockedTableIds.length) return;
+    const lockedTables = sql.join(lockedTableIds);
+    const retainedTables = lockedTableRows.rows.filter((row) => row.deleted).map((row) => row.id);
+    const retained = retainedTables.length
+      ? sql`OR table_id IN (${sql.join(retainedTables)})`
+      : sql``;
+    const explicitFields = targets.fieldIds.length
+      ? sql`OR id IN (${sql.join([...new Set(targets.fieldIds)])})`
+      : sql``;
+    await sql`
+      SELECT id FROM ${fields}
+      WHERE table_id IN (${lockedTables}) AND (deleted_time IS NULL ${retained} ${explicitFields})
+      ORDER BY id ASC
+      FOR UPDATE NOWAIT
+    `.execute(metaExecutor);
 
-    const explicitFieldIds = Array.from(new Set(targets.fieldIds)).sort((a, b) =>
-      a.localeCompare(b)
-    );
-    const fieldClauses: RawBuilder<unknown>[] = [];
-    if (allLockedTableIds.length > 0) {
-      fieldClauses.push(
-        sql`(table_id IN (${sql.join(allLockedTableIds)}) AND deleted_time IS NULL)`
-      );
-    }
-    if (explicitFieldIds.length > 0) {
-      fieldClauses.push(sql`id IN (${sql.join(explicitFieldIds)})`);
-    }
-    if (fieldClauses.length > 0) {
-      await sql`
-        SELECT id FROM field
-        WHERE ${sql.join(fieldClauses, sql` OR `)}
-        ORDER BY id ASC
-        FOR UPDATE
-      `.execute(metaExecutor);
-    }
-
-    const explicitViewIds = Array.from(new Set(targets.viewIds)).sort((a, b) => a.localeCompare(b));
-    const viewClauses: RawBuilder<unknown>[] = [];
-    if (allLockedTableIds.length > 0) {
-      viewClauses.push(
-        sql`(table_id IN (${sql.join(allLockedTableIds)}) AND deleted_time IS NULL)`
-      );
-    }
-    if (explicitViewIds.length > 0) {
-      viewClauses.push(sql`id IN (${sql.join(explicitViewIds)})`);
-    }
-    if (viewClauses.length > 0) {
-      await sql`
-        SELECT id FROM view
-        WHERE ${sql.join(viewClauses, sql` OR `)}
-        ORDER BY id ASC
-        FOR UPDATE
-      `.execute(metaExecutor);
-    }
+    const explicitViews = targets.viewIds.length
+      ? sql`OR id IN (${sql.join([...new Set(targets.viewIds)])})`
+      : sql``;
+    await sql`
+      SELECT id FROM ${views}
+      WHERE table_id IN (${lockedTables}) AND (deleted_time IS NULL ${retained} ${explicitViews})
+      ORDER BY id ASC
+      FOR UPDATE NOWAIT
+    `.execute(metaExecutor);
   }
 
   async lockPushMetadata(
@@ -1095,56 +1196,55 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
 
     const baseKey = baseId.toString();
     try {
+      if (!(await this.hasHeadTable(dataTrx))) {
+        return err(notEnabled(baseKey));
+      }
+      const metaExecutor =
+        (getPostgresTransaction(ctx, 'meta') as Transaction<unknown> | undefined) ??
+        (dataTrx as unknown as Transaction<unknown>);
+      // Direct writes lock records first, touch table_meta, then publish their VCS fence.
+      // A multi-command transaction can already hold the head while writing another table.
+      // A push follows the usual order and never queues on this potentially reversed edge.
+      await this.lockMetaTargets(metaExecutor, baseKey, targets);
+      await sql`LOCK TABLE ${this.headTable} IN ROW EXCLUSIVE MODE NOWAIT`.execute(dataTrx);
       const lockedHead = await sql<{
         enabled: boolean;
         head_revision: string | number;
+        modification_fence: string;
         min_retained_seq: string | number;
         min_retained_xid: string;
       }>`
-        SELECT enabled, head_revision, min_retained_seq, min_retained_xid::text AS min_retained_xid
-        FROM base_vcs_head
+        SELECT enabled, head_revision, min_retained_seq, min_retained_xid::text AS min_retained_xid,
+          extract(epoch FROM updated_at)::text AS modification_fence
+        FROM ${this.headTable}
         WHERE base_id = ${baseKey}
-        FOR UPDATE
+        FOR UPDATE NOWAIT
       `.execute(dataTrx);
 
       const head = lockedHead.rows[0];
       if (!head || !head.enabled) {
-        return err(
-          vcsDomainError.conflict({
-            code: 'vcs.not_enabled',
-            message: 'Base VCS is not enabled on this base; enable VCS first.',
-            details: { baseId: baseKey },
-          })
-        );
+        return err(notEnabled(baseKey));
       }
 
-      const metaExecutor =
-        (getPostgresTransaction(ctx, 'meta') as Transaction<unknown> | undefined) ??
-        (dataTrx as unknown as Transaction<unknown>);
-      await this.lockMetaTargets(metaExecutor, baseKey, targets);
       this.markEnabledAfterCommit(ctx, baseKey);
 
       return ok({
         enabled: true,
         headRevision: toNumber(head.head_revision),
+        modificationFence: head.modification_fence,
         minRetainedSeq: toNumber(head.min_retained_seq),
         minRetainedXid: String(head.min_retained_xid ?? '0'),
       });
     } catch (error) {
-      return err(
-        vcsDomainError.infrastructure({
-          code: 'vcs.lock_failed',
-          message: error instanceof Error ? error.message : String(error),
-          cause: error,
-        })
-      );
+      return err(lockError(error, true));
     }
   }
 
   async lockPushPhysicalTargets(
     ctx: IExecutionContext,
     _baseId: BaseId,
-    physicalTargets: readonly IVcsPushPhysicalTableLockTarget[]
+    physicalTargets: readonly IVcsPushPhysicalTableLockTarget[],
+    options?: { readonly waitForFirstTarget: boolean }
   ): Promise<Result<void, DomainError>> {
     const dataTrx = getPostgresTransaction(ctx, 'data') as
       | Transaction<IBaseVcsDatabase>
@@ -1162,18 +1262,20 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
       const sorted = [...physicalTargets].sort((a, b) =>
         a.dbTableName.localeCompare(b.dbTableName)
       );
-      for (const target of sorted) {
-        await this.lockPhysicalTableRowsIfExists(dataTrx, target);
+      for (const [index, target] of sorted.entries()) {
+        // Only the first single lock in a new transaction may queue. A link-key predicate
+        // can lock many rows even when it has just one ID.
+        const wait =
+          options?.waitForFirstTarget === true &&
+          index === 0 &&
+          (target.recordIds === undefined ||
+            (target.recordIds.length === 1 && target.keyColumn === undefined));
+        const locked = await this.lockPhysicalTableRowsIfExists(dataTrx, target, wait);
+        if (locked.isErr()) return locked;
       }
       return ok(undefined);
     } catch (error) {
-      return err(
-        vcsDomainError.infrastructure({
-          code: 'vcs.lock_failed',
-          message: error instanceof Error ? error.message : String(error),
-          cause: error,
-        })
-      );
+      return err(lockError(error, false));
     }
   }
 
@@ -1226,7 +1328,8 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
   async appendCommit(
     ctx: IExecutionContext,
     baseId: BaseId,
-    commit: IVcsCommitInput
+    commit: IVcsCommitInput,
+    capture: VcsCheckpointCapture
   ): Promise<Result<IVcsCommit, DomainError>> {
     const trx = getPostgresTransaction(ctx, 'data') as Transaction<IBaseVcsDatabase> | undefined;
     if (!trx) {
@@ -1246,9 +1349,10 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
         .updateTable('base_vcs_head')
         .set({
           head_revision: sql`base_vcs_head.head_revision + 1`,
-          updated_at: sql`now()`,
+          updated_at: nextModificationFence,
         })
         .where('base_id', '=', baseKey)
+        .where('enabled', '=', true)
         .where('head_revision', '=', commit.expectedHeadRevision)
         .returning(['head_revision'])
         .executeTakeFirst();
@@ -1272,6 +1376,9 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
       }
 
       const newRevision = toNumber(updatedHead.head_revision);
+      const checkpoint = await captureCheckpoint(trx, ctx, baseId, newRevision, capture);
+      if (checkpoint.isErr()) return err(checkpoint.error);
+
       const tagged = await sql<{ seq: string | number }>`
         UPDATE base_vcs_change
         SET revision = ${newRevision}, origin_push_id = ${commit.originPushId}
@@ -1398,6 +1505,10 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
           }));
         }
 
+        // Commit-time and standalone compaction take the head before changing stream rows.
+        await sql`SELECT 1 FROM ${this.headTable} WHERE base_id = ${baseKey} FOR UPDATE`.execute(
+          trx
+        );
         const deleted = await sql<{ seq: string; tx_id: string }>`
           DELETE FROM base_vcs_change
           WHERE base_id = ${baseKey}
@@ -1417,11 +1528,11 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
 
         if (deleted.rows.length > 0) {
           await sql`
-            UPDATE base_vcs_head
+            UPDATE ${this.headTable}
             SET
               min_retained_seq = GREATEST(min_retained_seq, ${maxDeletedSeq}),
               min_retained_xid = GREATEST(min_retained_xid, (${maxDeletedXid.toString()})::xid8),
-              updated_at = now()
+              updated_at = ${nextModificationFence}
             WHERE base_id = ${baseKey}
           `.execute(trx);
         }

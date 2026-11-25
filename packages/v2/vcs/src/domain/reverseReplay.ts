@@ -138,6 +138,7 @@ function mergeReverseRecordSnapshot(
     : existing.orders;
   return {
     id: existing.id,
+    ...(existing.autoNumber !== undefined ? { autoNumber: existing.autoNumber } : {}),
     fields: nextFields,
     ...(nextOrders && Object.keys(nextOrders).length > 0 ? { orders: nextOrders } : {}),
   };
@@ -151,6 +152,7 @@ function restoreDeletedRecord(
     id: prevRecord.id ?? recordId,
     fields: prevRecord.fields ? cloneVcsValue(prevRecord.fields) : {},
     ...(prevRecord.version !== undefined ? { version: prevRecord.version } : {}),
+    ...(prevRecord.autoNumber !== undefined ? { autoNumber: prevRecord.autoNumber } : {}),
     ...(prevRecord.orders ? { orders: cloneVcsValue(prevRecord.orders) } : {}),
   };
 }

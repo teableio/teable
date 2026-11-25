@@ -1,6 +1,7 @@
 import type { BaseId } from '../../base/BaseId';
 import { DomainEventName } from '../../shared/DomainEventName';
 import { OccurredAt } from '../../shared/OccurredAt';
+import type { RecordInitiator } from '../../shared/RecordInitiator';
 import type { RecordId } from '../records/RecordId';
 import type { TableId } from '../TableId';
 import { AbstractTableUpdatedEvent } from './AbstractTableUpdatedEvent';
@@ -25,6 +26,10 @@ export interface IDeletedRecordSnapshot {
   readonly autoNumber?: number;
   readonly createdTime?: string;
   readonly createdBy?: string;
+  readonly createdByActorType?: RecordInitiator['type'] | null;
+  readonly createdByActorId?: string | null;
+  readonly lastModifiedByActorType?: RecordInitiator['type'] | null;
+  readonly lastModifiedByActorId?: string | null;
   readonly lastModifiedTime?: string;
   readonly lastModifiedBy?: string;
   /** View order values: viewId -> order number. Used for undo/redo. */

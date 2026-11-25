@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { PostgresUnitOfWorkTransaction } from '@teable/v2-adapter-db-postgres-shared';
 import type {
   BaseDataBulkCopyPlan,
   BaseDataBulkCopyProgress,
@@ -6,8 +8,18 @@ import type {
   DomainError,
   IBaseDataBulkCopier,
   IExecutionContext,
+  IDurableSubscriptionCatalog,
+  ITransactionalProjectionMessageJournal,
 } from '@teable/v2-core';
-import { domainError } from '@teable/v2-core';
+import {
+  BaseId,
+  TableId,
+  bindUnitOfWorkTransaction,
+  createRecordCreateOperationProjectionDraft,
+  domainError,
+  isDomainError,
+  v2CoreTokens,
+} from '@teable/v2-core';
 import { inject, injectable } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely, Transaction } from 'kysely';
@@ -34,7 +46,15 @@ const SYSTEM_COLUMNS: Record<string, true> = {
   __last_modified_by: true,
 };
 
+const ACTOR_COLUMNS = [
+  '__created_by_actor_type',
+  '__created_by_actor_id',
+  '__last_modified_by_actor_type',
+  '__last_modified_by_actor_id',
+] as const;
+
 type DbTableNameParts = { schema: string | null; tableName: string };
+type CopySummary = { recordCount: number; recordIds: string[] };
 
 const splitDbTableName = (dbTableName: string): DbTableNameParts => {
   const dotIndex = dbTableName.indexOf('.');
@@ -90,7 +110,11 @@ type PlannedForeignKey = ForeignKeyRow & { dbTableName: string };
 export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
   constructor(
     @inject(v2RecordRepositoryPostgresTokens.db)
-    private readonly db: Kysely<V1TeableDatabase>
+    private readonly db: Kysely<V1TeableDatabase>,
+    @inject(v2CoreTokens.durableSubscriptionCatalog)
+    private readonly subscriptionCatalog: IDurableSubscriptionCatalog,
+    @inject(v2CoreTokens.projectionMessageJournal)
+    private readonly projectionJournal: ITransactionalProjectionMessageJournal
   ) {}
 
   async isSupported(
@@ -125,12 +149,28 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
   }
 
   async copyBaseData(
-    _context: IExecutionContext,
+    context: IExecutionContext,
     plan: BaseDataBulkCopyPlan,
     onProgress?: (progress: BaseDataBulkCopyProgress) => void
   ): Promise<Result<BaseDataBulkCopyResult, DomainError>> {
+    const operationContext: IExecutionContext = {
+      ...context,
+      initiator: context.initiator ? Object.freeze({ ...context.initiator }) : undefined,
+      operationAttribution: Object.freeze(
+        context.operationAttribution
+          ? { ...context.operationAttribution }
+          : { operationId: randomUUID(), occurredAt: new Date().toISOString() }
+      ),
+    };
+    const catalog = this.subscriptionCatalog.snapshot(operationContext);
+    if (catalog.isErr()) return err(catalog.error);
+    const baseId = BaseId.create(plan.targetBaseId);
+    if (baseId.isErr()) return err(baseId.error);
+    let transaction: PostgresUnitOfWorkTransaction<V1TeableDatabase> | undefined;
     try {
       const recordsLength = await this.db.transaction().execute(async (trx) => {
+        transaction = new PostgresUnitOfWorkTransaction(trx, 'data');
+        const transactionContext = bindUnitOfWorkTransaction(operationContext, transaction);
         const foreignKeys: PlannedForeignKey[] = [];
         // Tables the copy only reads from. Their FKs come back exactly as they
         // were; only a NOT VALID FK may cover rows whose link value has no
@@ -160,8 +200,35 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
         onProgress?.({ phase: 'table_data_start', processedRows: 0, totalRows });
 
         const progressState = { processedRows: 0, currentBatch: 0 };
+        let copiedRecordCount = 0;
         for (const table of plan.tables) {
-          await this.copyTable(trx, plan, table, totalRows, progressState, onProgress);
+          const summary = await this.copyTable(
+            trx,
+            plan,
+            table,
+            totalRows,
+            progressState,
+            onProgress
+          );
+          copiedRecordCount += summary.recordCount;
+          const tableId = TableId.create(table.targetTableId);
+          if (tableId.isErr()) throw tableId.error;
+          const draft = createRecordCreateOperationProjectionDraft(
+            operationContext,
+            {
+              baseId: baseId.value,
+              tableId: tableId.value,
+              recordCount: summary.recordCount,
+              recordIds: summary.recordIds,
+              source: { type: 'tableDuplicate' },
+            },
+            catalog.value
+          );
+          if (draft.isErr()) throw draft.error;
+          if (draft.value) {
+            const appended = await this.projectionJournal.append(transactionContext, [draft.value]);
+            if (appended.isErr()) throw appended.error;
+          }
         }
 
         for (const junction of plan.junctions) {
@@ -195,11 +262,17 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
           processedRows: totalRows,
           totalRows,
         });
-        return totalRows;
+        return copiedRecordCount;
       });
+      await transaction?.runAfterCommitHandlers();
       return ok({ recordsLength });
     } catch (error) {
-      return err(domainError.fromUnknown(error, { code: 'duplicate_base.bulk_copy_failed' }));
+      await transaction?.runAfterRollbackHandlers();
+      return err(
+        isDomainError(error)
+          ? error
+          : domainError.fromUnknown(error, { code: 'duplicate_base.bulk_copy_failed' })
+      );
     }
   }
 
@@ -308,9 +381,12 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     totalRows: number,
     progressState: { processedRows: number; currentBatch: number },
     onProgress?: (progress: BaseDataBulkCopyProgress) => void
-  ): Promise<void> {
+  ): Promise<CopySummary> {
     const sourceColumns = await this.listColumns(trx, table.sourceDbTableName);
     const targetColumns = await this.listColumns(trx, table.targetDbTableName);
+    const sourceHasCreatedActor =
+      sourceColumns.includes('__created_by_actor_type') &&
+      sourceColumns.includes('__created_by_actor_id');
 
     // Legacy allow-list: when the table has cross-base/disconnected link value
     // columns, only their self keys are considered for __row_*/__fk_* copying.
@@ -358,7 +434,11 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
       await this.ensureFkColumn(trx, table.targetDbTableName, name);
     }
 
-    const finalExcludes = new Set([...Object.keys(SYSTEM_COLUMNS), ...excludedTargetColumns]);
+    const finalExcludes = new Set([
+      ...Object.keys(SYSTEM_COLUMNS),
+      ...ACTOR_COLUMNS,
+      ...excludedTargetColumns,
+    ]);
     const oldColumns = copyableFieldColumns
       .concat(oldRowColumns)
       .concat(oldFkColumns)
@@ -370,15 +450,24 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
 
     const tableRowCount = await this.countRows(trx, table.sourceDbTableName);
     if (!onProgress || tableRowCount === 0 || oldColumns.length === 0) {
-      if (oldColumns.length > 0) {
-        await this.executeCopy(trx, table, newColumns, oldColumns, titleDowngradeByColumn);
-      }
-      progressState.processedRows += tableRowCount;
-      return;
+      const summary =
+        oldColumns.length > 0
+          ? await this.executeCopy(
+              trx,
+              table,
+              newColumns,
+              oldColumns,
+              titleDowngradeByColumn,
+              sourceHasCreatedActor
+            )
+          : { recordCount: 0, recordIds: [] };
+      progressState.processedRows += summary.recordCount;
+      return summary;
     }
 
     let lastAutoNumber = 0;
     let copiedRows = 0;
+    const summary: CopySummary = { recordCount: 0, recordIds: [] };
     while (copiedRows < tableRowCount) {
       const batch = await sql<{ autoNumber: number | string }>`
         SELECT ${sql.raw(quoteIdentifier(AUTO_NUMBER_COLUMN))} AS "autoNumber"
@@ -390,10 +479,20 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
       if (batch.rows.length === 0) break;
 
       const batchLastAutoNumber = Number(batch.rows[batch.rows.length - 1]!.autoNumber);
-      await this.executeCopy(trx, table, newColumns, oldColumns, titleDowngradeByColumn, {
-        minAutoNumberExclusive: lastAutoNumber,
-        maxAutoNumberInclusive: batchLastAutoNumber,
-      });
+      const inserted = await this.executeCopy(
+        trx,
+        table,
+        newColumns,
+        oldColumns,
+        titleDowngradeByColumn,
+        sourceHasCreatedActor,
+        {
+          minAutoNumberExclusive: lastAutoNumber,
+          maxAutoNumberInclusive: batchLastAutoNumber,
+        }
+      );
+      summary.recordCount += inserted.recordCount;
+      summary.recordIds.push(...inserted.recordIds.slice(0, 200 - summary.recordIds.length));
 
       copiedRows += batch.rows.length;
       progressState.processedRows += batch.rows.length;
@@ -409,6 +508,7 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
       });
       lastAutoNumber = batchLastAutoNumber;
     }
+    return summary;
   }
 
   private async ensureRowOrderColumn(
@@ -450,9 +550,11 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     newColumns: ReadonlyArray<string>,
     oldColumns: ReadonlyArray<string>,
     titleDowngradeByColumn: ReadonlyMap<string, boolean>,
+    sourceHasCreatedActor: boolean,
     range?: { minAutoNumberExclusive?: number; maxAutoNumberInclusive?: number }
-  ): Promise<void> {
-    const newColumnList = newColumns.map(quoteIdentifier).join(', ');
+  ): Promise<CopySummary> {
+    const actorColumns = table.targetActorStorageVersion === 1 ? ACTOR_COLUMNS : [];
+    const newColumnList = [...newColumns, ...actorColumns].map(quoteIdentifier).join(', ');
     const dateConversions = new Map(
       table.dateTimeZoneConversions?.map((conversion) => [conversion.dbFieldName, conversion])
     );
@@ -493,9 +595,22 @@ export class PostgresBaseDataBulkCopier implements IBaseDataBulkCopier {
     }
     const whereSql = whereClauses.length ? ` WHERE ${whereClauses.join(' AND ')}` : '';
 
-    await sql`INSERT INTO ${sql.raw(qualifiedTableName(table.targetDbTableName))}
-      (${sql.raw(newColumnList)}) SELECT ${sql.join(oldColumnList)}
+    const actorValues = actorColumns.map((column) =>
+      sourceHasCreatedActor &&
+      (column === '__created_by_actor_type' || column === '__created_by_actor_id')
+        ? sql.ref(column)
+        : sql`NULL::text`
+    );
+    const selectValues = sql.join([...oldColumnList, ...actorValues]);
+    const result = await sql<{ recordCount: string; recordIds: string[] }>`WITH inserted AS (
+      INSERT INTO ${sql.raw(qualifiedTableName(table.targetDbTableName))}
+      (${sql.raw(newColumnList)}) SELECT ${selectValues}
       FROM ${sql.raw(qualifiedTableName(table.sourceDbTableName))}${sql.raw(whereSql)}
-      ORDER BY ${sql.ref(AUTO_NUMBER_COLUMN)}`.execute(trx);
+      ORDER BY ${sql.raw(quoteIdentifier(AUTO_NUMBER_COLUMN))} RETURNING "__id"
+    ) SELECT count(*) AS "recordCount",
+      ARRAY(SELECT "__id" FROM inserted LIMIT 200) AS "recordIds" FROM inserted`.execute(trx);
+    const inserted = result.rows[0];
+    if (!inserted) throw new Error('Bulk copy insert did not return its operation summary');
+    return { recordCount: Number(inserted.recordCount), recordIds: inserted.recordIds };
   }
 }

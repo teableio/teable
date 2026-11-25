@@ -21,6 +21,8 @@ import { v2CoreTokens } from '../../ports/tokens';
 export type SchemaOperationHandlerResult = {
   phase?: SchemaOperationPhase;
   result?: unknown;
+  /** Handler atomically published capability + completed its fenced operation. */
+  managedCompletion?: SchemaOperationRecord;
 };
 
 export interface ISchemaOperationHandler {
@@ -198,6 +200,16 @@ export class SchemaOperationRunnerService {
     }
 
     const value = handlerResult.value ?? {};
+    if (value.managedCompletion) {
+      return ok({ status: 'completed', operation: value.managedCompletion });
+    }
+    if (operation.type === 'table.actor_columns.enable') {
+      return err(
+        domainError.invariant({
+          message: 'Record attribution handler did not publish a fenced completion',
+        })
+      );
+    }
     const completed = await repository.advance(context, operation.idempotencyKey, {
       status: 'ready',
       phase: value.phase ?? 'ready',
@@ -281,11 +293,19 @@ const markOperationFailed = async (
   const status: SchemaOperationStatus = terminal ? 'dead' : 'error';
   const nextRunAt = terminal ? now : new Date(now.getTime() + retryDelayMs(operation.attempts));
   const originalLastError = operation.lastError;
-  const advanced = await repository.advance(context, operation.idempotencyKey, {
+  const advanceInput = {
     status,
-    phase: 'error',
-    lastError: error.message,
+    phase: 'error' as const,
+    lastError:
+      operation.type === 'table.actor_columns.enable'
+        ? error.code.startsWith('actor_columns.')
+          ? error.message
+          : 'Record attribution enable failed'
+        : error.message,
     result: {
+      ...(operation.type === 'table.actor_columns.enable'
+        ? { actorColumnsFailureCode: error.code }
+        : {}),
       schemaOperationFailure: {
         originalLastError,
         runnerError: error.message,
@@ -294,7 +314,16 @@ const markOperationFailed = async (
       },
     },
     nextRunAt,
-  });
+  };
+  if (operation.type === 'table.actor_columns.enable' && !repository.failActorColumns) {
+    return err(
+      domainError.notImplemented({ message: 'Fenced schema operation settlement is unavailable' })
+    );
+  }
+  const advanced =
+    operation.type === 'table.actor_columns.enable'
+      ? await repository.failActorColumns!(context, operation, advanceInput)
+      : await repository.advance(context, operation.idempotencyKey, advanceInput);
   if (advanced.isErr()) {
     return err(advanced.error);
   }

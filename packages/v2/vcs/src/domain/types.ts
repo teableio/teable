@@ -82,6 +82,8 @@ export interface IRecordVcsSnapshot {
   readonly id: string;
   readonly fields: Record<string, unknown>;
   readonly orders?: Record<string, number>;
+  /** Storage order used by views without a materialized manual order column. */
+  readonly autoNumber?: number;
   readonly version?: number;
 }
 
@@ -137,6 +139,11 @@ export interface ICellChangePatch {
 export interface IRecordUpdatePatch {
   readonly recordId: string;
   readonly cellChanges: readonly ICellChangePatch[];
+  readonly orderChanges?: readonly {
+    readonly viewId: string;
+    readonly before: number | null;
+    readonly after: number;
+  }[];
 }
 
 export interface ITableVcsPatch {
@@ -237,6 +244,8 @@ export interface IVcsWorkspaceConfig {
   readonly lastOriginPushIds?: readonly string[];
   readonly schemaOnly?: boolean;
   readonly clonedAt?: string;
+  /** Historical checkouts keep their clone revision and cannot be edited or synchronized. */
+  readonly readOnly?: boolean;
   readonly cloneRevision?: number;
   readonly lastPulledAt?: string;
   readonly lastPushedAt?: string;
@@ -391,6 +400,7 @@ export const recordVcsSnapshotSchema = z.object({
   id: z.string().min(1),
   fields: z.record(z.string(), z.unknown()),
   orders: z.record(z.string(), z.number()).optional(),
+  autoNumber: z.number().int().optional(),
   version: z.number().int().nonnegative().optional(),
 });
 
@@ -488,6 +498,16 @@ export const tableVcsPatchSchema = z.object({
             after: z.unknown(),
           })
         ),
+        orderChanges: z
+          .array(
+            z.object({
+              viewId: z.string().min(1),
+              before: z.number().nullable(),
+              after: z.number(),
+            })
+          )
+          .max(MAX_VCS_PATCH_VIEWS_PER_TABLE)
+          .optional(),
       })
     )
     .max(MAX_VCS_PATCH_RECORDS_PER_TABLE),

@@ -27,6 +27,7 @@ import {
   TableCreated,
   TargetedLegacyEventDispatcher,
   v2CoreTokens,
+  type BaseId,
   type IExecutionContext,
   type IImportEventSpoolFactory,
   type ILogger,
@@ -38,6 +39,7 @@ import {
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { IHeadlessRuntime } from '@teable/v2-headless-runtime';
+import { ok } from '@teable/v2-vcs';
 import {
   AllowAllVcsAccessPolicy,
   BASE_VCS_TRACKED_EVENTS,
@@ -75,6 +77,8 @@ export interface IHeadlessHttpOptions {
   ) => HeadlessIdentityResolution | Promise<HeadlessIdentityResolution>;
   /** Opt in to VCS write endpoints (`POST /vcs/enable`, `POST /vcs/push`). Defaults to read-only. */
   allowVcsWrite?: boolean;
+  /** Grant restore access to this base in a single-user, writable PGlite workspace. */
+  localHistoryBaseId?: string;
 }
 
 const resolveActor = async (
@@ -184,6 +188,20 @@ const patchPgliteVcsDurableCatalog = (c: DependencyContainer): void => {
   );
 };
 
+class WorkspaceVcsAccessPolicy extends AllowAllVcsAccessPolicy {
+  constructor(
+    queryBus: IQueryBus,
+    private readonly baseId: string
+  ) {
+    super(queryBus);
+  }
+
+  override async resolveHistoryAccess(ctx: IExecutionContext, baseId: BaseId) {
+    if (baseId.toString() === this.baseId) return ok({ kind: 'full' as const });
+    return super.resolveHistoryAccess(ctx, baseId);
+  }
+}
+
 const ensureVcsServerRegistered = <TRealtime extends IRealtimeEngine>(
   runtime: IHeadlessRuntime<TRealtime>,
   options: IHeadlessHttpOptions
@@ -193,12 +211,19 @@ const ensureVcsServerRegistered = <TRealtime extends IRealtimeEngine>(
   }
   if (!runtime.container.isRegistered(v2VcsServerTokens.accessPolicy)) {
     const queryBus = runtime.container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    runtime.container.registerInstance(
-      v2VcsServerTokens.accessPolicy,
-      options.allowVcsWrite
-        ? new AllowAllVcsAccessPolicy(queryBus)
-        : new ReadOnlyVcsAccessPolicy(queryBus)
-    );
+    let policy = options.allowVcsWrite
+      ? new AllowAllVcsAccessPolicy(queryBus)
+      : new ReadOnlyVcsAccessPolicy(queryBus);
+    if (
+      options.allowVcsWrite &&
+      options.localHistoryBaseId &&
+      runtime.backend === 'pglite' &&
+      !options.resolveActorId &&
+      !options.resolveIdentity
+    ) {
+      policy = new WorkspaceVcsAccessPolicy(queryBus, options.localHistoryBaseId);
+    }
+    runtime.container.registerInstance(v2VcsServerTokens.accessPolicy, policy);
   }
   if (!runtime.container.isRegistered(v2VcsServerTokens.pushVcsPatchService)) {
     registerV2VcsServerModule(runtime.container);

@@ -4,6 +4,7 @@ import { EventJobModule } from '../../../event-emitter/event-job/event-job.modul
 import { StorageModule } from '../../attachments/plugins/storage.module';
 import { NotificationModule } from '../../notification/notification.module';
 import { ComputedModule } from '../../record/computed/computed.module';
+import { RecordMutationPolicyModule } from '../../record-mutation-policy/record-mutation-policy.module';
 import { V2Module } from '../../v2/v2.module';
 import { BaseImportComputedModule } from '../base-import-computed.module';
 import { BASE_IMPORT_ATTACHMENTS_CSV_QUEUE } from './base-import-attachments-csv.processor';
@@ -22,6 +23,7 @@ import { BaseImportJunctionCsvModule } from './base-import-junction-csv.module';
     NotificationModule,
     V2Module,
     EventEmitterModule,
+    RecordMutationPolicyModule,
   ],
   exports: [BaseImportCsvQueueProcessor],
 })

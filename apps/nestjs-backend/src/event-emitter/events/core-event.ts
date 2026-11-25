@@ -1,11 +1,15 @@
 import type { IncomingHttpHeaders } from 'node:http';
 import type { OpName } from '@teable/core';
 import type { IUserInfoVo } from '@teable/openapi';
-import type { IRecordRemovalReason } from '@teable/v2-core';
+import type { IRecordRemovalReason, RecordInitiator } from '@teable/v2-core';
 import { nanoid } from 'nanoid';
 import type { Events } from './event.enum';
 
 export interface IEventContext {
+  /** Trusted server snapshot, never populated from submitted operation metadata. */
+  recordInitiator?: RecordInitiator;
+  occurredAt?: string;
+  recordHistoryPersisted?: boolean;
   user?: {
     id: string;
     name: string;
@@ -36,11 +40,19 @@ export interface IEventRawContext {
 
 export abstract class CoreEvent<Payload extends object = object> {
   abstract name: Events;
+  public readonly occurredAt: Date;
 
   constructor(
     public readonly payload: Payload,
     public readonly context: IEventContext,
     public readonly isBulk = false,
     public readonly id = nanoid()
-  ) {}
+  ) {
+    this.context = {
+      ...context,
+      user: context.user ? { ...context.user } : undefined,
+      recordInitiator: context.recordInitiator ? { ...context.recordInitiator } : undefined,
+    };
+    this.occurredAt = context.occurredAt ? new Date(context.occurredAt) : new Date();
+  }
 }

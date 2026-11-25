@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/naming-convention */
-import { ok } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import type { DomainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import type { ITableSpecVisitor } from '../../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../../domain/table/Table';
@@ -10,6 +10,15 @@ import type { IExecutionContext } from '../ExecutionContext';
 import type { ITableSchemaRepository } from '../TableSchemaRepository';
 
 export class NoopTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(): Promise<Result<void, DomainError>> {
+    return err(
+      domainError.notImplemented({
+        code: 'actor_columns.storage_not_supported',
+        message: 'This adapter cannot enable physical record attribution',
+      })
+    );
+  }
+
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }

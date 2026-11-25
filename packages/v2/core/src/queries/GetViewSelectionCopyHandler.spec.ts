@@ -141,6 +141,10 @@ const buildRecords = (
       [hiddenFieldId.toString()]: `secret-${index + 1}`,
     },
     version: 1,
+    createdByActorType: null,
+    createdByActorId: null,
+    lastModifiedByActorType: null,
+    lastModifiedByActorId: null,
   }));
 };
 
@@ -272,7 +276,9 @@ describe('GetViewSelectionCopyHandler', () => {
     const result = (await handler.handle(context, query))._unsafeUnwrap();
 
     expect(result.content).toBe('Alice\tAlice, Carol\t1.23\nBob\t\t2.23');
-    expect(result.sourceRecords.map((record) => record.fields[fixture.reviewersFieldId.toString()])).toEqual([
+    expect(
+      result.sourceRecords.map((record) => record.fields[fixture.reviewersFieldId.toString()])
+    ).toEqual([
       [
         expect.objectContaining({ id: 'usr-alice', email: 'alice@example.com' }),
         expect.objectContaining({ id: 'usr-carol', email: 'carol@example.com' }),

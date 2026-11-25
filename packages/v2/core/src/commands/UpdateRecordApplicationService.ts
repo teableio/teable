@@ -10,7 +10,7 @@ import { type IRecordChangedValueDecoratorService } from '../application/service
 import { areRecordFieldValuesEqual } from '../application/services/RecordFieldValueEquality';
 import { requireRecordUpdateSnapshot } from '../application/services/RecordMutationSnapshotContract';
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
-import { preLeasePlan } from '../application/services/RecordWriteCoordinationPlan';
+import { sharedRecordWritePlan } from '../application/services/RecordWriteCoordinationPlan';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -34,9 +34,11 @@ import { RecordUpdateResult as SingleRecordUpdateResult } from '../domain/table/
 import { SetRowOrderValueSpec } from '../domain/table/records/specs/values/SetRowOrderValueSpec';
 import { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
+import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
 import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteTransaction';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordQueryRepositoryPort from '../ports/TableRecordQueryRepository';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
@@ -112,16 +114,24 @@ export class UpdateRecordResult {
     readonly record: TableRecord,
     readonly events: ReadonlyArray<IDomainEvent>,
     readonly fieldKeyMapping: FieldKeyMapping,
-    readonly computedChanges?: ReadonlyMap<string, unknown>
+    readonly computedChanges?: ReadonlyMap<string, unknown>,
+    readonly recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ) {}
 
   static create(
     record: TableRecord,
     events: ReadonlyArray<IDomainEvent>,
     fieldKeyMapping: FieldKeyMapping = new Map(),
-    computedChanges?: ReadonlyMap<string, unknown>
+    computedChanges?: ReadonlyMap<string, unknown>,
+    recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ): UpdateRecordResult {
-    return new UpdateRecordResult(record, [...events], fieldKeyMapping, computedChanges);
+    return new UpdateRecordResult(
+      record,
+      [...events],
+      fieldKeyMapping,
+      computedChanges,
+      recordActors
+    );
   }
 }
 
@@ -155,7 +165,9 @@ export class UpdateRecordApplicationService {
     @inject(v2CoreTokens.foreignTableLoaderService)
     private readonly foreignTableLoaderService: IForeignTableLoaderService = new NullForeignTableLoaderService(),
     @inject(v2CoreTokens.tableSchemaCoordination)
-    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination(),
+    @inject(v2CoreTokens.recordOrderColumnPreparer)
+    private readonly orderColumnPreparer: IRecordOrderColumnPreparer = new NoopRecordOrderColumnPreparer()
   ) {}
 
   @TraceSpan()
@@ -163,15 +175,38 @@ export class UpdateRecordApplicationService {
     context: ExecutionContextPort.IExecutionContext,
     command: UpdateRecordCommand
   ): Promise<Result<UpdateRecordResult, DomainError>> {
+    if (command.order) {
+      const table = await this.tableQueryService.getById(context, command.tableId);
+      if (table.isErr()) return err(table.error);
+      const view = table.value.getView(command.order.viewId);
+      if (view.isErr()) return err(view.error);
+      const prepared = await this.orderColumnPreparer.prepareOrderColumn(
+        context,
+        table.value,
+        command.order.viewId
+      );
+      if (prepared.isErr()) return err(prepared.error);
+      if (!prepared.value) {
+        const orders = await this.recordOrderCalculator.calculateOrders(
+          context,
+          table.value,
+          command.order.viewId,
+          command.order.anchorId,
+          command.order.position,
+          1
+        );
+        if (orders.isErr()) return err(orders.error);
+      }
+    }
     return withRecordWriteCoordination({
       context,
       tableId: command.tableId,
       coordination: this.tableSchemaCoordination,
-      initialPlan: preLeasePlan({ hasOrder: command.order != null }),
+      initialPlan: sharedRecordWritePlan,
       loadTable: () => this.tableQueryService.getById(context, command.tableId),
       planForTable: (table) =>
         this.recordWriteSideEffectService.planCoordination(context, table, {
-          hasOrder: command.order != null,
+          hasOrder: false,
           fieldValues: command.fieldValues,
           fieldKeyType: command.fieldKeyType,
           typecast: command.typecast,
@@ -275,7 +310,9 @@ export class UpdateRecordApplicationService {
             fields,
           });
           updateRecordSpan?.end();
-          return ok(UpdateRecordResult.create(record, [], fieldKeyMapping));
+          return ok(
+            UpdateRecordResult.create(record, [], fieldKeyMapping, undefined, currentRecord)
+          );
         }
       }
 
@@ -413,7 +450,7 @@ export class UpdateRecordApplicationService {
             }
 
             const noOpCurrentRecord =
-              mutateSpec && mutation.mutationApplied === false
+              mutation.mutationApplied === false
                 ? yield* await handler.tableRecordQueryRepository.findOne(
                     transactionContext,
                     tableForUpdate,
@@ -559,6 +596,7 @@ export class UpdateRecordApplicationService {
                   updatedFieldValues,
                   changes,
                   noOpCurrentRecord,
+                  recordActors: noOpCurrentRecord ?? mutation.recordActors,
                 },
                 events,
                 { tables: [tableForUpdate] }
@@ -741,7 +779,8 @@ export class UpdateRecordApplicationService {
           responseRecord,
           events,
           extendedFieldKeyMapping,
-          mutationResult.mutation.computedChanges
+          mutationResult.mutation.computedChanges,
+          mutationResult.recordActors
         )
       );
     });

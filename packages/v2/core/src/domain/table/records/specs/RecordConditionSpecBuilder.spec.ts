@@ -598,6 +598,9 @@ describe('FieldConditionSpecBuilder', () => {
     expect(staleHasAnyOf.isOk()).toBe(true);
     const remappedToSingle = staleHasAnyOf._unsafeUnwrap();
     expect(remappedToSingle).toBeInstanceOf(UserConditionSpec);
+    if (!(remappedToSingle instanceof UserConditionSpec)) {
+      throw new Error('Expected a single-user condition');
+    }
     expect(remappedToSingle.operator()).toBe('isAnyOf');
 
     const staleIsAnyOf = FieldConditionSpecBuilder.create(fields.userMultiField).create({
@@ -605,7 +608,12 @@ describe('FieldConditionSpecBuilder', () => {
       value: userIds,
     });
     expect(staleIsAnyOf.isOk()).toBe(true);
-    expect(staleIsAnyOf._unsafeUnwrap().operator()).toBe('hasAnyOf');
+    const remappedToMultiple = staleIsAnyOf._unsafeUnwrap();
+    expect(remappedToMultiple).toBeInstanceOf(UserConditionSpec);
+    if (!(remappedToMultiple instanceof UserConditionSpec)) {
+      throw new Error('Expected a multiple-user condition');
+    }
+    expect(remappedToMultiple.operator()).toBe('hasAnyOf');
 
     const unmapped = FieldConditionSpecBuilder.create(fields.userSingleField).create({
       operator: 'isGreater',

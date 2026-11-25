@@ -2,8 +2,10 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
-import type { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
+import { LinkTitleResolverService } from '../application/services/LinkTitleResolverService';
+import { PasteLinkAutoResolveService } from '../application/services/PasteLinkAutoResolveService';
 import { PastePreparationService } from '../application/services/PastePreparationService';
+import type { RecordBatchCreationService } from '../application/services/RecordBatchCreationService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
 import type { RecordWriteUndoRedoPlanService } from '../application/services/RecordWriteUndoRedoPlanService';
@@ -52,7 +54,7 @@ import type {
   BatchRecordMutationResult,
   InsertManyStreamBatchInput,
   InsertManyStreamOptions,
-  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   UpdateManyStreamBatchInput,
   UpdateManyStreamOptions,
   UpdateManyStreamResult,
@@ -63,6 +65,7 @@ import type {
   TableFindOptions,
   TableUpdatePersistResult,
 } from '../ports/TableRepository';
+import { createTableSchemaCoordinationLease } from '../ports/TableSchemaCoordination';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import {
   createUndoRedoCommand,
@@ -318,13 +321,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: IExecutionContext,
-    _plan: PhysicalTableDuplicatePlan
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>,
@@ -367,6 +363,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -590,6 +590,12 @@ class FakeTableRecordRepository implements ITableRecordRepository {
 
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
     return ok({ totalDeleted: 0 });
+  }
+
+  async duplicatePhysicalRows(): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'duplicatePhysicalRows is not used by paste tests' })
+    );
   }
 }
 
@@ -853,6 +859,292 @@ class FakeFieldCreationSideEffectService {
 }
 
 describe('PasteHandler', () => {
+  it.each([
+    { stream: false, capability: 0, app: false },
+    { stream: false, capability: 0, app: true },
+    { stream: false, capability: 1, app: true },
+    { stream: true, capability: 0, app: false },
+    { stream: true, capability: 0, app: true },
+    { stream: true, capability: 1, app: true },
+  ])(
+    'uses fresh root capability for paste $stream/$capability/$app',
+    async ({ stream, capability, app }) => {
+      const { table, tableId } = buildTable();
+      const fresh = Table.rehydrate({
+        id: table.id(),
+        baseId: table.baseId(),
+        name: table.name(),
+        fields: table.getFields(),
+        views: table.views(),
+        primaryFieldId: table.primaryFieldId(),
+        actorStorageVersion: capability,
+      })._unsafeUnwrap();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const records = new FakeTableRecordQueryRepository();
+      const repository = new FakeTableRecordRepository(records);
+      const events = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      let activeMode: string | undefined;
+      const modes: string[] = [];
+      const writtenCapabilities: number[] = [];
+      repository.onInsertManyStream = (candidate) => {
+        expect(activeMode).toBe('exclusive');
+        writtenCapabilities.push(candidate.actorStorageVersion());
+      };
+      const Service = stream ? PasteStreamApplicationService : PasteHandler;
+      const service = new Service(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, events, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          records,
+          new FakeForeignTableLoaderService() as never
+        ),
+        repository,
+        records,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        noopUndoRedoService,
+        new EventBusDomainWriteTransaction(unitOfWork, events),
+        undefined,
+        undefined,
+        {
+          acquire: async (_context, ids, mode) => {
+            expect(ids).toEqual([tableId.toString()]);
+            modes.push(mode);
+            activeMode = mode;
+            tableRepository.tables = [fresh];
+            return ok(
+              createTableSchemaCoordinationLease(mode, ids, async () => {
+                activeMode = undefined;
+              })
+            );
+          },
+        }
+      );
+      const context: IExecutionContext = {
+        ...createContext(),
+        ...(app ? { initiator: { type: 'appUser' as const, id: 'apu_verified' } } : {}),
+        requireActorStorage: app,
+      };
+      const input = {
+        tableId: tableId.toString(),
+        viewId: table.views()[0]!.id().toString(),
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content: [['created']],
+      };
+      if (service instanceof PasteStreamApplicationService) {
+        const output = [];
+        for await (const event of service.createStream(
+          context,
+          PasteStreamCommand.create({ ...input, batchSize: 1 })._unsafeUnwrap()
+        ))
+          output.push(event);
+        if (app && capability === 0)
+          expect(output).toContainEqual(
+            expect.objectContaining({ id: 'error', code: 'actor_storage.not_enabled' })
+          );
+        else
+          expect(output).toContainEqual(expect.objectContaining({ id: 'done', createdCount: 1 }));
+      } else {
+        const result = await service.handle(context, PasteCommand.create(input)._unsafeUnwrap());
+        if (app && capability === 0)
+          expect(result._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+        else expect(result._unsafeUnwrap().createdCount).toBe(1);
+      }
+      expect(activeMode).toBeUndefined();
+      if (app && capability === 0) expect(writtenCapabilities).toEqual([]);
+      else {
+        expect(writtenCapabilities).toEqual([capability]);
+        expect(modes).toEqual(['exclusive']);
+        expect(repository.inserted[0]?.fields().entries()[0]?.value.toValue()).toBe('created');
+      }
+    }
+  );
+
+  it.each([
+    { stream: false, sourceTarget: false },
+    { stream: true, sourceTarget: false },
+    { stream: false, sourceTarget: true },
+    { stream: true, sourceTarget: true },
+  ])(
+    'fences native foreign creates across enable publication: $stream/$sourceTarget',
+    async ({ stream, sourceTarget }) => {
+      const { table: linked, tableId, linkFieldId } = buildTableWithMissingForeignLink();
+      const rootWithoutLink = Table.rehydrate({
+        id: linked.id(),
+        baseId: linked.baseId(),
+        name: linked.name(),
+        fields: linked.getFields().filter((field) => !field.id().equals(linkFieldId)),
+        views: linked.views(),
+        primaryFieldId: linked.primaryFieldId(),
+        actorStorageVersion: 0,
+      })._unsafeUnwrap();
+      const foreignId = TableId.create(`tbl${'m'.repeat(16)}`)._unsafeUnwrap();
+      const foreignBuilder = Table.builder()
+        .withBaseId(linked.baseId())
+        .withId(foreignId)
+        .withName(TableName.create('Foreign create target')._unsafeUnwrap());
+      foreignBuilder
+        .field()
+        .singleLineText()
+        .withId(linked.primaryFieldId())
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      foreignBuilder.view().defaultGrid().done();
+      const foreign0 = foreignBuilder.build()._unsafeUnwrap();
+      const foreign1 = Table.rehydrate({
+        id: foreign0.id(),
+        baseId: foreign0.baseId(),
+        name: foreign0.name(),
+        fields: foreign0.getFields(),
+        views: foreign0.views(),
+        primaryFieldId: foreign0.primaryFieldId(),
+        actorStorageVersion: 1,
+      })._unsafeUnwrap();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables = [rootWithoutLink, foreign0];
+      const queries = new FakeTableRecordQueryRepository();
+      const repository = new FakeTableRecordRepository(queries);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const acquired: string[][] = [];
+      const released: string[][] = [];
+      let held: readonly string[] = [];
+      const foreignWrites: Array<{
+        version: number;
+        title: unknown;
+        actor: IExecutionContext['initiator'];
+      }> = [];
+      const createForeign = {
+        create: async (
+          context: IExecutionContext,
+          input: Parameters<RecordBatchCreationService['create']>[1]
+        ) => {
+          expect(held).toEqual([tableId.toString(), foreignId.toString()].sort());
+          foreignWrites.push({
+            version: input.table.actorStorageVersion(),
+            title: input.recordsFieldValues[0]?.get(input.table.primaryFieldId().toString()),
+            actor: context.initiator,
+          });
+          const created = input.table
+            .createRecords(input.recordsFieldValues, { typecast: input.typecast })
+            ._unsafeUnwrap();
+          return ok({
+            records: created.records,
+            events: [],
+            fieldKeyMapping: created.fieldKeyMapping,
+            undoCommands: [],
+            redoCommands: [],
+            afterCommit: async () => undefined,
+          });
+        },
+      } as unknown as RecordBatchCreationService;
+      const links = new PasteLinkAutoResolveService(
+        tableQueryService,
+        new LinkTitleResolverService(tableRepository, queries),
+        createForeign
+      );
+      repository.onInsertManyStream = () =>
+        expect(held).toEqual([tableId.toString(), foreignId.toString()].sort());
+      const Service = stream ? PasteStreamApplicationService : PasteHandler;
+      const handler = new Service(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          queries,
+          new FakeForeignTableLoaderService() as never
+        ),
+        repository,
+        queries,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        links,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        noopUndoRedoService,
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+        undefined,
+        undefined,
+        {
+          acquire: async (_context, ids, mode) => {
+            expect(mode).toBe('exclusive');
+            expect(held).toEqual([]); // never acquire a foreign lease while retaining root
+            expect(repository.insertCalls).toBe(0);
+            expect(foreignWrites).toEqual([]);
+            acquired.push([...ids]);
+            held = ids;
+            // New link appears after discovery; foreign enable publishes before the
+            // complete lease is granted. Every actual write must load version 1.
+            tableRepository.tables = [
+              linked,
+              ids.includes(foreignId.toString()) ? foreign1 : foreign0,
+            ];
+            return ok(
+              createTableSchemaCoordinationLease(mode, ids, async () => {
+                released.push([...ids]);
+                held = [];
+              })
+            );
+          },
+        }
+      );
+      const input = {
+        tableId: tableId.toString(),
+        viewId: linked.views()[0]!.id().toString(),
+        ranges: [
+          [1, 0],
+          [1, 0],
+        ],
+        content: [['New foreign title']],
+        typecast: true,
+        ...(sourceTarget
+          ? { sourceFields: [{ type: 'link', options: { foreignTableId: foreignId.toString() } }] }
+          : {}),
+      };
+      const context: IExecutionContext = {
+        ...createContext(),
+        initiator: { type: 'user', id: 'usr_native' },
+      };
+      if (handler instanceof PasteStreamApplicationService) {
+        const output = [];
+        for await (const event of handler.createStream(
+          context,
+          PasteStreamCommand.create({ ...input, batchSize: 1 })._unsafeUnwrap()
+        ))
+          output.push(event);
+        expect(output).toContainEqual(expect.objectContaining({ id: 'done', createdCount: 1 }));
+      } else {
+        expect(
+          (
+            await handler.handle(context, PasteCommand.create(input)._unsafeUnwrap())
+          )._unsafeUnwrap().createdCount
+        ).toBe(1);
+      }
+      const fullSet = [tableId.toString(), foreignId.toString()].sort();
+      expect(acquired).toEqual(sourceTarget ? [fullSet] : [[tableId.toString()], fullSet]);
+      expect(released).toEqual(acquired);
+      expect(held).toEqual([]);
+      expect(foreignWrites).toEqual([
+        { version: 1, title: 'New foreign title', actor: context.initiator },
+      ]);
+      expect(repository.inserted).toHaveLength(1);
+    }
+  );
+
   describe('event version', () => {
     it('publishes RecordsBatchUpdated with correct oldVersion and newVersion from existing record', async () => {
       const { table, tableId, textFieldId } = buildTable();
@@ -872,6 +1164,10 @@ describe('PasteHandler', () => {
           id: recordId,
           fields: { [textFieldId.toString()]: 'Old Title' },
           version: existingVersion,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -940,6 +1236,10 @@ describe('PasteHandler', () => {
           id: recordId,
           fields: { [textFieldId.toString()]: 'Same Title' },
           version: 5,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1003,6 +1303,10 @@ describe('PasteHandler', () => {
           id: recordId,
           fields: { [textFieldId.toString()]: 'Same Title' },
           version: 5,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1067,6 +1371,10 @@ describe('PasteHandler', () => {
             [numberFieldId.toString()]: 1,
           },
           version: 8,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1126,16 +1434,28 @@ describe('PasteHandler', () => {
         id: `rec${'1'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Title 1' },
         version: 3,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
       const record2 = {
         id: `rec${'2'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Title 2' },
         version: 7,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
       const record3 = {
         id: `rec${'3'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Title 3' },
         version: 12,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
 
       const tableRepository = new FakeTableRepository();
@@ -1220,6 +1540,10 @@ describe('PasteHandler', () => {
             [numberFieldId.toString()]: 1,
           },
           version: existingVersion,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1297,6 +1621,10 @@ describe('PasteHandler', () => {
             [singleSelectFieldId.toString()]: 'Open',
           },
           version: 4,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1413,6 +1741,10 @@ describe('PasteHandler', () => {
           id: `rec${'j'.repeat(16)}`,
           fields: { [formulaFieldId.toString()]: 1 },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1530,6 +1862,10 @@ describe('PasteHandler', () => {
             [userFieldId.toString()]: { id: 'usr-old' },
           },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
         {
           id: `rec${'b'.repeat(16)}`,
@@ -1538,6 +1874,10 @@ describe('PasteHandler', () => {
             [userFieldId.toString()]: { id: 'usr-old' },
           },
           version: 2,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -1660,6 +2000,10 @@ describe('PasteHandler', () => {
           [userFieldId.toString()]: { id: 'usr-old' },
         },
         version: index + 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       }));
 
       const eventBus = new FakeEventBus();
@@ -1772,6 +2116,10 @@ describe('PasteHandler', () => {
           id: `rec${'x'.repeat(16)}`,
           fields: { [textFieldId.toString()]: 'Old Title' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -2208,6 +2556,10 @@ describe('PasteHandler', () => {
           id: `rec${'u'.repeat(16)}`,
           fields: { [linkFieldId.toString()]: null },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -2323,6 +2675,10 @@ describe('PasteHandler', () => {
           [textFieldId.toString()]: 'old-title',
           [numberFieldId.toString()]: 1,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -2408,6 +2764,10 @@ describe('PasteHandler', () => {
           [textFieldId.toString()]: 'row-1',
           [numberFieldId.toString()]: 1,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: `rec${'b'.repeat(16)}`,
@@ -2416,6 +2776,10 @@ describe('PasteHandler', () => {
           [textFieldId.toString()]: 'row-2',
           [numberFieldId.toString()]: 2,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -2621,6 +2985,10 @@ describe('PasteHandler', () => {
         id: `rec${'p'.repeat(16)}`,
         fields: { [textFieldId.toString()]: 'Old 1' },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
     const eventBus = new FakeEventBus();
@@ -2694,6 +3062,136 @@ describe('PasteHandler', () => {
   });
 
   describe('PasteStreamApplicationService', () => {
+    it.each([
+      { name: 'existing rows only', existingCount: 2, expandColumns: false },
+      {
+        name: 'mixed update and create with column expansion',
+        existingCount: 1,
+        expandColumns: true,
+      },
+      { name: 'create only', existingCount: 0, expandColumns: false },
+    ])(
+      'guards resolved operation counts for $name before any streamed effects',
+      async ({ existingCount, expandColumns }) => {
+        const { table, tableId, textFieldId } = buildTable();
+        const viewId = table.views()[0]!.id();
+        const tableRepository = new FakeTableRepository();
+        tableRepository.tables.push(table);
+        const tableQueryService = new TableQueryService(tableRepository);
+        const recordQueryRepository = new FakeTableRecordQueryRepository();
+        recordQueryRepository.records = Array.from({ length: existingCount }, (_, index) => ({
+          id: `rec${String.fromCharCode(97 + index).repeat(16)}`,
+          fields: { [textFieldId.toString()]: `Old ${index}` },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        }));
+        const recordRepository = new FakeTableRecordRepository();
+        const eventBus = new FakeEventBus();
+        const unitOfWork = new FakeUnitOfWork();
+        const trackingUndoRedoService = new TrackingUndoRedoService();
+        const operationCounts: Array<{
+          updateRecordCount: number;
+          createRecordCount: number;
+          recordCount: number;
+        }> = [];
+        const handler = new PasteStreamApplicationService(
+          tableQueryService,
+          createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+          new FakeFieldCreationSideEffectService() as never,
+          new PastePreparationService(
+            tableQueryService,
+            recordQueryRepository,
+            new FakeForeignTableLoaderService() as never
+          ),
+          recordRepository,
+          recordQueryRepository,
+          new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+          noopPasteLinkAutoResolveService,
+          new RecordWriteSideEffectService(),
+          noopRecordWriteUndoRedoPlanService,
+          createRecordWritePluginRunner([
+            {
+              name: 'paste-stream-update-only',
+              supports: (operation) => operation === RecordWriteOperationKind.paste,
+              guard: async (context) => {
+                if (context.kind !== RecordWriteOperationKind.paste) return ok(undefined);
+                if (context.orchestration?.scope === 'operation') {
+                  operationCounts.push({
+                    updateRecordCount: context.payload.updateRecordCount,
+                    createRecordCount: context.payload.createRecordCount,
+                    recordCount: context.payload.recordCount,
+                  });
+                  expect(recordRepository.updateCalls).toBe(0);
+                  expect(recordRepository.insertCalls).toBe(0);
+                  expect(tableRepository.updated).toHaveLength(0);
+                  expect(eventBus.published).toHaveLength(0);
+                }
+                return context.payload.createRecordCount > 0
+                  ? err(
+                      domainError.forbidden({
+                        code: 'paste.creates_disallowed',
+                        message: 'Only existing rows may be pasted',
+                      })
+                    )
+                  : ok(undefined);
+              },
+            },
+          ]),
+          trackingUndoRedoService as unknown as UndoRedoStackService,
+          new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+        );
+        const command = PasteStreamCommand.create({
+          tableId: tableId.toString(),
+          viewId: viewId.toString(),
+          ranges: [
+            [0, 0],
+            [expandColumns ? 2 : 0, 1],
+          ],
+          content: expandColumns
+            ? [
+                ['Updated 1', '1', 'Expanded 1'],
+                ['Created 2', '2', 'Expanded 2'],
+              ]
+            : [['Updated 1'], ['Updated 2']],
+          batchSize: 1,
+        })._unsafeUnwrap();
+        const events = [];
+        for await (const event of handler.createStream(createContext(), command))
+          events.push(event);
+
+        expect(operationCounts).toEqual([
+          {
+            updateRecordCount: existingCount,
+            createRecordCount: 2 - existingCount,
+            recordCount: 2,
+          },
+        ]);
+        if (existingCount === 2) {
+          expect(events.at(-1)).toMatchObject({ id: 'done', updatedCount: 2, createdCount: 0 });
+          expect(recordRepository.updated).toHaveLength(2);
+          expect(recordRepository.insertCalls).toBe(0);
+          expect(trackingUndoRedoService.recordEntryCalls).toBe(2);
+        } else {
+          expect(events.at(-1)).toMatchObject({
+            id: 'error',
+            phase: 'guarding',
+            code: 'paste.creates_disallowed',
+            processedCount: 0,
+            updatedCount: 0,
+            createdCount: 0,
+          });
+          expect(recordRepository.updateCalls).toBe(0);
+          expect(recordRepository.insertCalls).toBe(0);
+          expect(tableRepository.updated).toHaveLength(0);
+          expect(eventBus.published).toHaveLength(0);
+          expect(trackingUndoRedoService.recordEntryCalls).toBe(0);
+        }
+      }
+    );
+
     it('streams chunk progress and publishes grouped batch events', async () => {
       const { table, tableId, textFieldId } = buildTable();
       const viewId = table.views()[0]!.id();
@@ -2708,6 +3206,10 @@ describe('PasteHandler', () => {
           id: `rec${'p'.repeat(16)}`,
           fields: { [textFieldId.toString()]: 'Old 1' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
 
@@ -2890,11 +3392,19 @@ describe('PasteHandler', () => {
           id: `rec${'p'.repeat(16)}`,
           fields: { [textFieldId.toString()]: 'Old 1' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
         {
           id: `rec${'q'.repeat(16)}`,
           fields: { [textFieldId.toString()]: 'Old 2' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ];
       const recordRepository = new FakeTableRecordRepository();
@@ -2968,6 +3478,10 @@ describe('PasteHandler', () => {
           id: `rec${String.fromCharCode(97 + index).repeat(16)}`,
           fields: { [textFieldKey]: null },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         })),
         textFieldKey,
         2

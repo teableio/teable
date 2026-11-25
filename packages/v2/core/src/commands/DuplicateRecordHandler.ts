@@ -42,16 +42,24 @@ export class DuplicateRecordResult {
     readonly record: TableRecord,
     readonly events: ReadonlyArray<IDomainEvent>,
     readonly fieldKeyMapping: Map<string, string>,
-    readonly computedChanges?: ReadonlyMap<string, unknown>
+    readonly computedChanges?: ReadonlyMap<string, unknown>,
+    readonly recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ) {}
 
   static create(
     record: TableRecord,
     events: ReadonlyArray<IDomainEvent>,
     fieldKeyMapping: Map<string, string> = new Map(),
-    computedChanges?: ReadonlyMap<string, unknown>
+    computedChanges?: ReadonlyMap<string, unknown>,
+    recordActors?: TableRecordRepositoryPort.RecordActorAttribution
   ): DuplicateRecordResult {
-    return new DuplicateRecordResult(record, [...events], fieldKeyMapping, computedChanges);
+    return new DuplicateRecordResult(
+      record,
+      [...events],
+      fieldKeyMapping,
+      computedChanges,
+      recordActors
+    );
   }
 }
 
@@ -319,7 +327,8 @@ export class DuplicateRecordHandler implements ICommandHandler<
           record,
           events,
           fieldKeyMapping,
-          mutationResult?.computedChanges
+          mutationResult?.computedChanges,
+          mutationResult?.recordActors
         )
       );
     });

@@ -19,6 +19,7 @@ import type { UndoRedoCommandLeafData } from '../../ports/UndoRedoStore';
 import { LinkTitleResolverService } from './LinkTitleResolverService';
 import { RecordBatchCreationService } from './RecordBatchCreationService';
 import { TableQueryService } from './TableQueryService';
+import { assertRecordActorStorageEnabled } from './withRecordWriteCoordination';
 
 export interface ResolvedLinkValue {
   readonly id: string;
@@ -217,14 +218,23 @@ export class PasteLinkAutoResolveService {
           ...context,
           ...(context.config ? { config: { ...context.config } } : {}),
         };
+        // The expansion may still own this table's pending schema in this transaction.
+        const createTable = yield* await service.tableQueryService.getById(
+          targetContext,
+          foreignTable.id(),
+          input.linkTitleTableState?.has(foreignTable.id().toString())
+            ? 'activeWithPending'
+            : 'active'
+        );
+        yield* assertRecordActorStorageEnabled(targetContext, createTable);
         const creationResult = yield* await service.recordBatchCreationService.create(
           targetContext,
           {
-            table: foreignTable,
+            table: createTable,
             recordsFieldValues: createdTitles.map(
               (title) =>
                 new Map<string, unknown>([
-                  [foreignTable.primaryFieldId().toString(), title],
+                  [createTable.primaryFieldId().toString(), title],
                 ]) as ReadonlyMap<string, unknown>
             ),
             fieldKeyType: FieldKeyType.Id,

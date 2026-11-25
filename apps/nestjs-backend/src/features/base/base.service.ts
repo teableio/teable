@@ -33,8 +33,8 @@ import type {
   IUpdateBaseRo,
   IUpdateOrderRo,
 } from '@teable/openapi';
-import type { IExecutionContext } from '@teable/v2-core';
 import type { V1TeableDatabase } from '@teable/v2-adapter-repository-postgres';
+import type { IExecutionContext } from '@teable/v2-core';
 import { CompiledQuery, sql, type Transaction } from 'kysely';
 import { isNumber, keyBy, pick } from 'lodash';
 import { ClsService } from 'nestjs-cls';
@@ -66,11 +66,11 @@ import { buildBaseNodeDefaultUrl } from '../base-node/base-node-url.helper';
 import { CanaryService } from '../canary';
 import type { IV2Decision } from '../canary';
 import { CollaboratorService } from '../collaborator/collaborator.service';
-import { CrossSpaceLinkCleanupService } from '../table-lifecycle/cross-space-link-cleanup.service';
 import { BaseErdService } from '../graph/base-erd.service';
 import { firstPublishHistory } from '../model/template';
 import { invalidateSearchIndexesForDataDbRouting } from '../space/search-index-routing-invalidation';
 import { SpaceDataDbMigrationGuardService } from '../space/space-data-db-migration-guard.service';
+import { CrossSpaceLinkCleanupService } from '../table-lifecycle/cross-space-link-cleanup.service';
 import { TableLifecycleCleanupService } from '../table-lifecycle/table-lifecycle-cleanup.service';
 import { ensureTemplateSlug } from '../template/template-slug';
 import {
@@ -1286,7 +1286,7 @@ export class BaseService {
   async applyMetaMoveBase(
     baseId: string,
     targetSpaceId: string,
-    options?: { dataDbChanged: boolean }
+    options?: { dataDbChanged: boolean; beforeDataDbSwitch?: () => Promise<void> }
   ) {
     const { affected, levels } = await this.computeMoveBaseCrossSpaceImpact(baseId, targetSpaceId);
     // Deepest-first: dependent lookup/rollup fields convert first via the
@@ -1304,6 +1304,7 @@ export class BaseService {
         conversionOrder,
         async (_context, metaDb) => {
           if (options?.dataDbChanged) {
+            await options.beforeDataDbSwitch?.();
             await invalidateSearchIndexesForDataDbRouting(
               {
                 $queryRawUnsafe: async <T>(query: string, ...values: unknown[]) => {

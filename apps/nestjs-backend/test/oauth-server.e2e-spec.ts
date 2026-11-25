@@ -1572,6 +1572,12 @@ describe('OpenAPI OAuthController (e2e)', () => {
       );
       expect(revokeRes.status).toBe(200);
 
+      // a repeated revoke (double submit, another tab) finds no grant and still succeeds
+      const repeatRes = await axios.post<void>(
+        urlBuilder(REVOKE_TOKEN, { clientId: oauth.clientId })
+      );
+      expect(repeatRes.status).toBe(200);
+
       const error = await getError(() =>
         anonymousAxios.get(`/auth/user`, {
           headers: {

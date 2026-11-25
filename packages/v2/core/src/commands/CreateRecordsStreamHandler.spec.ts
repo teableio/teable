@@ -1,6 +1,6 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
 import { TableQueryService } from '../application/services/TableQueryService';
@@ -15,6 +15,7 @@ import { FieldName } from '../domain/table/fields/FieldName';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import { Table } from '../domain/table/Table';
@@ -29,9 +30,12 @@ import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   BatchRecordMutationResult,
   ITableRecordRepository,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
 } from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
+import { createTableSchemaCoordinationLease } from '../ports/TableSchemaCoordination';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
 import { CreateRecordsStreamCommand } from './CreateRecordsStreamCommand';
 import { CreateRecordsStreamHandler } from './CreateRecordsStreamHandler';
@@ -95,13 +99,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -124,6 +121,20 @@ class FakeTableRepository implements ITableRepository {
     __: Table,
     ___: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
+  /**
+   * This fake keeps no soft-deleted table rows, so restore re-registers the
+   * aggregate by id instead of failing on missing trash state.
+   */
+  async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index >= 0) {
+      this.tables[index] = table;
+    } else {
+      this.tables.push(table);
+    }
     return ok(undefined);
   }
 
@@ -151,6 +162,16 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     ___: ReadonlyArray<TableRecord>
   ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     return ok({});
+  }
+
+  async duplicatePhysicalRows(
+    _: IExecutionContext,
+    __: PhysicalTableDuplicatePlan,
+    ___: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({ message: 'duplicatePhysicalRows is not modelled by this fake' })
+    );
   }
 
   async insertManyStream(
@@ -269,6 +290,78 @@ class RecordingRollbackUnitOfWork implements IUnitOfWork {
 }
 
 describe('CreateRecordsStreamHandler', () => {
+  it.each([0, 1])(
+    'holds the create-stream lease while consuming fresh capability %s',
+    async (version) => {
+      const { table: stale, tableId, textFieldId } = buildTable();
+      const fresh = Table.rehydrate({
+        id: stale.id(),
+        baseId: stale.baseId(),
+        name: stale.name(),
+        fields: stale.getFields(),
+        primaryFieldId: stale.primaryFieldId(),
+        views: stale.views(),
+        actorStorageVersion: version,
+      })._unsafeUnwrap();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(stale);
+      const recordRepository = new FakeTableRecordRepository();
+      let leased = false;
+      const insert = recordRepository.insertManyStream.bind(recordRepository);
+      vi.spyOn(recordRepository, 'insertManyStream').mockImplementation(async (...args) => {
+        expect(leased).toBe(true);
+        const result = await insert(...args);
+        expect(leased).toBe(true);
+        return result;
+      });
+      const tracked = createTrackedRecordWritePlugin([RecordWriteOperationKind.createStream]);
+      const handler = new CreateRecordsStreamHandler(
+        new TableQueryService(tableRepository),
+        createRecordMutationSpecResolver(),
+        createRecordWritePluginRunner([tracked.plugin]),
+        recordRepository,
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+        {
+          acquire: async (_context, ids, mode) => {
+            leased = true;
+            tableRepository.tables = [fresh];
+            return ok(
+              createTableSchemaCoordinationLease(mode, ids, async () => {
+                leased = false;
+              })
+            );
+          },
+        }
+      );
+      const command = CreateRecordsStreamCommand.create({
+        tableId: tableId.toString(),
+        batchSize: 1,
+        records: [{ fields: { [textFieldId.toString()]: 'current' } }],
+      })._unsafeUnwrap();
+      const native = await handler.handle(createContext(), command);
+      expect(native._unsafeUnwrap().totalCreated).toBe(1);
+      expect(recordRepository.lastTable?.actorStorageVersion()).toBe(version);
+      expect(tracked.calls.prepare[0]?.table.actorStorageVersion()).toBe(version);
+      expect(leased).toBe(false);
+      const before = recordRepository.records.length;
+      const app = await handler.handle(
+        {
+          ...createContext(),
+          initiator: { type: 'appUser', id: 'apu_verified' },
+          requireActorStorage: true,
+        },
+        command
+      );
+      if (version === 0) {
+        expect(app._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+        expect(recordRepository.records).toHaveLength(before);
+      } else {
+        expect(app._unsafeUnwrap().totalCreated).toBe(1);
+      }
+      expect(leased).toBe(false);
+    }
+  );
+
   it('creates records in batches', async () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();

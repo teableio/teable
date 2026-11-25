@@ -279,7 +279,7 @@ describe('Record read V1/V2 presentation contract (e2e)', () => {
       records: [
         {
           fields: {
-            [primaryFieldId]: 'Presentation row',
+            [primaryFieldId]: 'Before presentation update',
             [longTextFieldId]: 'Line one\nLine two',
             [numberFieldId]: 1.234,
             [ratingFieldId]: 4,

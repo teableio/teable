@@ -16,7 +16,7 @@ import type {
   ITableSchemaRepository,
   TableSchemaInsertManyOptions,
 } from '../../ports/TableSchemaRepository';
-import { TableCreationService } from './TableCreationService';
+import { TableCreationService, withCreatedTableActorStorage } from './TableCreationService';
 
 const createContext = (): IExecutionContext => {
   const actorId = ActorId.create('system')._unsafeUnwrap();
@@ -70,6 +70,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns() {
+    return ok(undefined);
+  }
+
   inserted: Table[] = [];
   insertManyOptions: Array<TableSchemaInsertManyOptions | undefined> = [];
 
@@ -115,6 +119,19 @@ class FakeFieldCreationSideEffectService {
 }
 
 describe('TableCreationService', () => {
+  it('keeps source capability immutable and transfers pending creation events to the local table', () => {
+    const source = buildTable('p', 'p');
+    const created = withCreatedTableActorStorage(source)._unsafeUnwrap();
+
+    expect(source.actorStorageVersion()).toBe(0);
+    expect(created.actorStorageVersion()).toBe(1);
+    expect(created.id().equals(source.id())).toBe(true);
+    expect(source.pullDomainEvents()).toEqual([]);
+    expect(created.pullDomainEvents().map((event) => event.name.toString())).toEqual([
+      'TableCreated',
+    ]);
+  });
+
   it('returns empty results when no tables', async () => {
     const tableRepository = new FakeTableRepository();
     const schemaRepository = new FakeTableSchemaRepository();
@@ -173,6 +190,12 @@ describe('TableCreationService', () => {
     expect(payload.persistedTables[0]?.id().equals(tableB.id())).toBe(true);
     expect(payload.persistedTables[1]?.id().equals(tableA.id())).toBe(true);
     expect(sideEffectService.calls).toHaveLength(2);
+    expect(tableRepository.inserted.map((table) => table.actorStorageVersion())).toEqual([0, 0]);
+    expect(schemaRepository.inserted.map((table) => table.actorStorageVersion())).toEqual([0, 0]);
+    expect(payload.persistedTables.map((table) => table.actorStorageVersion())).toEqual([1, 1]);
+    expect([...payload.tableState.values()].map((table) => table.actorStorageVersion())).toEqual([
+      1, 1,
+    ]);
   });
 
   it('passes external and persisted tables as known schema locations', async () => {
@@ -253,6 +276,16 @@ describe('TableCreationService', () => {
     expect(sideEffectService.calls).toHaveLength(0);
     expect(payload.sideEffectEvents).toEqual([]);
     expect(payload.tableState.get(externalTable.id().toString())).toBe(externalTable);
-    expect(payload.tableState.get(table.id().toString())).toBe(table);
+    const created = payload.tableState.get(table.id().toString())!;
+    expect(created.id().equals(table.id())).toBe(true);
+    expect(created.actorStorageVersion()).toBe(1);
+    expect(table.actorStorageVersion()).toBe(0);
+    expect(created.getFields().map((field) => field.id().toString())).toEqual(
+      table.getFields().map((field) => field.id().toString())
+    );
+    expect(created.pullDomainEvents().map((event) => event.name.toString())).toEqual([
+      'TableCreated',
+    ]);
+    expect(table.pullDomainEvents()).toEqual([]);
   });
 });

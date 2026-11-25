@@ -117,6 +117,10 @@ class BenchmarkRecordQueryRepository implements ITableRecordQueryRepository {
       fields: Object.fromEntries(
         projection.map((fieldId) => [fieldId, row.fields[fieldId] ?? null])
       ),
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
     return ok({ records, total: records.length });
   }

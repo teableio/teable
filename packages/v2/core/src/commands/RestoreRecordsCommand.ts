@@ -5,6 +5,14 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IRecordRemovalReason } from '../domain/table/events/RecordsDeleted';
 import { TableId } from '../domain/table/TableId';
+import type { IExecutionContext } from '../ports/ExecutionContext';
+
+const actorColumnNames: Record<string, true> = {
+  __created_by_actor_type: true,
+  __created_by_actor_id: true,
+  __last_modified_by_actor_type: true,
+  __last_modified_by_actor_id: true,
+};
 
 export const restoreRecordsInputSchema = z.object({
   tableId: z.string(),
@@ -15,12 +23,19 @@ export const restoreRecordsInputSchema = z.object({
         fields: z.record(z.string(), z.unknown()).default({}),
         version: z.number().int().optional(),
         orders: z.record(z.string(), z.number()).optional(),
+        defaultOrder: z.number().optional(),
         autoNumber: z.number().optional(),
         createdTime: z.string().optional(),
         createdBy: z.string().optional(),
         lastModifiedTime: z.string().optional(),
         lastModifiedBy: z.string().optional(),
-        extraColumnValues: z.record(z.string(), z.unknown()).optional(),
+        extraColumnValues: z
+          .record(z.string(), z.unknown())
+          .refine(
+            (values) => !Object.keys(values).some((name) => Object.hasOwn(actorColumnNames, name)),
+            'Actor columns cannot be restored through extraColumnValues'
+          )
+          .optional(),
       })
     )
     .min(1, 'At least one record is required'),
@@ -57,6 +72,8 @@ export interface IRestoreRecordsCommandOptions {
    * HTTP contract — internal callers only.
    */
   requireTrashRowReason?: IRecordRemovalReason;
+  /** Server-owned snapshots only; never read from command JSON or archive files. */
+  trustedCreatedActorsByRecordId?: ReadonlyMap<string, IExecutionContext['initiator'] | null>;
   /**
    * Internal collector used by multi-chunk undo replay so Phase 1 inserts every
    * record across all chunks before Phase 2 links self-referential FKs. Never
@@ -87,6 +104,10 @@ export class RestoreRecordsCommand {
     readonly records: ReadonlyArray<RestoreRecordInput>,
     readonly cleanupAttachmentRefs?: boolean,
     readonly requireTrashRowReason?: IRecordRemovalReason,
+    readonly trustedCreatedActorsByRecordId?: ReadonlyMap<
+      string,
+      IExecutionContext['initiator'] | null
+    >,
     readonly deferSelfReferentialLinks?: IDeferredSelfReferentialLinkRecord[],
     readonly onTableSelfLinkFieldsResolved?: (selfLinkFieldIds: ReadonlySet<string>) => void,
     readonly selfReferentialLinksOnly?: boolean,
@@ -114,6 +135,7 @@ export class RestoreRecordsCommand {
           parsed.data.records,
           options?.cleanupAttachmentRefs,
           options?.requireTrashRowReason,
+          options?.trustedCreatedActorsByRecordId,
           options?.deferSelfReferentialLinks,
           options?.onTableSelfLinkFieldsResolved,
           options?.selfReferentialLinksOnly,

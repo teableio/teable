@@ -286,6 +286,8 @@ export class DeleteRecordsHandler implements ICommandHandler<
           ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
           ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
           ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+          createdByActorType: snapshot.createdByActorType,
+          createdByActorId: snapshot.createdByActorId,
           ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
           ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
         }));

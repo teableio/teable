@@ -9,6 +9,7 @@ import {
 } from '@teable/v2-contract-http';
 import { ActorId, type IExecutionContext } from '@teable/v2-core';
 import {
+  type BaseVcsHistoryService,
   type CloneVcsSnapshotService,
   type EnableBaseVcsService,
   type GetVcsHeadService,
@@ -25,6 +26,7 @@ import {
   executeGetVcsHeadEndpoint,
   executeListVcsChangesEndpoint,
   executePushVcsPatchEndpoint,
+  toVcsEndpointResult,
 } from './handlers/vcs';
 
 export interface IV2VcsOrpcRouterOptions {
@@ -170,6 +172,35 @@ export const createV2VcsOrpcRouter = (options: IV2VcsOrpcRouterOptions = {}): V2
     return result.body;
   });
 
+  const resolveHistory = async () => {
+    const [container, context] = await Promise.all([resolveContainer(), resolveExecutionContext()]);
+    return {
+      context,
+      history: container.resolve<BaseVcsHistoryService>(v2VcsServerTokens.historyService),
+    };
+  };
+
+  const checkout = os.checkout.handler(async ({ input }) => {
+    const { context, history } = await resolveHistory();
+    const result = toVcsEndpointResult(await history.checkout(context, input));
+    if (result.status !== 200) return throwEndpointError(result.status, result.body);
+    return result.body;
+  });
+
+  const diff = os.diff.handler(async ({ input }) => {
+    const { context, history } = await resolveHistory();
+    const result = toVcsEndpointResult(await history.diff(context, input));
+    if (result.status !== 200) return throwEndpointError(result.status, result.body);
+    return result.body;
+  });
+
+  const rollback = os.rollback.handler(async ({ input }) => {
+    const { context, history } = await resolveHistory();
+    const result = toVcsEndpointResult(await history.rollback(context, input));
+    if (result.status !== 200) return throwEndpointError(result.status, result.body);
+    return result.body;
+  });
+
   const push = os.push.handler(async ({ input }) => {
     const [container, context] = await Promise.all([resolveContainer(), resolveExecutionContext()]);
     const result = await executePushVcsPatchEndpoint(
@@ -187,6 +218,9 @@ export const createV2VcsOrpcRouter = (options: IV2VcsOrpcRouterOptions = {}): V2
     clone,
     cloneRecords,
     changes,
+    checkout,
+    diff,
+    rollback,
     push,
   });
 };

@@ -15,7 +15,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../../custom.exception';
 import type { IClsStore } from '../../../types/cls';
 import { AuthGuard } from '../../auth/guard/auth.guard';
-import { getShareViewHeader, getTemplateHeader } from '../../auth/utils';
+import { getBaseShareHeader, getShareViewHeader, getTemplateHeader } from '../../auth/utils';
 import { ShareAuthService } from '../share-auth.service';
 import { SHARE_JWT_STRATEGY } from './constant';
 import { IS_SHARE_LINK_VIEW } from './link-view.decorator';
@@ -42,13 +42,14 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
 
     if (isShareLinkView && shareId.startsWith(IdPrefix.Field)) {
       const activate = (await this.authGuard.validate(context)) as boolean;
-      const templateHeader = getTemplateHeader(req);
-      const shareViewHeader = getShareViewHeader(req);
       const shareInfo = await this.shareAuthService.getLinkViewInfo(
         shareId,
-        templateHeader,
-        shareViewHeader,
-        req.headers.cookie,
+        {
+          templateHeader: getTemplateHeader(req),
+          shareViewHeader: getShareViewHeader(req),
+          baseShareHeader: getBaseShareHeader(req),
+          cookieHeader: req.headers.cookie,
+        },
         req.useV2 === true
       );
       req.shareInfo = shareInfo;
@@ -81,7 +82,13 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
         return this.authGuard.validate(context);
       }
 
-      if (shareInfo.shareMeta?.allowEdit) {
+      // A login-required form needs the visitor's identity on every route, not
+      // only submit: downstream checks such as attachment signing must tell a
+      // signed-in visitor from an anonymous one. Best-effort, like allowEdit —
+      // no valid session just falls through to the anonymous user below, and the
+      // permission set still comes from shareMeta, not from the session.
+      const formRequiresLogin = isFormView && Boolean(submit?.requireLogin);
+      if (shareInfo.shareMeta?.allowEdit || formRequiresLogin) {
         await this.authGuard.validate(context).catch(() => undefined);
       }
       const currentUserId = this.cls.get('user.id');
@@ -95,6 +102,7 @@ export class ShareAuthGuard extends PassportAuthGuard([SHARE_JWT_STRATEGY]) {
           name: ANONYMOUS_USER_ID,
           email: '',
         });
+        this.cls.set('recordInitiator', undefined);
       }
       this.cls.set(
         'permissions',

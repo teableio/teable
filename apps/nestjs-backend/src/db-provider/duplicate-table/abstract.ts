@@ -1,4 +1,4 @@
-import type { BulkCopyTableInput } from '@teable/v2-core';
+import type { BulkCopyTableInput, RecordInitiator } from '@teable/v2-core';
 import type { Knex } from 'knex';
 
 export abstract class DuplicateTableQueryAbstract {
@@ -14,6 +14,7 @@ export abstract class DuplicateTableQueryAbstract {
       minAutoNumberExclusive?: number;
       maxAutoNumberInclusive?: number;
     },
+    actor?: { type: RecordInitiator['type'] | null; id: string | null },
     dateTimeZoneConversions?: BulkCopyTableInput['dateTimeZoneConversions']
   ): Knex.QueryBuilder;
 }

@@ -150,6 +150,24 @@ describe('LocalStorage', () => {
       expect(error?.status).toBe(400);
     });
 
+    it('rejects a body under a zero-length signature', async () => {
+      mockCacheService.get.mockResolvedValue({ ...localSignatureCache, contentLength: 0 });
+
+      const error = await getError(() =>
+        storage.validateToken('zero-length-token', { ...uploadMeta, size: 1024 })
+      );
+      expect(error?.message).toBe('Size mismatch');
+      expect(error?.status).toBe(400);
+    });
+
+    it('accepts an empty file under a zero-length signature', async () => {
+      mockCacheService.get.mockResolvedValue({ ...localSignatureCache, contentLength: 0 });
+
+      await expect(
+        storage.validateToken('zero-length-token', { ...uploadMeta, size: 0 })
+      ).resolves.not.toThrow();
+    });
+
     it('should throw BadRequestException for mimetype mismatch', async () => {
       mockCacheService.get.mockResolvedValue(localSignatureCache);
 

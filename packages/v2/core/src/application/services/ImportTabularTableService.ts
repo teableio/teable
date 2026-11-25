@@ -32,9 +32,10 @@ import type * as TableRecordRepositoryPort from '../../ports/TableRecordReposito
 import type * as TableRepositoryPort from '../../ports/TableRepository';
 import type * as TableSchemaRepositoryPort from '../../ports/TableSchemaRepository';
 import type * as UnitOfWorkPort from '../../ports/UnitOfWork';
+import { toImportWriteError } from './importSourceErrors';
 import type { RecordWritePluginExecution } from './RecordWritePluginRunner';
 import { RecordWritePluginRunner } from './RecordWritePluginRunner';
-import { toImportWriteError } from './importSourceErrors';
+import { withCreatedTableActorStorage } from './TableCreationService';
 import type { TableOperationPluginExecution } from './TableOperationPluginRunner';
 import { TableOperationPluginRunner } from './TableOperationPluginRunner';
 import { ImportDiagnosticsCollector } from './ImportDiagnosticsCollector';
@@ -273,9 +274,13 @@ export class ImportTabularTableService {
                 dataTransactionContext,
                 persistedTable
               );
-              yield* await events.append(table.pullDomainEvents(), [persistedTable]);
+              const createdTable = yield* withCreatedTableActorStorage(persistedTable);
+              yield* await events.append(
+                [...table.pullDomainEvents(), ...createdTable.pullDomainEvents()],
+                [createdTable]
+              );
               if (!command.importData) {
-                return ok({ totalImported: 0 });
+                return ok({ table: createdTable, totalImported: 0 });
               }
 
               // Record-write plugins require a count; unknown streams expose only the
@@ -294,7 +299,7 @@ export class ImportTabularTableService {
               const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
                 kind: RecordWriteOperationKind.createStream,
                 executionContext: dataTransactionContext,
-                table: persistedTable,
+                table: createdTable,
                 payload: {
                   recordsFieldValues: [],
                   batchSize: command.batchSize,
@@ -333,7 +338,7 @@ export class ImportTabularTableService {
               }
 
               const fieldIdMap = handler.buildFieldIdMap(
-                persistedTable,
+                createdTable,
                 parseResult.headers,
                 importColumns
               );
@@ -348,7 +353,7 @@ export class ImportTabularTableService {
                   currentSourceRowNumber = rowNumber;
                 }
               );
-              const batchGenerator = persistedTable.createRecordsStreamAsync(recordsIterable, {
+              const batchGenerator = createdTable.createRecordsStreamAsync(recordsIterable, {
                 batchSize: command.batchSize,
                 typecast: true,
                 emitRecordCreatedEvents: false,
@@ -363,13 +368,13 @@ export class ImportTabularTableService {
               const insertResult = yield* (
                 await handler.tableRecordRepository.insertManyStream(
                   dataTransactionContext,
-                  persistedTable,
+                  createdTable,
                   handler.consumeBatchesAsync(
                     batchGenerator,
                     pluginExecution,
                     dataTransactionContext,
                     {
-                      table: persistedTable,
+                      table: createdTable,
                       batchSize: command.batchSize,
                       operationId,
                       totalRecordCount,
@@ -392,7 +397,7 @@ export class ImportTabularTableService {
                 )
               ).mapErr(toImportWriteError);
 
-              return ok({ totalImported: insertResult.totalInserted });
+              return ok({ table: createdTable, totalImported: insertResult.totalInserted });
             });
           },
           {
@@ -403,7 +408,7 @@ export class ImportTabularTableService {
                 handler.tableRepository,
                 committedContext,
                 persistedTable,
-                { type: 'table.import' }
+                { type: 'table.import', publishActorStorageVersion: 1 }
               ),
           }
         );
@@ -489,7 +494,7 @@ export class ImportTabularTableService {
 
         return ok(
           ImportTabularTableResult.create(
-            persistedTable,
+            importResult.value.value.table,
             importResult.value.value.totalImported,
             importResult.value.events,
             finalDiagnostics

@@ -1,3 +1,5 @@
+import type { IExecutionContext } from './ExecutionContext';
+
 export type TableRecordReadModel = {
   id: string;
   fields: Record<string, unknown>;
@@ -17,6 +19,10 @@ export type TableRecordReadModel = {
   createdBy?: string;
   lastModifiedTime?: string;
   lastModifiedBy?: string;
+  readonly createdByActorType: NonNullable<IExecutionContext['initiator']>['type'] | null;
+  readonly createdByActorId: string | null;
+  readonly lastModifiedByActorType: NonNullable<IExecutionContext['initiator']>['type'] | null;
+  readonly lastModifiedByActorId: string | null;
   /**
    * View order values: viewId -> order number.
    * Populated when querying with includeOrders=true.

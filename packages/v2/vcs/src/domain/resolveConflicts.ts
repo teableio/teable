@@ -218,6 +218,7 @@ function applyRecordResolution(
       ? {
           id: typeof chosenObj.id === 'string' ? chosenObj.id : conflict.entityId,
           fields: chosenObj.fields as Record<string, unknown>,
+          ...(typeof chosenObj.autoNumber === 'number' ? { autoNumber: chosenObj.autoNumber } : {}),
           ...(chosenObj.orders !== undefined
             ? { orders: chosenObj.orders as Record<string, number> }
             : {}),

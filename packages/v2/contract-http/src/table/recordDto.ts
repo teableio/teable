@@ -1,11 +1,17 @@
+import { recordInitiatorKindSchema } from '@teable/v2-core';
 import type { TableRecordReadModel, DomainError } from '@teable/v2-core';
 import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import { z } from 'zod';
+export { mapRecordActors } from './recordActorDto';
 
 export const tableRecordDtoSchema = z.object({
   id: z.string(),
   fields: z.record(z.string(), z.unknown()),
+  createdByActorType: recordInitiatorKindSchema.nullable(),
+  createdByActorId: z.string().nullable(),
+  lastModifiedByActorType: recordInitiatorKindSchema.nullable(),
+  lastModifiedByActorId: z.string().nullable(),
   name: z.string().optional(),
   version: z.number().optional(),
   autoNumber: z.number().optional(),
@@ -32,6 +38,10 @@ export const mapTableRecordToDto = (
   return ok({
     id: record.id,
     fields,
+    createdByActorType: record.createdByActorType,
+    createdByActorId: record.createdByActorId,
+    lastModifiedByActorType: record.lastModifiedByActorType,
+    lastModifiedByActorId: record.lastModifiedByActorId,
     name: record.name,
     version: record.version,
     autoNumber: record.autoNumber,

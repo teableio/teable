@@ -80,6 +80,7 @@ export class V2ViewDeletedTrashProjection implements IDurableProjectionHandler<P
         ) {
           return 'stale';
         }
+        const createdTime = context.occurredAt ?? view.deletedTime;
 
         const dataPrisma = (await this.dataDbClientManager.dataPrismaForTable(
           tableId
@@ -99,7 +100,7 @@ export class V2ViewDeletedTrashProjection implements IDurableProjectionHandler<P
               tableId,
               viewId,
               userId: context.actorId,
-              createdTime: context.occurredAt,
+              createdTime,
             }),
           });
           return 'applied';

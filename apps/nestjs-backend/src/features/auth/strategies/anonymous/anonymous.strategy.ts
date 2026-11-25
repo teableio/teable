@@ -14,6 +14,7 @@ export class AnonymousStrategy extends PassportStrategy(PassportAnonymousStrateg
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async validate() {
     this.cls.set('user', ANONYMOUS_USER);
+    this.cls.set('recordInitiator', undefined);
     return ANONYMOUS_USER;
   }
 }

@@ -4,6 +4,7 @@ import type { V2Feature } from '@teable/openapi';
 import type {
   ExecutionContextBackgroundTaskScheduler,
   IRecordRemovalReason,
+  RecordInitiator,
 } from '@teable/v2-core';
 import type { ClsStore } from 'nestjs-cls';
 import type { IAuditOperation } from '../features/audit/audit-scope';
@@ -25,6 +26,16 @@ export type IV2Reason =
   | 'feature_not_enabled'
   | 'no_feature';
 
+export interface IRecordActorStorageScope {
+  active: boolean;
+  assertHeld(): Promise<void>;
+  readonly tableIds: ReadonlyArray<string>;
+  readonly tables: Map<
+    string,
+    Readonly<{ id: string; baseId: string; dbTableName: string; actorStorageVersion: 0 | 1 }>
+  >;
+}
+
 export interface IClsStore extends ClsStore {
   user: {
     id: string;
@@ -33,6 +44,15 @@ export interface IClsStore extends ClsStore {
     isAdmin?: boolean | null;
   };
   accessTokenId?: string;
+  /** Set by authenticated host/session/job adapters, never from a request payload. */
+  recordInitiator?: RecordInitiator;
+  /** Trusted host write policy; never copied from a request payload. */
+  requireActorStorage?: boolean;
+  actorStorageScope?: IRecordActorStorageScope;
+  actorStorageLeases?: Map<
+    string,
+    Readonly<{ id: string; baseId: string; dbTableName: string; actorStorageVersion: 0 | 1 }>
+  >;
   // for template authentication
   template?: {
     id: string;
@@ -92,11 +112,19 @@ export interface IClsStore extends ClsStore {
     timeStr?: string;
     id?: string;
     rawOpMaps?: IRawOpMap[];
+    completionCallbacks?: Array<() => Promise<void>>;
+    afterCommitCallbacks?: Array<() => Promise<void>>;
+    schemaLeaseChecks?: Set<() => Promise<void>>;
+    actorStorageScope?: IRecordActorStorageScope;
   };
   dataTx?: {
     client?: Prisma.TransactionClient;
     timeStr?: string;
     id?: string;
+    completionCallbacks?: Array<() => Promise<void>>;
+    afterCommitCallbacks?: Array<() => Promise<void>>;
+    schemaLeaseChecks?: Set<() => Promise<void>>;
+    actorStorageScope?: IRecordActorStorageScope;
   };
   shareViewId?: string;
   baseShareId?: string;

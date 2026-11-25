@@ -10,6 +10,7 @@ import { GraphLegacyModule } from '../../graph/graph-legacy.module';
 import { RecordOpenApiModule } from '../../record/open-api/record-open-api.module';
 import { RecordModule } from '../../record/record.module';
 import { RecordHistoryColdCoreModule } from '../../record-history-cold/record-history-cold.module';
+import { RecordMutationPolicyModule } from '../../record-mutation-policy/record-mutation-policy.module';
 import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
@@ -45,6 +46,7 @@ import { TableOpenApiService } from './table-open-api.service';
     V2Module,
     CanaryModule,
     ViewModule,
+    RecordMutationPolicyModule,
   ],
   controllers: [TableController],
   providers: [

@@ -14,7 +14,7 @@ import {
 import { err, ok, type Result } from 'neverthrow';
 
 import { domainError, type DomainError } from '../shared/DomainError';
-import { FormulaExpression } from '../table/fields/types/FormulaExpression';
+import type { FormulaExpression } from '../table/fields/types/FormulaExpression';
 import { normalizeFunctionNameAlias } from './function-aliases';
 import { FunctionName } from './functions/common';
 

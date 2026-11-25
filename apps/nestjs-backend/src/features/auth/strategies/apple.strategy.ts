@@ -76,6 +76,21 @@ export const parseAppleUserField = (raw: unknown): IAppleUserField | undefined =
   }
 };
 
+/**
+ * The email an id_token vouches for: present, and not marked unverified. Apple
+ * verifies every address it returns, so `email_verified: false` is not expected;
+ * if it ever appears the address must not find, link or create an account.
+ */
+export const appleTokenEmail = (claims: IAppleIdTokenClaims): string | undefined => {
+  if (typeof claims.email !== 'string' || !claims.email.trim()) {
+    return undefined;
+  }
+  if (claims.email_verified === false || claims.email_verified === 'false') {
+    return undefined;
+  }
+  return claims.email;
+};
+
 /** Apple sends the name once; later logins fall back to the same rule local signup uses. */
 export const appleDisplayName = (user: IAppleUserField | undefined, email: string) => {
   const name = [user?.name?.firstName, user?.name?.lastName]
@@ -135,16 +150,12 @@ export class AppleStrategy extends PassportStrategy(
     if (typeof claims.sub !== 'string' || !claims.sub.trim()) {
       throw new UnauthorizedException('No subject provided from Apple');
     }
-    // The `user` profile is first-authorization-only. The id_token normally retains
-    // email on later logins, but accounts without one can still use an existing sub binding.
+    // The `user` profile is first-authorization-only and reaches us in the form body,
+    // next to the code: Apple does not sign it. It names the person on screen and
+    // nothing else; the email that identifies the account is the id_token's alone.
+    // A token without a usable email can still sign in through an existing sub binding.
     const userField = parseAppleUserField(req.body?.user);
-    const email =
-      typeof claims.email === 'string' && claims.email.trim()
-        ? claims.email
-        : typeof userField?.email === 'string' && userField.email.trim()
-          ? userField.email
-          : undefined;
-    return { email, userField, sub: claims.sub };
+    return { email: appleTokenEmail(claims), userField, sub: claims.sub };
   }
 
   // The arity matters: with five parameters passport-oauth2 passes the token response

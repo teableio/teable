@@ -6,10 +6,20 @@ describe('normalizeLegacyRecordFilterForV2', () => {
   const checkboxFieldId = 'fldCheckbox';
   const userFieldId = 'fldUser';
   const dateFieldId = 'fldDate';
+  const multiSelectFieldId = 'fldMultiSelect';
   const fields = new Map([
     [textFieldId, { type: FieldType.SingleLineText, cellValueType: CellValueType.String }],
     [checkboxFieldId, { type: FieldType.Checkbox, cellValueType: CellValueType.Boolean }],
     [userFieldId, { type: FieldType.User, cellValueType: CellValueType.String }],
+    [
+      multiSelectFieldId,
+      {
+        type: FieldType.MultipleSelect,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: true,
+        options: { choices: [{ id: 'choGO', name: 'go', color: 'blue' }] },
+      },
+    ],
     [
       dateFieldId,
       {
@@ -121,15 +131,15 @@ describe('normalizeLegacyRecordFilterForV2', () => {
     });
   });
 
-  it('expands valid date ranges and passes reversed or unsupported ranges through for engine-side skipping', () => {
+  it('preserves both timestamp bounds for field-aware date range evaluation', () => {
     const valid = normalizeLegacyRecordFilterForV2(
       {
         fieldId: dateFieldId,
         operator: 'is',
         value: {
           mode: 'dateRange',
-          exactDate: '2026-07-01T00:00:00.000Z',
-          exactDateEnd: '2026-07-31T00:00:00.000Z',
+          exactDate: '2026-07-01T09:30:00.000Z',
+          exactDateEnd: '2026-07-01T12:45:00.000Z',
           timeZone: 'utc',
         },
       },
@@ -163,11 +173,14 @@ describe('normalizeLegacyRecordFilterForV2', () => {
     );
 
     expect(valid._unsafeUnwrap()).toMatchObject({
-      conjunction: 'and',
-      items: [
-        { fieldId: dateFieldId, operator: 'isOnOrAfter' },
-        { fieldId: dateFieldId, operator: 'isOnOrBefore' },
-      ],
+      fieldId: dateFieldId,
+      operator: 'is',
+      value: {
+        mode: 'dateRange',
+        exactDate: '2026-07-01T09:30:00.000Z',
+        exactDateEnd: '2026-07-01T12:45:00.000Z',
+        timeZone: 'utc',
+      },
     });
     // v1 parity: invalid combinations are not errors — they pass through and
     // the v2 condition visitor compiles them to no-op TRUE fragments.
@@ -201,6 +214,67 @@ describe('normalizeLegacyRecordFilterForV2', () => {
         { fieldId: dateFieldId, operator: 'isNotEmpty', value: null },
         { fieldId: dateFieldId, operator: 'isEmpty', value: null },
       ],
+    });
+  });
+
+  it('converts symbol operators by field type like v1', () => {
+    const result = normalizeLegacyRecordFilterForV2(
+      {
+        conjunction: 'and',
+        filterSet: [
+          { fieldId: multiSelectFieldId, operator: 'IN', value: ['go'], isSymbol: true },
+          { fieldId: multiSelectFieldId, operator: '=', value: ['go'], isSymbol: true },
+          {
+            fieldId: dateFieldId,
+            operator: '>',
+            value: '2026-07-30T01:00:00.000Z',
+            isSymbol: true,
+          },
+        ],
+      },
+      fields
+    );
+
+    expect(result._unsafeUnwrap()).toEqual({
+      conjunction: 'and',
+      items: [
+        { fieldId: multiSelectFieldId, operator: 'hasAnyOf', value: ['go'] },
+        { fieldId: multiSelectFieldId, operator: 'isExactly', value: ['go'] },
+        {
+          fieldId: dateFieldId,
+          operator: 'isAfter',
+          value: {
+            mode: 'exactDate',
+            exactDate: '2026-07-30T01:00:00.000Z',
+            timeZone: 'Asia/Singapore',
+          },
+        },
+      ],
+    });
+  });
+
+  it('fails loudly when a symbol operator cannot be mapped for an unknown field', () => {
+    const result = normalizeLegacyRecordFilterForV2(
+      { fieldId: 'fldMissing', operator: 'IN', value: ['go'], isSymbol: true },
+      fields
+    );
+
+    const error = result._unsafeUnwrapErr();
+    expect(error.message).toContain("Cannot convert symbol filter operator 'IN'");
+    expect(error.details).toMatchObject({ fieldId: 'fldMissing', operator: 'IN' });
+  });
+
+  it('fails loudly when the field type does not support the symbol operator', () => {
+    const result = normalizeLegacyRecordFilterForV2(
+      { fieldId: checkboxFieldId, operator: 'IN', value: ['true'], isSymbol: true },
+      fields
+    );
+
+    const error = result._unsafeUnwrapErr();
+    expect(error.message).toContain("Filter operator 'IN' is not supported by field type");
+    expect(error.details).toMatchObject({
+      fieldId: checkboxFieldId,
+      fieldType: FieldType.Checkbox,
     });
   });
 });

@@ -18,7 +18,8 @@ const query = {
   offset: z.number().int().nonnegative().default(0),
 };
 const queryInput = z.object(query).strict();
-const recordsData = z.object({ records: z.array(tableRecordDtoSchema) });
+const sharedRecord = tableRecordDtoSchema.pick({ id: true, fields: true });
+const recordsData = z.object({ records: z.array(sharedRecord) });
 const fieldSchema = z.object({
   id: z.string(), name: z.string(), type: z.string(), isPrimary: z.boolean().optional(),
   isComputed: z.boolean().optional(), isMultipleCellValue: z.boolean().optional(),
@@ -38,7 +39,7 @@ export const v2ShareContract = {
   get: oc.route(route('get')).input(z.object(identity).strict()).output(apiOkResponseDtoSchema(getData)),
   listRecords: oc.route(route('listRecords')).input(queryInput).output(apiOkResponseDtoSchema(recordsData)),
   getRecord: oc.route(route('getRecord')).input(z.object({ ...identity, recordId }).strict())
-    .output(apiOkResponseDtoSchema(tableRecordDtoSchema)),
+    .output(apiOkResponseDtoSchema(sharedRecord)),
   countRecords: oc.route(route('countRecords')).input(z.object({ ...identity, filter: query.filter, search: query.search, projection: query.projection }).strict())
     .output(apiOkResponseDtoSchema(z.object({ count: z.number() }))),
   aggregateRecords: oc.route(route('aggregateRecords')).input(z.object({

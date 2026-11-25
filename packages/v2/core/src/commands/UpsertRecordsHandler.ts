@@ -13,6 +13,7 @@ import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { RecordActorAttribution } from '../ports/TableRecordRepository';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -31,13 +32,15 @@ export class UpsertRecordsResult {
     readonly results: ReadonlyArray<IRecordUpsertRowResult>,
     readonly summary: IRecordUpsertSummary,
     readonly events: ReadonlyArray<IDomainEvent>,
-    readonly fieldKeyMapping: FieldKeyMapping
+    readonly fieldKeyMapping: FieldKeyMapping,
+    readonly recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>
   ) {}
 
   static create(
     results: ReadonlyArray<IRecordUpsertRowResult>,
     events: ReadonlyArray<IDomainEvent>,
-    fieldKeyMapping: FieldKeyMapping = new Map()
+    fieldKeyMapping: FieldKeyMapping = new Map(),
+    recordActorsByRecord?: ReadonlyMap<string, RecordActorAttribution>
   ): UpsertRecordsResult {
     const summary: IRecordUpsertSummary = {
       requested: results.length,
@@ -46,7 +49,13 @@ export class UpsertRecordsResult {
       unchanged: results.filter((result) => result.status === 'unchanged').length,
       skipped: results.filter((result) => result.status === 'skipped').length,
     };
-    return new UpsertRecordsResult([...results], summary, [...events], fieldKeyMapping);
+    return new UpsertRecordsResult(
+      [...results],
+      summary,
+      [...events],
+      fieldKeyMapping,
+      recordActorsByRecord
+    );
   }
 }
 
@@ -94,7 +103,12 @@ export class UpsertRecordsHandler implements ICommandHandler<
             );
 
       return ok(
-        UpsertRecordsResult.create(upsertResult.results, upsertResult.events, fieldKeyMapping)
+        UpsertRecordsResult.create(
+          upsertResult.results,
+          upsertResult.events,
+          fieldKeyMapping,
+          upsertResult.recordActorsByRecord
+        )
       );
     });
   }

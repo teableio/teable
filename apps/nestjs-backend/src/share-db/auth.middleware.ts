@@ -39,6 +39,11 @@ const PRESENCE_SUBMIT = 'p';
 const PRESENCE_SUBSCRIBE = 'ps';
 const PRESENCE_REQUEST = 'pr';
 
+// ShareDB snapshot fetches at a version ('nf') or a timestamp ('nt'). The library rebuilds
+// such a snapshot from adapter calls that do not carry the connection, so nothing there can
+// decide who may read it. No client of ours sends them.
+const HISTORIC_SNAPSHOT_FETCHES = new Set(['nf', 'nt']);
+
 export interface IAuthMiddlewareDeps {
   sessionHandleService?: SessionHandleService;
   // Presence authorization needs these; when absent (bare test harnesses) every
@@ -133,6 +138,10 @@ const parsePresenceChannel = (ch: string): IPresenceChannelSpec | undefined => {
 const DENIED = Object.assign(new Error('Presence channel access denied'), {
   code: HttpErrorCode.RESTRICTED_RESOURCE,
 });
+const HISTORIC_SNAPSHOT_DENIED = Object.assign(
+  new Error('Snapshots at a version or a timestamp are not served'),
+  { code: HttpErrorCode.RESTRICTED_RESOURCE }
+);
 const LISTEN_ONLY = Object.assign(
   new Error('Presence channel is listen-only for this connection'),
   {
@@ -216,6 +225,11 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
 
   // Per-connection, edition-agnostic share-scope lookups (base/table/view metadata rows carry
   // the same share ids in v1 and v2, so no useV2 resolution is needed here).
+  //
+  // A share with a password has no scope for a connection that has not presented it. The
+  // connection carries the visitor's cookies, and the token the password page hands out is one
+  // of them: the pages and the records of the share are refused without it, and so is hearing
+  // what changes in them.
   const viewShareScope = async (
     agent: any,
     shareId: string
@@ -226,7 +240,10 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
         where: { shareId, enableShare: true, deletedTime: null },
         select: { tableId: true },
       });
-      const baseId = view ? await tableToBaseId(view.tableId) : undefined;
+      const presented = view
+        ? await permissionService!.shareViewPasswordPresented(shareId, agent.custom.cookie)
+        : false;
+      const baseId = view && presented ? await tableToBaseId(view.tableId) : undefined;
       cache.set(shareId, view && baseId ? { tableId: view.tableId, baseId } : undefined);
     }
     return cache.get(shareId);
@@ -242,9 +259,25 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
         where: { shareId: baseShareId },
         select: { baseId: true, enabled: true },
       });
-      cache.set(baseShareId, share?.enabled ? { baseId: share.baseId } : undefined);
+      const presented = share?.enabled
+        ? await permissionService!.baseSharePasswordPresented(baseShareId, agent.custom.cookie)
+        : false;
+      cache.set(baseShareId, share && presented ? { baseId: share.baseId } : undefined);
     }
     return cache.get(baseShareId);
+  };
+
+  // Whether a base share covers a table, as the HTTP layer resolves it: every table of the base
+  // for a whole-base share; for a share of one node, the tables under it.
+  const baseShareCoversTable = async (baseShareId: string, tableId: string): Promise<boolean> => {
+    try {
+      await clsService!.runWith({} as IClsStore, () =>
+        permissionService!.getBaseSharePermissions(baseShareId, tableId)
+      );
+      return true;
+    } catch {
+      return false;
+    }
   };
 
   const shareAllows = async (
@@ -253,10 +286,18 @@ const createPresenceAuthorizer = (deps: IAuthMiddlewareDeps) => {
     resource: { tableId?: string; baseId: string }
   ): Promise<boolean> => {
     const { shareId, baseShareId } = agent.custom ?? {};
-    // Whole-base share: any table/base inside the shared base is in scope.
+    // Base share: the base's own channels serve any share of it, a table's channels only a
+    // share that covers the table. Without the second check a share of one table hears what
+    // changes in every other table of the base: record and field ids, and on v1 the whole
+    // definition of a field as it is added or edited.
     if (baseShareId && (spec.share === 'base' || spec.share === 'both')) {
       const scope = await baseShareScope(agent, baseShareId);
-      if (scope && scope.baseId === resource.baseId) return true;
+      if (
+        scope?.baseId === resource.baseId &&
+        (!resource.tableId || (await baseShareCoversTable(baseShareId, resource.tableId)))
+      ) {
+        return true;
+      }
     }
     // Single-view share: only the one shared table (base-level channels are 'base' scope only,
     // so they never reach here with a shareId).
@@ -384,6 +425,14 @@ export const authMiddleware = (shareDB: ShareDBClass, deps: IAuthMiddlewareDeps 
   shareDB.use('query', (context, callback) => runWithCls(context, callback));
 
   shareDB.use('receive', (context, callback) => {
+    const action = (context.data as { a?: unknown } | undefined)?.a;
+    if (
+      typeof action === 'string' &&
+      HISTORIC_SNAPSHOT_FETCHES.has(action) &&
+      context.agent.custom[INTERNAL_SHAREDB_CONNECTION] !== true
+    ) {
+      return callback(HISTORIC_SNAPSHOT_DENIED);
+    }
     authorizePresence(context.agent, context.data as { a?: string; ch?: unknown }).then(
       (error) => callback(error),
       // A lookup failure must fail closed, not open the channel.

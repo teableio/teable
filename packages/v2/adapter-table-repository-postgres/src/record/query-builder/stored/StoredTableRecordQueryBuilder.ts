@@ -199,6 +199,16 @@ export class StoredTableRecordQueryBuilder implements ITableRecordQueryBuilder {
               createdByColumn,
               lastModifiedTimeColumn,
               lastModifiedByColumn,
+              ...(table.actorStorageVersion() === 1
+                ? [
+                    sql.ref(`${T}.__created_by_actor_type`).as('__created_by_actor_type'),
+                    sql.ref(`${T}.__created_by_actor_id`).as('__created_by_actor_id'),
+                    sql
+                      .ref(`${T}.__last_modified_by_actor_type`)
+                      .as('__last_modified_by_actor_type'),
+                    sql.ref(`${T}.__last_modified_by_actor_id`).as('__last_modified_by_actor_id'),
+                  ]
+                : []),
               ...selectColumns,
             ];
 

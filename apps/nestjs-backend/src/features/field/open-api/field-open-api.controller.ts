@@ -4,6 +4,8 @@ import {
   Controller,
   Delete,
   Get,
+  NotFoundException,
+  Optional,
   Param,
   Patch,
   Put,
@@ -32,6 +34,8 @@ import {
   duplicateFieldRoSchema,
   IDeleteFieldsQuery,
   IDuplicateFieldRo,
+  updateFieldPeriodicRefreshRoSchema,
+  IUpdateFieldPeriodicRefreshRo,
 } from '@teable/openapi';
 import type {
   IAutoFillFieldVo,
@@ -40,6 +44,8 @@ import type {
   IGetViewFilterLinkRecordsVo,
   IPlanFieldConvertVo,
   IPlanFieldVo,
+  ITriggerFieldPeriodicRefreshVo,
+  IUpdateFieldPeriodicRefreshVo,
 } from '@teable/openapi';
 import { ClsService } from 'nestjs-cls';
 import type { IClsStore } from '../../../types/cls';
@@ -49,11 +55,12 @@ import { Permissions } from '../../auth/decorators/permissions.decorator';
 import { UseV2Feature } from '../../canary/decorators/use-v2-feature.decorator';
 import { V2FeatureGuard } from '../../canary/guards/v2-feature.guard';
 import { V2IndicatorInterceptor } from '../../canary/interceptors/v2-indicator.interceptor';
+import { FieldPeriodicRefreshService } from '../../field-periodic-refresh/field-periodic-refresh.service';
 import { TableIndexService } from '../../table-index/table-index.service';
 import { FieldService } from '../field.service';
+import { FieldDependencyReadService } from './field-dependency-read.service';
 import { FieldOpenApiV2Service } from './field-open-api-v2.service';
 import { FieldOpenApiService } from './field-open-api.service';
-import { FieldDependencyReadService } from './field-dependency-read.service';
 
 @UseGuards(V2FeatureGuard)
 @UseInterceptors(V2IndicatorInterceptor)
@@ -66,7 +73,9 @@ export class FieldOpenApiController {
     private readonly fieldOpenApiV2Service: FieldOpenApiV2Service,
     private readonly tableIndexService: TableIndexService,
     private readonly fieldDependencyReadService: FieldDependencyReadService,
-    private readonly cls: ClsService<IClsStore>
+    private readonly cls: ClsService<IClsStore>,
+    @Optional()
+    protected readonly fieldPeriodicRefreshService?: FieldPeriodicRefreshService
   ) {}
 
   @Permissions('field|delete')
@@ -309,5 +318,35 @@ export class FieldOpenApiController {
   @Post('/:fieldId/stop-fill')
   async stopFillField(@Param('tableId') _tableId: string, @Param('fieldId') _fieldId: string) {
     return null;
+  }
+
+  @Permissions('record|update')
+  @Post('/:fieldId/periodic-refresh')
+  async triggerPeriodicRefresh(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string
+  ): Promise<ITriggerFieldPeriodicRefreshVo> {
+    if (!this.fieldPeriodicRefreshService) {
+      throw new NotFoundException('Periodic refresh service unavailable');
+    }
+    return this.fieldPeriodicRefreshService.triggerRefresh({
+      tableId,
+      fieldId,
+      trigger: 'manual',
+    });
+  }
+
+  @Permissions('field|update')
+  @Patch('/:fieldId/periodic-refresh')
+  async updatePeriodicRefresh(
+    @Param('tableId') tableId: string,
+    @Param('fieldId') fieldId: string,
+    @Body(new ZodValidationPipe(updateFieldPeriodicRefreshRoSchema))
+    body: IUpdateFieldPeriodicRefreshRo
+  ): Promise<IUpdateFieldPeriodicRefreshVo> {
+    if (!this.fieldPeriodicRefreshService) {
+      throw new NotFoundException('Periodic refresh service unavailable');
+    }
+    return this.fieldPeriodicRefreshService.updatePeriodicRefresh(tableId, fieldId, body);
   }
 }

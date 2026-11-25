@@ -4,7 +4,12 @@ import { CellValueType, DbFieldType, FieldType, Relationship } from './constant'
 import { RollupFieldCore, SingleLineTextFieldCore } from './derivate';
 import { unionFieldOptionsRoSchema } from './field-unions.schema';
 import type { IFieldRo } from './field.schema';
-import { convertFieldRoSchema, createFieldRoSchema, fieldVoSchema } from './field.schema';
+import {
+  convertFieldRoSchema,
+  createFieldRoSchema,
+  fieldVoSchema,
+  updateFieldRoSchema,
+} from './field.schema';
 import { NumberFormattingType } from './formatting';
 import type { ILookupConditionalOptions } from './lookup-options-base.schema';
 import type { IUnionShowAs } from './show-as';
@@ -34,6 +39,60 @@ describe('field Schema Test', () => {
 
     const result = createFieldRoSchema.safeParse(fieldRo);
     expect(result.success).toBe(true);
+  });
+
+  // The actor attribution columns belong to record bookkeeping: a field must
+  // not claim one, or user values would overwrite actor metadata. Persisted VOs
+  // keep the plain identifier rule so legacy tables with a colliding column
+  // still load.
+  describe('reserved record attribution dbFieldName', () => {
+    const reservedDbFieldNames = [
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
+    ];
+
+    it.each(reservedDbFieldNames)('rejects %s in create and convert requests', (dbFieldName) => {
+      const parsedList = [
+        createFieldRoSchema.safeParse({ type: FieldType.SingleLineText, dbFieldName }),
+        convertFieldRoSchema.safeParse({ type: FieldType.SingleLineText, dbFieldName }),
+      ];
+
+      for (const parsed of parsedList) {
+        expect(parsed.success).toBe(false);
+        const issues = parsed.success ? [] : parsed.error.issues;
+        expect(issues.map((issue) => issue.path.join('.'))).toContain('dbFieldName');
+      }
+    });
+
+    it.each(reservedDbFieldNames)('rejects %s in field updates', (dbFieldName) => {
+      const parsed = updateFieldRoSchema.safeParse({ dbFieldName });
+
+      expect(parsed.success).toBe(false);
+      const issues = parsed.success ? [] : parsed.error.issues;
+      expect(issues.map((issue) => issue.path.join('.'))).toContain('dbFieldName');
+    });
+
+    it('accepts a custom identifier in create, convert and update requests', () => {
+      const created = createFieldRoSchema.safeParse({
+        type: FieldType.SingleLineText,
+        dbFieldName: 'custom_column_1',
+      });
+      expect(created.success).toBe(true);
+      expect(created.success && created.data.dbFieldName).toBe('custom_column_1');
+      expect(
+        convertFieldRoSchema.safeParse({
+          type: FieldType.SingleLineText,
+          dbFieldName: 'custom_column_1',
+        }).success
+      ).toBe(true);
+      expect(updateFieldRoSchema.safeParse({ dbFieldName: 'custom_column_1' }).success).toBe(true);
+    });
+
+    it.each(reservedDbFieldNames)('keeps persisted field VO %s parsable', (dbFieldName) => {
+      expect(fieldVoSchema.shape.dbFieldName.safeParse(dbFieldName).success).toBe(true);
+    });
   });
 
   describe('conditional rollup creation defaults', () => {

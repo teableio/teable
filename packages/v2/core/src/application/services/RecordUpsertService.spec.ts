@@ -25,6 +25,11 @@ import type { IExecutionContext, IUnitOfWorkTransaction } from '../../ports/Exec
 import { EventBusDomainWriteTransaction } from '../../ports/memory/EventBusDomainWriteTransaction';
 import type { RecordQueryPluginScope } from '../../ports/RecordQueryPlugin';
 import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
+import type { RecordActorAttribution } from '../../ports/TableRecordRepository';
+import {
+  createTableSchemaCoordinationLease,
+  type ITableSchemaCoordination,
+} from '../../ports/TableSchemaCoordination';
 import { createUndoRedoCommand } from '../../ports/UndoRedoStore';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../../ports/UnitOfWork';
 import type { IRecordBatchCreationResult } from './RecordBatchCreationService';
@@ -162,6 +167,10 @@ const matchedRow = (table: BehaveTable, id: string, key: string): TableRecordRea
   id,
   fields: { [table.keyFieldId]: key, [table.titleFieldId]: 'stored' },
   version: 1,
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
 });
 
 const matchedEntity = (table: BehaveTable, id: string, key: string) =>
@@ -195,6 +204,8 @@ type HarnessOptions = {
   readonly createRecords?: ReadonlyArray<ReadonlyArray<TableRecord>>;
   readonly updateResult?: IRecordBulkUpdateTransactionResult;
   readonly readScope?: RecordQueryPluginScope;
+  readonly loadTable?: () => Table;
+  readonly coordination?: ITableSchemaCoordination;
   readonly writeAfterCommitError?: Error;
   readonly updateAfterCommitError?: Error;
 };
@@ -212,6 +223,7 @@ const createHarness = (options: HarnessOptions) => {
   const creationSizes: number[] = [];
   let savepointCalls = 0;
   let createCalls = 0;
+  const createTables: Table[] = [];
 
   const createQueue = [...(options.createResults ?? [])];
   const matchSequence = [...(options.matchedSequence ?? [])];
@@ -220,8 +232,9 @@ const createHarness = (options: HarnessOptions) => {
   const batchCreation = {
     create: async (
       creationContext: IExecutionContext,
-      input: { recordsFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>> }
+      input: { table: Table; recordsFieldValues: ReadonlyArray<ReadonlyMap<string, unknown>> }
     ) => {
+      createTables.push(input.table);
       creationContexts.push(creationContext);
       creationSizes.push(input.recordsFieldValues.length);
       mutationOrder.push('create');
@@ -356,12 +369,14 @@ const createHarness = (options: HarnessOptions) => {
         return ok(undefined);
       },
     } as never,
-    { getById: async () => ok(options.table.table) } as never,
-    queryPluginRunner as never
+    { getById: async () => ok(options.loadTable?.() ?? options.table.table) } as never,
+    queryPluginRunner as never,
+    options.coordination
   );
 
   return {
     upsertService,
+    createTables,
     get createCalls() {
       return createCalls;
     },
@@ -369,6 +384,7 @@ const createHarness = (options: HarnessOptions) => {
       return savepointCalls;
     },
     updateCalls,
+    queryCalls,
     undoAppends,
     afterCommitOrder,
     mutationOrder,
@@ -390,6 +406,128 @@ const baseInput = (table: BehaveTable, records: ReadonlyArray<Record<string, unk
 const context = { actorId: undefined, windowId: 'window-upsert' } as never;
 
 describe('RecordUpsertService behaviours', () => {
+  it.each([0, 1])(
+    'uses the actual leased upsert capability %s instead of the caller snapshot',
+    async (version) => {
+      const stale = buildUpsertTable();
+      const fresh = V2Table.rehydrate({
+        id: stale.table.id(),
+        baseId: stale.table.baseId(),
+        name: stale.table.name(),
+        fields: stale.table.getFields(),
+        primaryFieldId: stale.table.primaryFieldId(),
+        views: stale.table.views(),
+        actorStorageVersion: version,
+      })._unsafeUnwrap();
+      let leased = false;
+      const harness = createHarness({
+        table: stale,
+        createRecords: [
+          [createdRecord(stale, recordB, 'k2')],
+          [createdRecord(stale, recordA, 'k3')],
+        ],
+        loadTable: () => {
+          expect(leased).toBe(true);
+          return fresh;
+        },
+        coordination: {
+          acquire: async (_context, ids, mode) => {
+            leased = true;
+            return ok(
+              createTableSchemaCoordinationLease(mode, ids, async () => {
+                leased = false;
+              })
+            );
+          },
+        },
+      });
+      const native = await harness.upsertService.upsert(
+        { actorId: ActorId.create('robot')._unsafeUnwrap() },
+        baseInput(stale, [{ [stale.keyFieldId]: 'k2' }])
+      );
+      expect(native.isOk()).toBe(true);
+      expect(harness.createTables[0]?.actorStorageVersion()).toBe(version);
+      expect(leased).toBe(false);
+      const beforeAppCreates = harness.createCalls;
+      const app = await harness.upsertService.upsert(
+        {
+          actorId: ActorId.create('robot')._unsafeUnwrap(),
+          initiator: { type: 'appUser', id: 'apu_verified' },
+          requireActorStorage: true,
+        },
+        baseInput(stale, [{ [stale.keyFieldId]: 'k3' }])
+      );
+      if (version === 0) {
+        expect(app._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+        expect(harness.createCalls).toBe(beforeAppCreates);
+      } else {
+        expect(app.isOk()).toBe(true);
+      }
+      expect(leased).toBe(false);
+    }
+  );
+
+  it.each([true, false])(
+    'keeps persistence actors for updated=%s without re-reading rows',
+    async (changed) => {
+      const table = buildUpsertTable();
+      const actors: RecordActorAttribution = {
+        createdByActorType: 'appUser',
+        createdByActorId: 'apu_creator',
+        lastModifiedByActorType: 'user',
+        lastModifiedByActorId: 'usr_last',
+      };
+      const harness = createHarness({
+        table,
+        matched: [matchedRow(table, recordA, 'k1')],
+        updateResult: {
+          updatedCount: changed ? 1 : 0,
+          events: [],
+          records: [buildRecord(recordA)],
+          changedRecordIds: changed ? [{ toString: () => recordA } as never] : [],
+          recordActorsByRecord: new Map([[recordA, actors]]),
+          undoCommands: [],
+          redoCommands: [],
+          afterCommit: async () => {},
+        },
+      });
+      const result = (
+        await harness.upsertService.upsert(context, {
+          ...baseInput(table, [{ [table.keyFieldId]: 'k1', [table.titleFieldId]: 'next' }]),
+          onConflict: 'update',
+        })
+      )._unsafeUnwrap();
+
+      expect(result.results[0]?.status).toBe(changed ? 'updated' : 'unchanged');
+      expect(result.results[0]?.recordActors).toEqual(actors);
+      expect(result.recordActorsByRecord?.get(recordA)).toEqual(actors);
+      expect(harness.queryCalls).toHaveLength(1);
+    }
+  );
+
+  it('does not disclose stored actors when the read scope hides the upsert row', async () => {
+    const table = buildUpsertTable();
+    const matched = {
+      ...matchedRow(table, recordA, 'k1'),
+      createdByActorType: 'appUser' as const,
+      createdByActorId: 'apu_private',
+    };
+    const harness = createHarness({
+      table,
+      matched: [matched],
+      readScope: { recordSpec: recordSpec(() => false) },
+    });
+    const result = (
+      await harness.upsertService.upsert(context, {
+        ...baseInput(table, [{ [table.keyFieldId]: 'k1' }]),
+        onConflict: 'ignore',
+      })
+    )._unsafeUnwrap();
+
+    expect(result.results).toEqual([{ index: 0, status: 'skipped' }]);
+    expect(result.recordActorsByRecord?.size).toBe(0);
+  });
+
   it('rejects duplicate match values inside one request', async () => {
     const table = buildUpsertTable();
     const harness = createHarness({ table });

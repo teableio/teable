@@ -12,6 +12,7 @@ import {
   type IApiOkResponseDto,
   type IApiResponseDto,
 } from '../shared/http';
+import { mapRecordActors, type RecordActorDto } from './recordActorDto';
 import type { ITableRecordDto } from './recordDto';
 import { tableRecordDtoSchema } from './recordDto';
 
@@ -41,7 +42,8 @@ export const createRecordOkResponseSchema = apiOkResponseDtoSchema(createRecordR
 export { apiErrorResponseDtoSchema as createRecordErrorResponseSchema } from '../shared/http';
 
 export const mapCreateRecordResultToDto = (
-  result: CreateRecordResult
+  result: CreateRecordResult,
+  actors: RecordActorDto | undefined
 ): Result<ICreateRecordResponseDataDto, DomainError> => {
   // Get base field values from the record
   const baseFields = Object.fromEntries(
@@ -69,6 +71,7 @@ export const mapCreateRecordResultToDto = (
   const recordDto: ITableRecordDto = {
     id: result.record.id().toString(),
     fields,
+    ...mapRecordActors(actors),
   };
 
   return ok({

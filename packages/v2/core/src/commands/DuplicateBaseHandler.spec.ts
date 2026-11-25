@@ -7,6 +7,7 @@ import { domainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import type { BaseDataBulkCopyPlan, BaseDataBulkCopyProgress } from '../ports/BaseDataBulkCopier';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import type { RecordRestoreSystemValues } from '../ports/TableRecordRepository';
 import type { UnitOfWorkOperation, IUnitOfWorkOptions } from '../ports/UnitOfWork';
 import { DuplicateBaseCommand } from './DuplicateBaseCommand';
 import { DuplicateBaseHandler } from './DuplicateBaseHandler';
@@ -17,6 +18,7 @@ const fakeTable = (id: string, name: string, fields: unknown[] = []) => ({
   id: () => ({ toString: () => id }),
   name: () => ({ toString: () => name }),
   getFields: () => fields,
+  actorStorageVersion: () => 1,
 });
 
 const createHandler = (
@@ -31,6 +33,7 @@ const createHandler = (
     recordWritePluginRunner?: unknown;
     tableOperationPluginRunner?: unknown;
     baseDataBulkCopier?: unknown;
+    tableRepository?: unknown;
   } = {}
 ) =>
   new DuplicateBaseHandler(
@@ -45,164 +48,190 @@ const createHandler = (
     overrides.tableMapper as never,
     overrides.recordWritePluginRunner as never,
     overrides.tableOperationPluginRunner as never,
+    (overrides.tableRepository ?? {}) as never,
     overrides.baseDataBulkCopier as never
   );
 
 describe('DuplicateBaseHandler', () => {
-  it('restores link fields after streaming non-link record inserts', async () => {
-    type LinkUpdateBatch = Array<{ recordId: unknown; fieldValues: Map<string, unknown> }>;
-    const operationOrder: string[] = [];
-    const insertedFieldIds: string[] = [];
-    const linkUpdateItems: LinkUpdateBatch = [];
-    const targetTableId = 'tblcccccccccccccccc';
-    const targetTextFieldId = 'fldcccccccccccccccc';
-    const targetLinkFieldId = 'flddddddddddddddddd';
-    const tableRecordRepository = {
-      insertManyStream: vi.fn(async (_context, _table, batches: Array<{ records: unknown[] }>) => {
-        operationOrder.push('insert');
-        for (const record of batches[0]?.records ?? []) {
-          insertedFieldIds.push(
-            ...(
-              record as {
-                fields(): {
-                  entries(): Array<{ fieldId: { toString(): string } }>;
-                };
-              }
-            )
-              .fields()
-              .entries()
-              .map((entry) => entry.fieldId.toString())
-          );
-        }
-        return ok({ totalInserted: batches[0]?.records.length ?? 0 });
-      }),
-      updateManyStream: vi.fn(
-        async (_context, _table, batches: AsyncIterable<{ _unsafeUnwrap(): LinkUpdateBatch }>) => {
-          operationOrder.push('update');
-          for await (const batchResult of batches) {
-            linkUpdateItems.push(...batchResult._unsafeUnwrap());
+  it.each([undefined, null, { type: 'appUser' as const, id: 'apu_original' }])(
+    'preserves trusted creator %j while restoring links after streamed inserts',
+    async (trustedCreatedActor) => {
+      type LinkUpdateBatch = Array<{ recordId: unknown; fieldValues: Map<string, unknown> }>;
+      const operationOrder: string[] = [];
+      const insertedFieldIds: string[] = [];
+      const linkUpdateItems: LinkUpdateBatch = [];
+      let restoredValues: RecordRestoreSystemValues | undefined;
+      const targetTableId = 'tblcccccccccccccccc';
+      const targetTextFieldId = 'fldcccccccccccccccc';
+      const targetLinkFieldId = 'flddddddddddddddddd';
+      const tableRecordRepository = {
+        insertManyStream: vi.fn(
+          async (
+            _context,
+            _table,
+            batches: Array<{
+              records: unknown[];
+              restoreRecordsById?: ReadonlyMap<string, RecordRestoreSystemValues>;
+            }>
+          ) => {
+            operationOrder.push('insert');
+            restoredValues = batches[0]?.restoreRecordsById?.get(recordId);
+            for (const record of batches[0]?.records ?? []) {
+              insertedFieldIds.push(
+                ...(
+                  record as {
+                    fields(): {
+                      entries(): Array<{ fieldId: { toString(): string } }>;
+                    };
+                  }
+                )
+                  .fields()
+                  .entries()
+                  .map((entry) => entry.fieldId.toString())
+              );
+            }
+            return ok({ totalInserted: batches[0]?.records.length ?? 0 });
           }
-          return ok({ totalUpdated: linkUpdateItems.length });
-        }
-      ),
-    };
-    const unitOfWork = {
-      withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
-        callback({ tx: true })
-      ),
-    };
-    const targetTable = {
-      ...fakeTable(targetTableId, 'Tasks'),
-      updateRecordsStream: vi.fn(function* (
-        updates: Array<{ recordId: unknown; fieldValues: Map<string, unknown> }>
-      ) {
-        yield ok(updates);
-      }),
-    };
-    const pluginExecution = {
-      guard: vi.fn(async () => ok(undefined)),
-      beforePersist: vi.fn(async () => ok(undefined)),
-      afterCommit: vi.fn(async () => undefined),
-    };
-    const recordWritePluginRunner = {
-      prepare: vi.fn(async () => ok(pluginExecution)),
-    };
-    const handler = createHandler({
-      tableRecordRepository,
-      unitOfWork,
-      recordWritePluginRunner,
-    });
-    const sourceTextFieldId = 'fldaaaaaaaaaaaaaaaa';
-    const sourceLinkFieldId = 'fldbbbbbbbbbbbbbbbb';
-    const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
-    const recordId = 'recaaaaaaaaaaaaaaaa';
-    const records = vi.fn(async function* () {
-      yield {
-        recordId,
-        fields: {
-          [sourceTextFieldId]: 'Task A',
-          [sourceLinkFieldId]: [{ id: 'recbbbbbbbbbbbbbbbb' }],
-        },
+        ),
+        updateManyStream: vi.fn(
+          async (
+            _context,
+            _table,
+            batches: AsyncIterable<{ _unsafeUnwrap(): LinkUpdateBatch }>
+          ) => {
+            operationOrder.push('update');
+            for await (const batchResult of batches) {
+              linkUpdateItems.push(...batchResult._unsafeUnwrap());
+            }
+            return ok({ totalUpdated: linkUpdateItems.length });
+          }
+        ),
       };
-    });
-    const command = DuplicateBaseCommand.createFromSource({
-      baseId,
-      source: {
-        structure: {
-          tables: [
-            {
-              id: sourceTableId,
-              name: 'Tasks',
-              fields: [
-                { id: sourceTextFieldId, name: 'Title', type: 'singleLineText' },
-                { id: sourceLinkFieldId, name: 'Owner', type: 'link' },
-              ],
-            },
-          ],
-        },
-        records,
-      },
-      withRecords: true,
-      batchSize: 500,
-    })._unsafeUnwrap();
-
-    vi.spyOn(
-      handler as unknown as { createTables: (...args: unknown[]) => Promise<unknown> },
-      'createTables'
-    ).mockResolvedValue(
-      ok({
-        result: {
-          tableIdMap: { [sourceTableId]: targetTableId },
-          fieldIdMap: {
-            [sourceTextFieldId]: targetTextFieldId,
-            [sourceLinkFieldId]: targetLinkFieldId,
+      const unitOfWork = {
+        withTransaction: vi.fn((_context, callback: (tx: unknown) => Promise<unknown>) =>
+          callback({ tx: true })
+        ),
+      };
+      const targetTable = {
+        ...fakeTable(targetTableId, 'Tasks'),
+        updateRecordsStream: vi.fn(function* (
+          updates: Array<{ recordId: unknown; fieldValues: Map<string, unknown> }>
+        ) {
+          yield ok(updates);
+        }),
+      };
+      const pluginExecution = {
+        guard: vi.fn(async () => ok(undefined)),
+        beforePersist: vi.fn(async () => ok(undefined)),
+        afterCommit: vi.fn(async () => undefined),
+      };
+      const recordWritePluginRunner = {
+        prepare: vi.fn(async () => ok(pluginExecution)),
+      };
+      const handler = createHandler({
+        tableRecordRepository,
+        unitOfWork,
+        recordWritePluginRunner,
+      });
+      const sourceTextFieldId = 'fldaaaaaaaaaaaaaaaa';
+      const sourceLinkFieldId = 'fldbbbbbbbbbbbbbbbb';
+      const sourceTableId = 'tblaaaaaaaaaaaaaaaa';
+      const recordId = 'recaaaaaaaaaaaaaaaa';
+      const records = vi.fn(async function* () {
+        yield {
+          recordId,
+          ...(trustedCreatedActor !== undefined ? { trustedCreatedActor } : {}),
+          fields: {
+            [sourceTextFieldId]: 'Task A',
+            [sourceLinkFieldId]: [{ id: 'recbbbbbbbbbbbbbbbb' }],
           },
-          viewIdMap: {},
+        };
+      });
+      const command = DuplicateBaseCommand.createFromSource({
+        baseId,
+        source: {
+          structure: {
+            tables: [
+              {
+                id: sourceTableId,
+                name: 'Tasks',
+                fields: [
+                  { id: sourceTextFieldId, name: 'Title', type: 'singleLineText' },
+                  { id: sourceLinkFieldId, name: 'Owner', type: 'link' },
+                ],
+              },
+            ],
+          },
+          records,
         },
-        tablesBySourceId: new Map([[sourceTableId, targetTable]]),
-      }) as never
-    );
+        withRecords: true,
+        batchSize: 500,
+      })._unsafeUnwrap();
 
-    const result = await handler.handle({} as never, command);
-    for await (const event of result._unsafeUnwrap()) {
-      if (event.id === 'error') throw new Error(event.message);
+      vi.spyOn(
+        handler as unknown as { createTables: (...args: unknown[]) => Promise<unknown> },
+        'createTables'
+      ).mockResolvedValue(
+        ok({
+          result: {
+            tableIdMap: { [sourceTableId]: targetTableId },
+            fieldIdMap: {
+              [sourceTextFieldId]: targetTextFieldId,
+              [sourceLinkFieldId]: targetLinkFieldId,
+            },
+            viewIdMap: {},
+          },
+          tablesBySourceId: new Map([[sourceTableId, targetTable]]),
+        }) as never
+      );
+
+      const result = await handler.handle({} as never, command);
+      for await (const event of result._unsafeUnwrap()) {
+        if (event.id === 'error') throw new Error(event.message);
+      }
+
+      expect(operationOrder).toEqual(['insert', 'update']);
+      if (trustedCreatedActor === undefined) {
+        expect(restoredValues).not.toHaveProperty('createdByActor');
+      } else {
+        expect(restoredValues?.createdByActor).toEqual(trustedCreatedActor);
+      }
+      expect(restoredValues).not.toHaveProperty('lastModifiedByActor');
+      expect(records).toHaveBeenNthCalledWith(1, sourceTableId, { phase: 'insert' });
+      expect(records).toHaveBeenNthCalledWith(2, sourceTableId, { phase: 'linkRestore' });
+      expect(insertedFieldIds).toEqual([targetTextFieldId]);
+      expect(linkUpdateItems).toHaveLength(1);
+      expect(linkUpdateItems[0]?.fieldValues).toEqual(
+        new Map([[targetLinkFieldId, [{ id: 'recbbbbbbbbbbbbbbbb' }]]])
+      );
+      expect(tableRecordRepository.insertManyStream).toHaveBeenCalledWith(
+        expect.anything(),
+        targetTable,
+        expect.anything(),
+        expect.objectContaining({ skipComputedUpdates: true, skipChangedFields: true })
+      );
+      expect(tableRecordRepository.updateManyStream).toHaveBeenCalledWith(
+        expect.anything(),
+        targetTable,
+        expect.anything(),
+        expect.objectContaining({
+          skipComputedUpdates: true,
+          fillLinkTitles: true,
+          assumeEmptyLinkState: true,
+        })
+      );
+      expect(recordWritePluginRunner.prepare).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: 'duplicateStream',
+          table: targetTable,
+          payload: expect.objectContaining({ recordCount: 1, batchSize: 500 }),
+        })
+      );
+      expect(pluginExecution.guard).toHaveBeenCalledOnce();
+      expect(pluginExecution.beforePersist).toHaveBeenCalledOnce();
+      expect(pluginExecution.afterCommit).toHaveBeenCalledOnce();
     }
-
-    expect(operationOrder).toEqual(['insert', 'update']);
-    expect(records).toHaveBeenNthCalledWith(1, sourceTableId, { phase: 'insert' });
-    expect(records).toHaveBeenNthCalledWith(2, sourceTableId, { phase: 'linkRestore' });
-    expect(insertedFieldIds).toEqual([targetTextFieldId]);
-    expect(linkUpdateItems).toHaveLength(1);
-    expect(linkUpdateItems[0]?.fieldValues).toEqual(
-      new Map([[targetLinkFieldId, [{ id: 'recbbbbbbbbbbbbbbbb' }]]])
-    );
-    expect(tableRecordRepository.insertManyStream).toHaveBeenCalledWith(
-      expect.anything(),
-      targetTable,
-      expect.anything(),
-      expect.objectContaining({ skipComputedUpdates: true, skipChangedFields: true })
-    );
-    expect(tableRecordRepository.updateManyStream).toHaveBeenCalledWith(
-      expect.anything(),
-      targetTable,
-      expect.anything(),
-      expect.objectContaining({
-        skipComputedUpdates: true,
-        fillLinkTitles: true,
-        assumeEmptyLinkState: true,
-      })
-    );
-    expect(recordWritePluginRunner.prepare).toHaveBeenCalledWith(
-      expect.objectContaining({
-        kind: 'duplicateStream',
-        table: targetTable,
-        payload: expect.objectContaining({ recordCount: 1, batchSize: 500 }),
-      })
-    );
-    expect(pluginExecution.guard).toHaveBeenCalledOnce();
-    expect(pluginExecution.beforePersist).toHaveBeenCalledOnce();
-    expect(pluginExecution.afterCommit).toHaveBeenCalledOnce();
-  });
+  );
 
   it('skips restore updates for two-way one-many inverse link fields', async () => {
     const insertedFieldIds: string[] = [];
@@ -589,12 +618,20 @@ describe('DuplicateBaseHandler', () => {
       ),
     };
     const tablePluginExecution = { guard: vi.fn(async () => ok(undefined)) };
+    const tableRepository = {
+      setProvisionStateMany: vi.fn(async (_context, _tables, _state, options) => {
+        expect(tableCreationService.provisionData).toHaveBeenCalledOnce();
+        expect(options.publishActorStorageVersion).toBe(1);
+        return ok(undefined);
+      }),
+    };
     const tableOperationPluginRunner = {
       prepare: vi.fn(async () => ok(tablePluginExecution)),
     };
     const handler = createHandler({
       foreignTableLoaderService: { load: vi.fn(async () => ok([])) },
       tableCreationService,
+      tableRepository,
       eventBus: { publishMany: vi.fn(async () => ok(undefined)) },
       unitOfWork,
       tableOperationPluginRunner,
@@ -648,6 +685,12 @@ describe('DuplicateBaseHandler', () => {
       })
     );
     expect(tablePluginExecution.guard).toHaveBeenCalledOnce();
+    expect(tableRepository.setProvisionStateMany).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.any(Array),
+      'ready',
+      expect.objectContaining({ publishActorStorageVersion: 1, operationType: 'table.duplicate' })
+    );
   });
 
   it('reports committed table ownership when domain event publication fails', async () => {
@@ -1241,6 +1284,7 @@ describe('DuplicateBaseHandler', () => {
         targetTableId,
         sourceDbTableName: 'bseSource.source_tasks',
         targetDbTableName: 'bseTarget.target_tasks',
+        targetActorStorageVersion: 1,
         excludedTargetColumns: ['computed_col'],
       }),
     ]);

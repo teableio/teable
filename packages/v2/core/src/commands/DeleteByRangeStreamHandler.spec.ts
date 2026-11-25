@@ -30,6 +30,7 @@ import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
@@ -40,6 +41,8 @@ import type {
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
   RecordMutationResult,
   RecordStoredSnapshot,
@@ -109,9 +112,17 @@ const buildRecordReadModel = (index: number): TableRecordReadModel => ({
   id: `rec${index.toString(36).padStart(16, '0').slice(-16)}`,
   fields: { title: `Record ${index}` },
   version: 1,
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
 });
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   tables: Table[] = [];
   findOneCallCount = 0;
 
@@ -126,13 +137,6 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.tables.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -166,6 +170,14 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   failDeleteByBatchIndex = new Map<number, DomainError>();
   deleteContexts: Array<IExecutionContext> = [];
   deleteRecordIdsByBatch: string[][] = [];
@@ -246,8 +258,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -428,6 +442,10 @@ describe('DeleteByRangeStreamHandler', () => {
       id: `rec${letter.repeat(16)}`,
       fields: { title: letter },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     }));
     queryRepository.total = 2;
     const undoRedoService = new FakeUndoRedoService();
@@ -457,9 +475,33 @@ describe('DeleteByRangeStreamHandler', () => {
     tableRepository.tables.push(table);
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { title: 'Record C' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 3;
     const originalRecordIds = queryRepository.records.map((record) => record.id);
@@ -526,21 +568,24 @@ describe('DeleteByRangeStreamHandler', () => {
       'start',
       'continue',
     ]);
-    expect(
-      undoRedoService.recordEntryCalls.map(
-        (call) =>
-          (
-            call.entry as {
-              undoCommand: { payload: { records: unknown[] } };
-            }
-          ).undoCommand.payload.records.length
-      )
-    ).toEqual([2, 1]);
+    expect(undoRedoService.recordEntryCalls[0]?.entry).toHaveProperty(
+      'undoCommand.payload.records.length',
+      2
+    );
+    expect(undoRedoService.recordEntryCalls[1]?.entry).toHaveProperty(
+      'undoCommand.payload.records.length',
+      1
+    );
     expect(calls.prepare).toHaveLength(3);
     expect(calls.guard).toHaveLength(3);
     expect(calls.beforePersist).toHaveLength(2);
     expect(calls.afterCommit).toHaveLength(2);
-    expect(calls.prepare.map((call) => call.payload.recordCount)).toEqual([3, 2, 1]);
+    expect(
+      calls.prepare.map((call) => {
+        if (call.kind !== 'deleteMany') throw new Error('Expected deleteMany context');
+        return call.payload.recordCount;
+      })
+    ).toEqual([3, 2, 1]);
     expect(calls.prepareStates).toEqual([undefined, undefined, undefined]);
     expect(calls.prepare.map((call) => call.orchestration)).toEqual([
       {
@@ -575,15 +620,39 @@ describe('DeleteByRangeStreamHandler', () => {
     tableRepository.tables.push(table);
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
-      { id: `rec${'c'.repeat(16)}`, fields: { title: 'Record C' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'c'.repeat(16)}`,
+        fields: { title: 'Record C' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 3;
     const heavyPrepareScopes: string[] = [];
     const seenPreviousStates: unknown[] = [];
     const guardStates: unknown[] = [];
-    const plugin = {
+    const plugin: IRecordWritePlugin = {
       name: 'operation-only-delete-plugin',
       supports: () => true,
       prepare(context, previousPreparedState) {
@@ -755,10 +824,12 @@ describe('DeleteByRangeStreamHandler', () => {
         Array.from({ length: expectedChunkCount }, () => 200)
       );
       expect(calls.prepare).toHaveLength(expectedChunkCount + 1);
-      expect(calls.prepare.map((call) => call.payload.recordCount)).toEqual([
-        totalCount,
-        ...Array.from({ length: expectedChunkCount }, () => 200),
-      ]);
+      expect(
+        calls.prepare.map((call) => {
+          if (call.kind !== 'deleteMany') throw new Error('Expected deleteMany context');
+          return call.payload.recordCount;
+        })
+      ).toEqual([totalCount, ...Array.from({ length: expectedChunkCount }, () => 200)]);
       expect(calls.guard).toHaveLength(expectedChunkCount + 1);
       expect(calls.beforePersist).toHaveLength(expectedChunkCount);
       expect(calls.afterCommit).toHaveLength(expectedChunkCount);
@@ -960,8 +1031,24 @@ describe('DeleteByRangeStreamHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
-      { id: `rec${'b'.repeat(16)}`, fields: { title: 'Record B' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: `rec${'b'.repeat(16)}`,
+        fields: { title: 'Record B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 2;
 
@@ -1025,7 +1112,15 @@ describe('DeleteByRangeStreamHandler', () => {
 
     const queryRepository = new FakeTableRecordQueryRepository();
     queryRepository.records = [
-      { id: `rec${'a'.repeat(16)}`, fields: { title: 'Record A' }, version: 1 },
+      {
+        id: `rec${'a'.repeat(16)}`,
+        fields: { title: 'Record A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ];
     queryRepository.total = 1;
     const originalRecordId = queryRepository.records[0]!.id;

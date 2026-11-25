@@ -198,6 +198,10 @@ describe('LinkTitleResolverService', () => {
           [table.primaryFieldId().toString()]: 'Alpha',
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -247,6 +251,10 @@ describe('LinkTitleResolverService', () => {
           id: recordId,
           fields: { [primaryFieldId]: 'Primary A', [displayFieldId.toString()]: 'Alpha' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ])
     );
@@ -343,11 +351,19 @@ describe('LinkTitleResolverService', () => {
           id: recordId,
           fields: { [displayFieldId.toString()]: 'Done' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
         {
           id: trapRecordId,
           fields: { [displayFieldId.toString()]: 'choDone' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ])
     );
@@ -394,6 +410,10 @@ describe('LinkTitleResolverService', () => {
           id: recordId,
           fields: { [table.primaryFieldId().toString()]: 'Alpha' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ])
     );
@@ -421,6 +441,10 @@ describe('LinkTitleResolverService', () => {
           [table.primaryFieldId().toString()]: 123,
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -447,6 +471,10 @@ describe('LinkTitleResolverService', () => {
           [table.primaryFieldId().toString()]: 'Alpha',
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -475,6 +503,10 @@ describe('LinkTitleResolverService', () => {
           [table.primaryFieldId().toString()]: 'Alpha',
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -507,6 +539,10 @@ describe('LinkTitleResolverService', () => {
           [table.primaryFieldId().toString()]: 'Owner A',
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -554,6 +590,10 @@ describe('LinkTitleResolverService', () => {
           id: recordId.toString(),
           fields: { [table.primaryFieldId().toString()]: 'A B' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ])
     );
@@ -575,6 +615,10 @@ describe('LinkTitleResolverService', () => {
         id: recordId.toString(),
         fields: { [table.primaryFieldId().toString()]: 'A\nB' },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
     const service = new LinkTitleResolverService(
@@ -600,6 +644,10 @@ describe('LinkTitleResolverService', () => {
         id: recordId.toString(),
         fields: { [table.primaryFieldId().toString()]: '\t' },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ]);
     const service = new LinkTitleResolverService(
@@ -625,8 +673,24 @@ describe('LinkTitleResolverService', () => {
     const service = new LinkTitleResolverService(
       new FakeTableRepository(table),
       new FakeRecordQueryRepository([
-        { id: legacyId.toString(), fields: { [primaryFieldId]: 'A\nB' }, version: 1 },
-        { id: normalizedId.toString(), fields: { [primaryFieldId]: 'A B' }, version: 1 },
+        {
+          id: legacyId.toString(),
+          fields: { [primaryFieldId]: 'A\nB' },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
+        {
+          id: normalizedId.toString(),
+          fields: { [primaryFieldId]: 'A B' },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        },
       ])
     );
     const fieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
@@ -650,6 +714,10 @@ describe('LinkTitleResolverService', () => {
           id: recordId.toString(),
           fields: { [table.primaryFieldId().toString()]: 'A\nB' },
           version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ])
     );

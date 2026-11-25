@@ -14,11 +14,13 @@ import { toNumber } from 'lodash';
 import { I18nService } from 'nestjs-i18n';
 import Papa from 'papaparse';
 import { CacheService } from '../../../cache/cache.service';
+import type { IClsStore } from '../../../types/cls';
 import type { I18nPath, I18nTranslations } from '../../../types/i18n.generated';
 import { Processor } from '../../../utils/queue-processor';
 import StorageAdapter from '../../attachments/plugins/adapter';
 import { InjectStorageAdapter } from '../../attachments/plugins/storage';
 import { NotificationService } from '../../notification/notification.service';
+import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { ImportMetricsService } from '../metrics/import-metrics.service';
 import { ImportTracingService } from '../metrics/import-tracing.service';
 import type { IChunkImportResult } from './import-csv.processor';
@@ -60,6 +62,7 @@ interface ITableImportChunkJob {
     name: string;
   };
   userId: string;
+  recordInitiator?: IClsStore['recordInitiator'];
   origin?: {
     ip: string;
     byApi: boolean;
@@ -117,6 +120,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     private readonly cacheService: CacheService,
     private readonly i18n: I18nService<I18nTranslations>,
     private readonly prismaService: PrismaService,
+    private readonly recordMutationPolicy: RecordMutationPolicyService,
     @Optional() private readonly importMetrics?: ImportMetricsService,
     @Optional() private readonly importTracing?: ImportTracingService
   ) {
@@ -175,6 +179,11 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     const { sourceColumnMap } = job.data.recordsCal;
 
     try {
+      await this.recordMutationPolicy.assertAllowed({
+        tableId: table.id,
+        operation: 'create',
+        payload: job.data.ro,
+      });
       this.logger.log(
         `start chunk data job concurrency: ${TABLE_IMPORT_CSV_CHUNK_QUEUE_CONCURRENCY}`
       );
@@ -510,6 +519,7 @@ export class ImportTableCsvChunkQueueProcessor extends WorkerHost {
     const jobData = {
       baseId,
       userId,
+      recordInitiator: job.recordInitiator,
       origin,
       path,
       columnInfo,

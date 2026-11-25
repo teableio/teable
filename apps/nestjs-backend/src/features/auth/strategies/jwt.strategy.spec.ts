@@ -67,6 +67,7 @@ describe('JwtStrategy', () => {
     expect(user).toEqual(AUTOMATION_ROBOT_USER);
     expect(cls.set).toHaveBeenCalledWith('tempAuthBaseId', 'bseOwn');
     expect(cls.set).toHaveBeenCalledWith('workflowContext', context);
+    expect(cls.set).toHaveBeenCalledWith('recordInitiator', { type: 'automation', id: 'wfl1' });
   });
 
   it('still resolves an ordinary user token', async () => {
@@ -80,5 +81,6 @@ describe('JwtStrategy', () => {
     const user = await validate({ userId: 'usr1' });
     expect(user).toMatchObject({ id: 'usr1' });
     expect(cls.set).toHaveBeenCalledWith('user.id', 'usr1');
+    expect(cls.set).toHaveBeenCalledWith('recordInitiator', { type: 'user', id: 'usr1' });
   });
 });

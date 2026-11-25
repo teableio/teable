@@ -193,6 +193,32 @@ function diffRecordCells(
   return changes;
 }
 
+function diffRecordOrders(
+  before: IRecordVcsSnapshot,
+  after: IRecordVcsSnapshot,
+  targetViewIds: ReadonlySet<string>
+): NonNullable<ITableVcsPatch['recordsUpdated'][number]['orderChanges']> {
+  const defaultChanged =
+    before.autoNumber !== undefined &&
+    after.autoNumber !== undefined &&
+    before.autoNumber !== after.autoNumber;
+  if (!defaultChanged && !before.orders && !after.orders) return [];
+  const views = defaultChanged
+    ? targetViewIds
+    : new Set([...Object.keys(before.orders ?? {}), ...Object.keys(after.orders ?? {})]);
+  const changes = [];
+  for (const viewId of [...views].sort()) {
+    if (!targetViewIds.has(viewId)) continue;
+    const previous = before.orders?.[viewId] ?? before.autoNumber ?? null;
+    // Older checkpoints lack autoNumber. A retained row keeps its storage identity.
+    const next = after.orders?.[viewId] ?? after.autoNumber ?? before.autoNumber;
+    if (next !== undefined && previous !== next) {
+      changes.push({ viewId, before: previous, after: next });
+    }
+  }
+  return changes;
+}
+
 function diffTableRecords(
   beforeTable: ITableVcsSnapshot,
   afterTable: ITableVcsSnapshot,
@@ -201,6 +227,7 @@ function diffTableRecords(
 ): Pick<ITableVcsPatch, 'recordsAdded' | 'recordsUpdated' | 'recordsDeleted'> {
   const beforeMap = new Map(beforeTable.records.map((r) => [r.id, r]));
   const afterMap = new Map(afterTable.records.map((r) => [r.id, r]));
+  const targetViewIds = new Set(afterTable.views.map((view) => view.id));
 
   const activeStoredFieldIds = new Set<string>(
     afterTable.fields.filter(isStoredVcsField).map((f) => f.id)
@@ -218,6 +245,7 @@ function diffTableRecords(
       recordsAdded.push({
         id: afterRec.id,
         fields: normalizedAfter,
+        ...(afterRec.autoNumber !== undefined ? { autoNumber: afterRec.autoNumber } : {}),
         ...(afterRec.orders ? { orders: afterRec.orders } : {}),
       });
       continue;
@@ -230,10 +258,12 @@ function diffTableRecords(
       activeStoredFieldIds,
       readableFieldIds
     );
-    if (cellChanges.length > 0) {
+    const orderChanges = tableScope ? [] : diffRecordOrders(beforeRec, afterRec, targetViewIds);
+    if (cellChanges.length > 0 || orderChanges.length > 0) {
       recordsUpdated.push({
         recordId: afterRec.id,
         cellChanges,
+        ...(orderChanges.length ? { orderChanges } : {}),
       });
     }
   }

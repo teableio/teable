@@ -58,6 +58,8 @@ export class EventBusDomainWriteTransaction implements IDomainWriteTransaction {
       unitOfWork: this.unitOfWork,
       context,
       scope: options.scope ?? 'data',
+      isolationLevel: options.isolationLevel,
+      onRetryExhausted: options.onRetryExhausted,
       work,
       logger: this.logger,
     });

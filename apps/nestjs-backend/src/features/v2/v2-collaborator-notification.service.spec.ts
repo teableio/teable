@@ -9,6 +9,7 @@ import {
   TableId,
   TableName,
   type Table as V2Table,
+  type TableRecordReadModel,
 } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -102,13 +103,7 @@ const createCollaboratorService = () => ({
 });
 const createDispatcher = (recordTitleFixture?: {
   table: V2Table;
-  records: Array<{
-    id: string;
-    fields: Record<string, unknown>;
-    version: number;
-    autoNumber: number;
-    createdTime: string;
-  }>;
+  records: TableRecordReadModel[];
 }) => {
   const { db, service: v2ContainerService } = createV2ContainerService();
   const collaboratorService = createCollaboratorService();
@@ -183,6 +178,10 @@ describe('V2CollaboratorNotificationDispatcher', () => {
           version: 1,
           autoNumber: 1,
           createdTime: '2026-01-01T00:00:00.000Z',
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
         },
       ],
     });

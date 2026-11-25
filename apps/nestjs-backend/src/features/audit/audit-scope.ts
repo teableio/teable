@@ -29,6 +29,7 @@ export interface IAuditOperation {
   // Stable id shared by every audit row produced inside this operation. Lets queries group
   // "all rows from this one operation". Defaults to a fresh nanoid if not supplied.
   operationId: string;
+  occurredAt: string;
   // Optional override for the audit row's user_id field. Used for automation/AI internal
   // calls so dashboards filtering by `user_id = 'automationRobot'` keep working.
   userId?: string;
@@ -194,6 +195,7 @@ export class AuditScope {
     const operation: IAuditOperation = {
       rootAction: input.rootAction,
       operationId: input.operationId ?? nanoid(),
+      occurredAt: new Date().toISOString(),
       ...(input.resourceId !== undefined ? { resourceId: input.resourceId } : {}),
       ...(input.userId !== undefined ? { userId: input.userId } : {}),
       ...(input.params !== undefined ? { params: input.params } : {}),

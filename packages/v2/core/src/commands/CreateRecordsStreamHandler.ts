@@ -3,8 +3,10 @@ import { ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
+import { sharedRecordWritePlan } from '../application/services/RecordWriteCoordinationPlan';
 import { RecordWritePluginRunner } from '../application/services/RecordWritePluginRunner';
 import { TableQueryService } from '../application/services/TableQueryService';
+import { withRecordWriteCoordination } from '../application/services/withRecordWriteCoordination';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { RecordValuesDTO } from '../domain/table/events/RecordFieldValuesDTO';
@@ -16,6 +18,10 @@ import { domainWrite, type IDomainWriteTransaction } from '../ports/DomainWriteT
 import * as ExecutionContextPort from '../ports/ExecutionContext';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import * as TableRecordRepositoryPort from '../ports/TableRecordRepository';
+import {
+  NoopTableSchemaCoordination,
+  type ITableSchemaCoordination,
+} from '../ports/TableSchemaCoordination';
 import { v2CoreTokens } from '../ports/tokens';
 import { TraceSpan } from '../ports/TraceSpan';
 import { CommandHandler, type ICommandHandler } from './CommandHandler';
@@ -51,7 +57,9 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
     @inject(v2CoreTokens.tableRecordRepository)
     private readonly tableRecordRepository: TableRecordRepositoryPort.ITableRecordRepository,
     @inject(v2CoreTokens.domainWriteTransaction)
-    private readonly domainWriteTransaction: IDomainWriteTransaction
+    private readonly domainWriteTransaction: IDomainWriteTransaction,
+    @inject(v2CoreTokens.tableSchemaCoordination)
+    private readonly tableSchemaCoordination: ITableSchemaCoordination = new NoopTableSchemaCoordination()
   ) {}
 
   @TraceSpan()
@@ -59,10 +67,24 @@ export class CreateRecordsStreamHandler implements ICommandHandler<
     context: ExecutionContextPort.IExecutionContext,
     command: CreateRecordsStreamCommand
   ): Promise<Result<CreateRecordsStreamResult, DomainError>> {
+    return withRecordWriteCoordination({
+      context,
+      tableId: command.tableId,
+      coordination: this.tableSchemaCoordination,
+      initialPlan: sharedRecordWritePlan,
+      loadTable: () => this.tableQueryService.getById(context, command.tableId),
+      planForTable: () => sharedRecordWritePlan,
+      execute: (table) => this.executeCreate(context, command, table),
+    });
+  }
+
+  private async executeCreate(
+    context: ExecutionContextPort.IExecutionContext,
+    command: CreateRecordsStreamCommand,
+    table: Table
+  ): Promise<Result<CreateRecordsStreamResult, DomainError>> {
     const handler = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
     return safeTry<CreateRecordsStreamResult, DomainError>(async function* () {
-      // 1. Get the table
-      const table = yield* await handler.tableQueryService.getById(context, command.tableId);
       const recordsFieldValues = [...command.recordsFieldValues];
       const pluginExecution = yield* await handler.recordWritePluginRunner.prepare({
         kind: RecordWriteOperationKind.createStream,

@@ -76,7 +76,8 @@
     "@teable/v2-contract-http": "workspace:*",
     "@teable/v2-data-query": "workspace:*",
     "@teable/v2-table-query-ops": "workspace:*",
-    "@teable/v2-vcs": "workspace:*"
+    "@teable/v2-vcs": "workspace:*",
+    "neverthrow": "8.2.0"
   },
   "devDependencies": {
     "@teable/eslint-config-bases": "workspace:^",
@@ -84,7 +85,6 @@
     "@teable/v2-container-node-test": "workspace:*",
     "@teable/v2-tsdown-config": "workspace:*",
     "@types/node": "24.19.2",
-    "neverthrow": "8.2.0",
     "@vitest/coverage-v8": "4.1.12",
     "oxfmt": "0.74.0",
     "oxlint": "1.89.0",

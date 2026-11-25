@@ -366,6 +366,7 @@ export class SharedViewRecordQueryV2Service {
       return { content: result.value.content, header };
     }
     const records = await this.recordOpenApiV2Service.hydrateSelectedUserCells(
+      tableId,
       container,
       result.value.sourceRecords,
       userFields.map((field) => field.id().toString())

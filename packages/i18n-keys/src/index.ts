@@ -5,6 +5,10 @@
  * created; every layer up to HTTP passes it through untouched.
  */
 export const sdkErrorI18nKeys = {
+  app: {
+    managedFieldReadOnly: 'httpErrors.app.managedFieldReadOnly',
+    managedRecordReadOnly: 'httpErrors.app.managedRecordReadOnly',
+  },
   custom: {
     recordFieldValueNotNull: 'httpErrors.custom.recordFieldValueNotNull',
     recordFieldValueDuplicate: 'httpErrors.custom.recordFieldValueDuplicate',
@@ -65,6 +69,8 @@ export const sdkErrorI18nKeys = {
 } as const;
 
 export type SdkErrorI18nKey =
+  | 'httpErrors.app.managedFieldReadOnly'
+  | 'httpErrors.app.managedRecordReadOnly'
   | 'httpErrors.custom.recordFieldValueNotNull'
   | 'httpErrors.user.notFound'
   | 'httpErrors.custom.recordFieldValueDuplicate'

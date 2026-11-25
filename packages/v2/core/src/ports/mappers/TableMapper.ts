@@ -381,6 +381,7 @@ export type ITablePersistenceDTO = {
   icon?: string;
   dbTableName?: string;
   searchIndex?: ITableSearchIndex;
+  actorStorageVersion?: number;
   primaryFieldId: string;
   fields: ReadonlyArray<ITableFieldPersistenceDTO>;
   views: ReadonlyArray<ITableViewPersistenceDTO>;

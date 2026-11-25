@@ -3,7 +3,7 @@
  *
  * Strictly for test harnesses and local PGlite bootstrap (`ensureSchema: true`).
  * Runtime PostgreSQL deployments create these tables via Prisma / Data DB migrations
- * (`20261118100000_add_base_vcs_tables`), never via request-path DDL.
+ * (including the additive checkpoint migration), never via request-path DDL.
  */
 export const baseVcsSchemaStatements: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS base_vcs_head (
@@ -59,6 +59,21 @@ export const baseVcsSchemaStatements: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS base_vcs_commit_base_origin_push_key
   ON base_vcs_commit (base_id, origin_push_id)
   WHERE origin_push_id IS NOT NULL`,
+  `CREATE TABLE IF NOT EXISTS base_vcs_object (
+  base_id text NOT NULL REFERENCES base_vcs_head(base_id) ON DELETE CASCADE,
+  hash text NOT NULL,
+  payload jsonb NOT NULL,
+  PRIMARY KEY (base_id, hash)
+)`,
+  `CREATE TABLE IF NOT EXISTS base_vcs_checkpoint (
+  base_id text NOT NULL REFERENCES base_vcs_head(base_id) ON DELETE CASCADE,
+  revision bigint NOT NULL CHECK (revision >= 0),
+  base_name text NOT NULL,
+  captured_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+  tables jsonb NOT NULL,
+  contains_foreign_references boolean NOT NULL DEFAULT true,
+  PRIMARY KEY (base_id, revision)
+)`,
 ];
 
 export const baseVcsSchemaSql = baseVcsSchemaStatements.join(';\n\n');

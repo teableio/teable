@@ -118,8 +118,24 @@ describe('BulkRecordPreparationService', () => {
     const second = recordId('b');
     const missing = recordId('c');
     const repository = new ReadOnlyRecordRepository([
-      { id: first.toString(), fields: { [titleId.toString()]: 'A' }, version: 1 },
-      { id: second.toString(), fields: { [titleId.toString()]: 'B' }, version: 1 },
+      {
+        id: first.toString(),
+        fields: { [titleId.toString()]: 'A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
+      {
+        id: second.toString(),
+        fields: { [titleId.toString()]: 'B' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ]);
     const service = new BulkRecordPreparationService(
       repository,
@@ -155,7 +171,15 @@ describe('BulkRecordPreparationService', () => {
     const id = recordId('a');
     const values = new Map<string, unknown>([[statusId.toString(), 'New']]);
     const repository = new ReadOnlyRecordRepository([
-      { id: id.toString(), fields: {}, version: 1 },
+      {
+        id: id.toString(),
+        fields: {},
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ]);
     const service = new BulkRecordPreparationService(
       repository,
@@ -185,7 +209,15 @@ describe('BulkRecordPreparationService', () => {
     const id = recordId('a');
     const values = new Map<string, unknown>([[statusId.toString(), 'New']]);
     const repository = new ReadOnlyRecordRepository([
-      { id: id.toString(), fields: {}, version: 1 },
+      {
+        id: id.toString(),
+        fields: {},
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ]);
     const service = new BulkRecordPreparationService(
       repository,
@@ -210,7 +242,15 @@ describe('BulkRecordPreparationService', () => {
     const first = recordId('a');
     const missing = recordId('c');
     const repository = new ReadOnlyRecordRepository([
-      { id: first.toString(), fields: { [titleId.toString()]: 'A' }, version: 1 },
+      {
+        id: first.toString(),
+        fields: { [titleId.toString()]: 'A' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      },
     ]);
     const service = new BulkRecordPreparationService(
       repository,

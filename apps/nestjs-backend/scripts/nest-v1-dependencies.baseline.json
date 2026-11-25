@@ -937,22 +937,6 @@
   },
   {
     "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/share-view-scope.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
-    "symbol": "RecordService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/record/share-view-scope.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
-    "symbol": "RecordService",
-    "kind": "injection",
-    "owner": "ShareViewScopeService"
-  },
-  {
-    "scope": "external-consumer",
     "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
     "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.module.ts",
     "symbol": "AggregationModule",
@@ -2606,22 +2590,6 @@
     "symbol": "IOpsMap",
     "kind": "import",
     "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/v2/v2-data-query-candidate.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
-    "symbol": "FieldOpenApiModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/v2/v2-data-query-candidate.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
-    "symbol": "FieldOpenApiModule",
-    "kind": "provider",
-    "owner": "V2DataQueryCandidateModule:imports"
   },
   {
     "scope": "v2-host",

@@ -278,6 +278,7 @@ export function canonicalizeRecord(
     id: record.id,
     fields,
     ...(record.version !== undefined ? { version: record.version } : {}),
+    ...(record.autoNumber !== undefined ? { autoNumber: record.autoNumber } : {}),
     ...(orders ? { orders } : {}),
   };
 }

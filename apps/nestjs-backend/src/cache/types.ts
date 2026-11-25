@@ -110,6 +110,7 @@ export interface ICacheStore {
   [key: `push:routine-alert-opener:${string}`]: string;
   // Distributed lock keys
   [key: `lock:${string}`]: string;
+  [key: `periodic-refresh:manual-dedup:${string}`]: string;
   [key: `import:result:manifest:${string}`]: {
     successCount: number;
     failedCount: number;

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ForeignTableLoaderService } from '../application/services/ForeignTableLoaderService';
 import type { RecordMutationSpecResolverService } from '../application/services/RecordMutationSpecResolverService';
@@ -50,6 +50,7 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import type { IRecordOrderCalculator } from '../ports/RecordOrderCalculator';
+import type { IRecordOrderColumnPreparer } from '../ports/RecordOrderColumnPreparer';
 import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
@@ -59,6 +60,7 @@ import type {
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   ITableRecordRepository,
+  PhysicalTableDuplicateResult,
   RecordMutationResult,
   BatchRecordMutationResult,
   UpdateOptions,
@@ -225,13 +227,6 @@ class FakeTableRepository implements ITableRepository {
     return ok([...tables]);
   }
 
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
-  }
-
   async findOne(
     _: IExecutionContext,
     spec: ISpecification<Table, ITableSpecVisitor>
@@ -262,12 +257,20 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return err(domainError.unexpected({ message: 'restore is not used by update record tests' }));
+  }
+
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_context: IExecutionContext, _table: Table) {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -393,6 +396,14 @@ class FakeTableRecordRepository implements ITableRecordRepository {
   async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
     return ok({ totalDeleted: 0 });
   }
+
+  async duplicatePhysicalRows(): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    return err(
+      domainError.unexpected({
+        message: 'duplicatePhysicalRows is not used by update record tests',
+      })
+    );
+  }
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
@@ -482,7 +493,8 @@ const createHandler = (
   undoRedoStackService: UndoRedoStackService,
   unitOfWork: IUnitOfWork,
   foreignTableLoader?: ConstructorParameters<typeof UpdateRecordApplicationService>[12],
-  tableSchemaCoordination?: ConstructorParameters<typeof UpdateRecordApplicationService>[13]
+  tableSchemaCoordination?: ConstructorParameters<typeof UpdateRecordApplicationService>[13],
+  orderColumnPreparer?: IRecordOrderColumnPreparer
 ) =>
   new UpdateRecordHandler(
     new UpdateRecordApplicationService(
@@ -499,7 +511,8 @@ const createHandler = (
       new EventBusDomainWriteTransaction(unitOfWork, eventBus),
       undoRedoStackService,
       foreignTableLoader,
-      tableSchemaCoordination
+      tableSchemaCoordination,
+      orderColumnPreparer
     )
   );
 
@@ -592,7 +605,7 @@ describe('UpdateRecordHandler', () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const recordResult = table
       .createRecord(
-        new Map([
+        new Map<string, unknown>([
           [textFieldId.toString(), 'Old Title'],
           [numberFieldId.toString(), 1],
         ])
@@ -612,6 +625,10 @@ describe('UpdateRecordHandler', () => {
         [numberFieldId.toString()]: 1,
       },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -651,7 +668,7 @@ describe('UpdateRecordHandler', () => {
     const targetRecordId = `rec${'r'.repeat(16)}`;
     const recordResult = table
       .createRecord(
-        new Map([
+        new Map<string, unknown>([
           [textFieldId.toString(), 'Old Title'],
           [linkFieldId.toString(), null],
         ])
@@ -671,6 +688,10 @@ describe('UpdateRecordHandler', () => {
         [linkFieldId.toString()]: { id: targetRecordId },
       },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -711,7 +732,7 @@ describe('UpdateRecordHandler', () => {
     const persistedLinkValue = [{ id: targetRecordId, title: 'Target Title' }];
     const recordResult = table
       .createRecord(
-        new Map([
+        new Map<string, unknown>([
           [textFieldId.toString(), 'Old Title'],
           [linkFieldId.toString(), persistedLinkValue],
         ])
@@ -732,6 +753,10 @@ describe('UpdateRecordHandler', () => {
         [linkFieldId.toString()]: [{ id: targetRecordId, title: 'Old Target Title' }],
       },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -812,6 +837,10 @@ describe('UpdateRecordHandler', () => {
         [linkFieldId.toString()]: null,
       },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const foreignTableLoader = new ForeignTableLoaderService(tableRepository);
@@ -865,6 +894,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -911,6 +944,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const scopedPlugin = {
@@ -979,6 +1016,10 @@ describe('UpdateRecordHandler', () => {
         [numberFieldId.toString()]: 100,
       },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const scopedPlugin = {
@@ -1039,6 +1080,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const resolver = new FakeRecordMutationSpecResolverService();
@@ -1085,6 +1130,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -1159,6 +1208,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -1216,6 +1269,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const eventBus = new FakeEventBus();
@@ -1306,6 +1363,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Old Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const handler = createHandler(
@@ -1341,7 +1402,7 @@ describe('UpdateRecordHandler', () => {
     const requestedLinkValue = [{ id: currentTargetId }];
     const recordResult = table
       .createRecord(
-        new Map([
+        new Map<string, unknown>([
           [textFieldId.toString(), 'Old Title'],
           [linkFieldId.toString(), preReadLinkValue],
         ])
@@ -1364,6 +1425,10 @@ describe('UpdateRecordHandler', () => {
           [linkFieldId.toString()]: preReadLinkValue,
         },
         version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
       {
         id: recordResult.record.id().toString(),
@@ -1372,6 +1437,10 @@ describe('UpdateRecordHandler', () => {
           [linkFieldId.toString()]: currentLinkValue,
         },
         version: 2,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       },
     ];
 
@@ -1433,6 +1502,10 @@ describe('UpdateRecordHandler', () => {
       id: recordResult.record.id().toString(),
       fields: { [textFieldId.toString()]: 'Title' },
       version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
 
     const resolver = new FakeRecordMutationSpecResolverService();
@@ -1520,6 +1593,10 @@ describe('UpdateRecordHandler', () => {
           [textFieldId.toString()]: 'Old Title',
           [numberFieldId.toString()]: 100,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
 
       const handler = createHandler(
@@ -1575,6 +1652,10 @@ describe('UpdateRecordHandler', () => {
           [textFieldId.toString()]: 'Old Title',
           [numberFieldId.toString()]: 100,
         },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
 
       const handler = createHandler(
@@ -1622,6 +1703,10 @@ describe('UpdateRecordHandler', () => {
         id: recordResult.record.id().toString(),
         version: 1,
         fields: { [textFieldId.toString()]: 'Old Title' },
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
       };
 
       const handler = createHandler(
@@ -1658,6 +1743,7 @@ describe('UpdateRecordHandler schema coordination', () => {
     options: {
       failFindOne?: DomainError;
       plugins?: Parameters<typeof createRecordWritePluginRunner>[0];
+      orderColumnPreparer?: IRecordOrderColumnPreparer;
     } = {}
   ) => {
     const {
@@ -1681,6 +1767,10 @@ describe('UpdateRecordHandler schema coordination', () => {
       id: recordId,
       version: 1,
       fields: { [textFieldId.toString()]: 'Old Title' },
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
     if (options.failFindOne) {
       recordQueryRepository.failFindOne = options.failFindOne;
@@ -1699,7 +1789,8 @@ describe('UpdateRecordHandler schema coordination', () => {
       new FakeUndoRedoService() as unknown as UndoRedoStackService,
       new FakeUnitOfWork(),
       undefined,
-      coordination
+      coordination,
+      options.orderColumnPreparer
     );
 
     return {
@@ -1979,9 +2070,32 @@ describe('UpdateRecordHandler schema coordination', () => {
     expect(tracked.calls.guard).toHaveLength(1);
   });
 
-  it('does not coordinate ordered updates because row-order CIC cannot run inside the lease', async () => {
+  it('prepares order storage outside the lease then reloads enabled actor metadata before writing', async () => {
     const coordination = new RecordingTableSchemaCoordination();
-    const { table, tableId, textFieldId, recordId, handler } = setup(coordination);
+    const preparationVersions: number[] = [];
+    const { table, tableId, textFieldId, recordId, handler, tableRepository, recordRepository } =
+      setup(coordination, {
+        orderColumnPreparer: {
+          prepareOrderColumn: async (_context, candidate) => {
+            expect(coordination.calls).toEqual([]);
+            preparationVersions.push(candidate.actorStorageVersion());
+            return ok(true);
+          },
+        },
+      });
+    const enabled = Table.rehydrate({
+      id: table.id(),
+      baseId: table.baseId(),
+      name: table.name(),
+      fields: table.getFields(),
+      views: table.views(),
+      primaryFieldId: table.primaryFieldId(),
+      actorStorageVersion: 1,
+    })._unsafeUnwrap();
+    coordination.onAcquire = () => {
+      tableRepository.tables = [enabled];
+    };
+    const mutation = vi.spyOn(recordRepository, 'updateOne');
     const command = UpdateRecordCommand.create({
       tableId: tableId.toString(),
       recordId,
@@ -1996,8 +2110,10 @@ describe('UpdateRecordHandler schema coordination', () => {
     const result = await handler.handle(createContext(), command);
 
     expect(result.isOk()).toBe(true);
-    expect(coordination.calls).toEqual([]);
-    expect(coordination.releaseCount).toBe(0);
+    expect(preparationVersions).toEqual([0]);
+    expect(coordination.calls.map((call) => call.mode)).toEqual(['shared']);
+    expect(coordination.releaseCount).toBe(1);
+    expect(mutation.mock.calls[0]?.[1].actorStorageVersion()).toBe(1);
   });
 
   it('returns the coordination failure before reading table metadata', async () => {
@@ -2055,6 +2171,10 @@ describe('UpdateRecordHandler order-only updates', () => {
       version: 1,
       fields: { [textFieldId.toString()]: 'Title' },
       autoNumber: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     };
     const eventBus = new FakeEventBus();
     const unitOfWork = new FakeUnitOfWork();

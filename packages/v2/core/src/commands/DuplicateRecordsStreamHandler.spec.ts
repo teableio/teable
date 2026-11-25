@@ -1,6 +1,6 @@
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { DuplicateRecordsApplicationService } from '../application/services/DuplicateRecordsApplicationService';
 import { RecordWriteSideEffectService } from '../application/services/RecordWriteSideEffectService';
@@ -33,6 +33,8 @@ import { TableName } from '../domain/table/TableName';
 import type { TableSortKey } from '../domain/table/TableSortKey';
 import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
+import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
+import type { IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryRepository,
@@ -44,6 +46,8 @@ import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
 import type {
   BatchRecordMutationResult,
   InsertOptions,
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
   ITableRecordRepository,
   RecordMutationResult,
   RecordStoredSnapshot,
@@ -51,7 +55,6 @@ import type {
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ISpan, ITracer, SpanAttributes } from '../ports/Tracer';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
-import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { DuplicateRecordsStreamCommand } from './DuplicateRecordsStreamCommand';
 import { DuplicateRecordsStreamHandler } from './DuplicateRecordsStreamHandler';
 import {
@@ -109,7 +112,19 @@ const buildTable = () => {
   return { table, tableId, viewId: table.views()[0].id().toString() };
 };
 
+const unknownActorAttribution: Pick<
+  TableRecordReadModel,
+  'createdByActorType' | 'createdByActorId' | 'lastModifiedByActorType' | 'lastModifiedByActorId'
+> = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+};
+type SourceRecordFixture = Omit<TableRecordReadModel, keyof typeof unknownActorAttribution>;
+
 const buildRecordReadModel = (index: number): TableRecordReadModel => ({
+  ...unknownActorAttribution,
   id: `rec${index.toString(36).padStart(16, '0').slice(-16)}`,
   fields: { title: `Record ${index}` },
   version: 1,
@@ -130,13 +145,6 @@ class FakeTableRepository implements ITableRepository {
   ): Promise<Result<ReadonlyArray<Table>, DomainError>> {
     this.tables.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -174,7 +182,7 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
-  sourceRecords: TableRecordReadModel[] = [];
+  sourceRecords: SourceRecordFixture[] = [];
   persistedRecords = new Map<string, TableRecordReadModel>();
   total = 0;
   findCalls: Array<{
@@ -200,7 +208,9 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     const offset = options?.pagination?.offset()?.toNumber() ?? 0;
     const limit = options?.pagination?.limit()?.toNumber() ?? this.sourceRecords.length;
     return ok({
-      records: this.sourceRecords.slice(offset, offset + limit),
+      records: this.sourceRecords
+        .slice(offset, offset + limit)
+        .map((record) => ({ ...unknownActorAttribution, ...record })),
       total: this.total || this.sourceRecords.length,
     });
   }
@@ -216,12 +226,20 @@ class FakeTableRecordQueryRepository implements ITableRecordQueryRepository {
     _options?: ITableRecordQueryStreamOptions
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     for (const record of this.sourceRecords) {
-      yield ok(record);
+      yield ok({ ...unknownActorAttribution, ...record });
     }
   }
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   failInsertByBatchIndex = new Map<number, DomainError>();
   omitRecordSnapshotsByBatchIndex = new Set<number>();
   insertContexts: Array<IExecutionContext> = [];
@@ -265,6 +283,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
       }
 
       const snapshot: TableRecordReadModel = {
+        ...unknownActorAttribution,
         id: record.id().toString(),
         fields,
         version: 1,
@@ -314,8 +333,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -556,26 +577,11 @@ describe('DuplicateRecordsStreamHandler', () => {
         undoRedoService.recordEntryCalls.map((call) => (call.entry as { groupId: string }).groupId)
       ).size
     ).toBe(1);
-    expect(
-      undoRedoService.recordEntryCalls.map(
-        (call) =>
-          (
-            call.entry as {
-              undoCommand: { payload: { recordIds: string[] } };
-            }
-          ).undoCommand.payload.recordIds.length
-      )
-    ).toEqual([2, 1]);
-    expect(
-      undoRedoService.recordEntryCalls.map(
-        (call) =>
-          (
-            call.entry as {
-              redoCommand: { payload: { records: unknown[] } };
-            }
-          ).redoCommand.payload.records.length
-      )
-    ).toEqual([2, 1]);
+    for (const [index, { entry }] of undoRedoService.recordEntryCalls.entries()) {
+      const count = [2, 1][index];
+      expect(entry).toHaveProperty('undoCommand.payload.recordIds.length', count);
+      expect(entry).toHaveProperty('redoCommand.payload.records.length', count);
+    }
     expect(
       queryRepository.findCalls.filter((call) => call.spec instanceof RecordByIdsSpec)
     ).toHaveLength(0);
@@ -583,8 +589,18 @@ describe('DuplicateRecordsStreamHandler', () => {
     expect(calls.guard).toHaveLength(3);
     expect(calls.beforePersist).toHaveLength(2);
     expect(calls.afterCommit).toHaveLength(2);
-    expect(calls.prepare.map((call) => call.payload.recordCount)).toEqual([3, 2, 1]);
-    expect(calls.prepare.map((call) => call.payload.sourceRecordIds.length)).toEqual([0, 2, 1]);
+    expect(
+      calls.prepare.map((call) => {
+        if (call.kind !== 'duplicateStream') throw new Error('Expected duplicateStream context');
+        return call.payload.recordCount;
+      })
+    ).toEqual([3, 2, 1]);
+    expect(
+      calls.prepare.map((call) => {
+        if (call.kind !== 'duplicateStream') throw new Error('Expected duplicateStream context');
+        return call.payload.sourceRecordIds.length;
+      })
+    ).toEqual([0, 2, 1]);
     expect(calls.prepareStates).toEqual([undefined, undefined, undefined]);
     expect(calls.prepare.map((call) => call.orchestration)).toEqual([
       {
@@ -611,6 +627,12 @@ describe('DuplicateRecordsStreamHandler', () => {
         chunkIndex: 1,
       },
     ]);
+    if (
+      calls.prepare[1]?.kind !== 'duplicateStream' ||
+      calls.prepare[2]?.kind !== 'duplicateStream'
+    ) {
+      throw new Error('Expected duplicateStream chunk contexts');
+    }
     expect(calls.prepare[1]?.payload.order).toBeInstanceOf(RecordInsertOrder);
     expect(calls.prepare[2]?.payload.order).toBeInstanceOf(RecordInsertOrder);
   });
@@ -641,14 +663,11 @@ describe('DuplicateRecordsStreamHandler', () => {
     })._unsafeUnwrap();
 
     let yieldCount = 0;
-    const immediateHolder = globalThis as typeof globalThis & {
-      setImmediate?: (callback: () => void) => void;
-    };
-    const previousImmediate = immediateHolder.setImmediate;
-    immediateHolder.setImmediate = (callback) => {
+    const previousImmediate = globalThis.setImmediate;
+    vi.stubGlobal('setImmediate', (callback: () => void) => {
       yieldCount += 1;
       callback();
-    };
+    });
 
     try {
       const result = await handler.handle(createContext(), command);
@@ -657,7 +676,7 @@ describe('DuplicateRecordsStreamHandler', () => {
         void event;
       }
     } finally {
-      immediateHolder.setImmediate = previousImmediate;
+      vi.stubGlobal('setImmediate', previousImmediate);
     }
 
     expect(yieldCount).toBe(2);
@@ -722,7 +741,7 @@ describe('DuplicateRecordsStreamHandler', () => {
     const heavyPrepareScopes: string[] = [];
     const seenPreviousStates: unknown[] = [];
     const guardStates: unknown[] = [];
-    const plugin = {
+    const plugin: IRecordWritePlugin = {
       name: 'operation-only-duplicate-plugin',
       supports: () => true,
       prepare(context, previousPreparedState) {
@@ -895,16 +914,9 @@ describe('DuplicateRecordsStreamHandler', () => {
       'start',
       'continue',
     ]);
-    expect(
-      undoRedoService.recordEntryCalls.map(
-        (call) =>
-          (
-            call.entry as {
-              undoCommand: { payload: { recordIds: string[] } };
-            }
-          ).undoCommand.payload.recordIds.length
-      )
-    ).toEqual([1, 1]);
+    for (const { entry } of undoRedoService.recordEntryCalls) {
+      expect(entry).toHaveProperty('undoCommand.payload.recordIds.length', 1);
+    }
     expect(
       new Set(
         undoRedoService.recordEntryCalls.map((call) => (call.entry as { groupId: string }).groupId)

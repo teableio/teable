@@ -58,6 +58,7 @@ import {
   ActorId,
   MemoryUndoRedoStore,
   v2CoreTokens,
+  type ExecutionContextBackgroundTaskScheduler,
   type ICreateTableCommandInput,
   type ICreateFieldCommandInput,
   type ICreateTablesCommandInput,
@@ -214,6 +215,8 @@ export interface SharedTestContext {
     payload: IImportRecordsCommandInput
   ) => Promise<ReturnType<typeof parseImportRecordsResponse>>;
   drainOutbox: (maxRounds?: number) => Promise<void>;
+  /** Await real post-commit consumer promises scheduled by this test host. */
+  drainBackgroundTasks: () => Promise<void>;
   clearLogs: () => void;
   getLastComputedPlan: () => ReturnType<IV2NodeTestContainer['getLastComputedPlan']>;
 }
@@ -501,6 +504,19 @@ const initSharedContext = async (
   const app = express();
   const selectOptionAutoCreatePolicy = new AsyncLocalStorage<boolean>();
   const requestIdStore = new AsyncLocalStorage<string>();
+  // HTTP success does not await direct post-commit consumers. Own their promises so
+  // drainOutbox establishes a real completion boundary, not just computed-queue idle.
+  const backgroundTasks = new Set<Promise<void>>();
+  let backgroundTaskFailure: { reason: unknown } | undefined;
+  const scheduleBackgroundTask: ExecutionContextBackgroundTaskScheduler = (task) => {
+    const pending = Promise.resolve().then(task);
+    backgroundTasks.add(pending);
+    void pending
+      .catch((reason: unknown) => {
+        backgroundTaskFailure ??= { reason };
+      })
+      .finally(() => backgroundTasks.delete(pending));
+  };
   app.use((req, _res, next) => {
     const header = req.headers['x-teable-allow-select-option-auto-create'];
     const raw = Array.isArray(header) ? header[0] : header;
@@ -526,6 +542,7 @@ const initSharedContext = async (
           return {
             actorId,
             windowId: 'e2e-window',
+            scheduleBackgroundTask,
             ...(requestId === undefined ? {} : { requestId }),
             ...(allowSelectOptionAutoCreate === undefined
               ? {}
@@ -550,11 +567,19 @@ const initSharedContext = async (
   const address = server.address() as AddressInfo;
   const baseUrl = `http://127.0.0.1:${address.port}`;
 
+  const settleBackgroundTasks = async () => {
+    while (backgroundTasks.size > 0) {
+      await Promise.allSettled(backgroundTasks);
+    }
+    if (backgroundTaskFailure) throw backgroundTaskFailure.reason;
+  };
   const drainOutbox = async (maxRounds = 10) => {
     for (let i = 0; i < maxRounds; i += 1) {
+      await settleBackgroundTasks();
       const drained = await testContainer.processOutbox();
-      if (drained === 0) break;
+      if (drained === 0 && backgroundTasks.size === 0) return;
     }
+    throw new Error(`Outbox and post-commit work did not quiesce after ${maxRounds} rounds`);
   };
 
   return {
@@ -566,6 +591,7 @@ const initSharedContext = async (
     testUser: TEST_USER,
     ...createE2eRequestClient({ baseUrl, baseId, drainOutbox }),
     drainOutbox,
+    drainBackgroundTasks: settleBackgroundTasks,
     clearLogs: () => testContainer.clearLogs(),
     getLastComputedPlan: () => testContainer.getLastComputedPlan(),
   };
@@ -1068,9 +1094,13 @@ export const disposeSharedTestContext = async (): Promise<void> => {
     } catch {
       // Ignore errors during cleanup - the outbox may already be empty or unavailable
     }
-    await sharedContext.testContainer.dispose();
-    sharedContexts.delete(dbMode);
-    initPromises.delete(dbMode);
+    try {
+      await sharedContext.drainBackgroundTasks();
+    } finally {
+      await sharedContext.testContainer.dispose();
+      sharedContexts.delete(dbMode);
+      initPromises.delete(dbMode);
+    }
   }
 };
 

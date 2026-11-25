@@ -77,6 +77,11 @@ import {
   TemplateHostContext,
   useTemplateProjectInfo,
 } from '@/features/app/components/space/template/host-context';
+import {
+  TableActorColumnsDialog,
+  TableActorColumnsMenuItem,
+  useTableActorColumnsForOperation,
+} from '@/features/app/components/table-actor-columns/TableActorColumnsMenu';
 import { TableDeleteConfirmDialog } from '@/features/app/components/table-delete-confirm-dialog/TableDeleteConfirmDialog';
 import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useArchiveUpsell } from '@/features/app/hooks/useArchiveUpsell';
@@ -840,10 +845,11 @@ const useSearchAccelerationSettings = (
 };
 
 export const TableOperation = (props: ITableOperationProps) => {
+  const [menuOpen, setMenuOpen] = useState(false);
   const {
     resourceId,
-    open,
-    setOpen,
+    open = menuOpen,
+    setOpen = setMenuOpen,
     onRename,
     onDescription,
     children,
@@ -927,6 +933,15 @@ export const TableOperation = (props: ITableOperationProps) => {
         canTableArchiveRead,
       }),
     [basePermission, canTableRecordHistoryRead, canTableTrashRead, canTableArchiveRead, node, table]
+  );
+
+  const actorColumns = useTableActorColumnsForOperation(
+    baseId,
+    resourceId,
+    Boolean(table),
+    menuPermission.updateTable,
+    open,
+    menuOpen
   );
   const shareNodeId = menuPermission.shareTable && node ? node.id : undefined;
 
@@ -1131,6 +1146,7 @@ export const TableOperation = (props: ITableOperationProps) => {
           nodeId={shareNodeId}
         />
       )}
+      <TableActorColumnsDialog controller={actorColumns} />
       {node && (
         <BaseNodeInfoDialog
           node={node}
@@ -1203,6 +1219,7 @@ export const TableOperation = (props: ITableOperationProps) => {
             onClick={() => setApiDialogOpen(true)}
           />
         )}
+        <TableActorColumnsMenuItem controller={actorColumns} variant="list" />
         {menuPermission.tableRecordHistory && (
           <Sheet modal={true}>
             <SheetTrigger asChild>
@@ -1386,6 +1403,8 @@ export const TableOperation = (props: ITableOperationProps) => {
               API
             </DropdownMenuItem>
           )}
+
+          <TableActorColumnsMenuItem controller={actorColumns} />
 
           {(menuPermission.tableRecordHistory ||
             menuPermission.tableTrash ||

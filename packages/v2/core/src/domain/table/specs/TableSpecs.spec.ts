@@ -85,9 +85,9 @@ import type { TableUpdateViewQueryDefaultsSpec } from './TableUpdateViewQueryDef
 import type { TableUpdateViewShareIdSpec } from './TableUpdateViewShareIdSpec';
 import type { TableUpdateViewShareMetaSpec } from './TableUpdateViewShareMetaSpec';
 import type { TableUpdateViewShareStateSpec } from './TableUpdateViewShareStateSpec';
-import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
-import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
 import { TableWithFieldIdsSpec } from './TableWithFieldIdsSpec';
+import { TableWithPrimaryFieldSpec } from './TableWithPrimaryFieldSpec';
+import { TableWithViewIdsSpec } from './TableWithViewIdsSpec';
 
 class SpyVisitor implements ITableSpecVisitor {
   readonly calls: string[] = [];

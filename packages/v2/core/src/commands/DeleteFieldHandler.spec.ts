@@ -254,6 +254,12 @@ class FakeTableRepository implements ITableRepository {
     return ok(undefined);
   }
 
+  async restore(_: IExecutionContext, table: Table): Promise<Result<void, DomainError>> {
+    const index = this.tables.findIndex((entry) => entry.id().equals(table.id()));
+    if (index === -1) return err(domainError.notFound({ message: 'Table not found' }));
+    return ok(undefined);
+  }
+
   async delete(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -261,6 +267,9 @@ class FakeTableRepository implements ITableRepository {
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
   updated: Table[] = [];
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
 
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);

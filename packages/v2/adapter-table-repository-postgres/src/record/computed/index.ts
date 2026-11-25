@@ -1,5 +1,7 @@
 export * from './ComputedFieldBackfillService';
 export * from './ComputedFieldCascadeAfterSchemaUpdate';
+export * from './PeriodicFieldRefreshEngine';
+export * from './PeriodicFieldRefreshLifecycleSink';
 export * from './ComputedUpdateDrainService';
 export * from './ComputedFieldUpdater';
 export * from './ComputedUpdateLock';

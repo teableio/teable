@@ -54,6 +54,7 @@ export class AccessTokenStrategy extends PassportStrategy(PassportAccessTokenStr
     this.cls.set('user.email', user.email);
     this.cls.set('user.isAdmin', user.isAdmin);
     this.cls.set('accessTokenId', accessTokenId);
+    this.cls.set('recordInitiator', user.isSystem ? undefined : { type: 'user', id: user.id });
     return pickUserMe(user);
   }
 }

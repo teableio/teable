@@ -1156,4 +1156,133 @@ describe('DomainEventOutboxWorker (db)', () => {
       },
     ]);
   });
+  it('restores frozen attribution and verifies the target receipt instead of a source-local inbox', async () => {
+    const { db } = getV2NodeTestContainer();
+    const eventId = newId('deo');
+    const targetSchema = newId('audit_target_');
+    await sql`CREATE SCHEMA ${sql.id(targetSchema)}`.execute(db);
+    await sql`CREATE TABLE ${sql.id(targetSchema, 'domain_event_inbox')} (
+      consumer_id text NOT NULL, event_id text NOT NULL, PRIMARY KEY(consumer_id, event_id)
+    )`.execute(db);
+    const target = db.withSchema(targetSchema);
+    const frozenTime = '2026-10-01T01:02:03.456Z';
+    await insertOutbox(db, { eventId, consumers: [SECOND_CONSUMER_ID] });
+    await db
+      .updateTable('domain_event_outbox')
+      .set({
+        attribution: {
+          version: 1,
+          eventId,
+          operationId: 'frozen-operation',
+          occurredAt: frozenTime,
+          context: {
+            actorId: 'appRobot',
+            initiator: { type: 'appUser', id: 'apu_stable' },
+            requestId: 'original-request',
+          },
+        },
+      })
+      .where('id', '=', eventId)
+      .execute();
+    await insertDelivery(db, { eventId, consumerId: SECOND_CONSUMER_ID });
+    const handler: IDurableProjectionHandler<ProjectionMessageJson> = {
+      receiptDestination: 'external',
+      handle: async (context) => {
+        expect(context).toMatchObject({
+          actorId: 'appRobot',
+          initiator: { type: 'appUser', id: 'apu_stable' },
+          operationId: 'frozen-operation',
+          occurredAt: new Date(frozenTime),
+          requestId: 'original-request',
+        });
+        await target
+          .insertInto('domain_event_inbox')
+          .values({ consumer_id: SECOND_CONSUMER_ID, event_id: eventId })
+          .execute();
+        return ok({
+          kind: 'applied',
+          effectReceipt: { kind: 'destination-inbox', destination: 'external', identity: eventId },
+        });
+      },
+      verifyReceipt: async () =>
+        ok(
+          Boolean(
+            await target
+              .selectFrom('domain_event_inbox')
+              .select('event_id')
+              .where('event_id', '=', eventId)
+              .executeTakeFirst()
+          )
+        ),
+    };
+    try {
+      const worker = createWorker(db, new Map([[SECOND_CONSUMER_ID, handler]]), [
+        createdClaim(SECOND_CONSUMER_ID),
+      ]);
+      expect((await worker.pollOnce()).isOk()).toBe(true);
+      expect((await loadDelivery(db, eventId, SECOND_CONSUMER_ID)).status).toBe('succeeded');
+      expect(
+        await db
+          .selectFrom('domain_event_inbox')
+          .select('event_id')
+          .where('event_id', '=', eventId)
+          .execute()
+      ).toHaveLength(0);
+    } finally {
+      await sql`DROP SCHEMA ${sql.id(targetSchema)} CASCADE`.execute(db);
+    }
+  });
+
+  it('does not acknowledge a remote receipt after ownership of the source lease changes', async () => {
+    const { db } = getV2NodeTestContainer();
+    const eventId = newId('deo');
+    await insertOutbox(db, { eventId, consumers: [SECOND_CONSUMER_ID] });
+    await insertDelivery(db, { eventId, consumerId: SECOND_CONSUMER_ID });
+    const handler: IDurableProjectionHandler<ProjectionMessageJson> = {
+      receiptDestination: 'external',
+      handle: async (context) => {
+        expect(context.actorId).toBe('unknown');
+        expect(context.occurredAt).toBeNull();
+        return ok({
+          kind: 'applied',
+          effectReceipt: { kind: 'destination-inbox', destination: 'external', identity: eventId },
+        });
+      },
+      verifyReceipt: async () => {
+        await db
+          .updateTable('domain_event_delivery')
+          .set({ lease_token: 'another-owner' })
+          .where('event_id', '=', eventId)
+          .execute();
+        return ok(true);
+      },
+    };
+    const worker = createWorker(db, new Map([[SECOND_CONSUMER_ID, handler]]), [
+      createdClaim(SECOND_CONSUMER_ID),
+    ]);
+    await worker.pollOnce();
+    expect((await loadDelivery(db, eventId, SECOND_CONSUMER_ID)).status).toBe('processing');
+    expect((await loadOutbox(db, eventId)).settled).toBeNull();
+  });
+  it('keeps external delivery pending when its destination cannot confirm a committed receipt', async () => {
+    const { db } = getV2NodeTestContainer();
+    const eventId = newId('deo');
+    await insertOutbox(db, { eventId, consumers: [SECOND_CONSUMER_ID] });
+    await insertDelivery(db, { eventId, consumerId: SECOND_CONSUMER_ID });
+    const handler: IDurableProjectionHandler<ProjectionMessageJson> = {
+      receiptDestination: 'external',
+      handle: async () =>
+        ok({
+          kind: 'applied',
+          effectReceipt: { kind: 'destination-inbox', destination: 'external', identity: eventId },
+        }),
+      verifyReceipt: async () => ok(false),
+    };
+    const worker = createWorker(db, new Map([[SECOND_CONSUMER_ID, handler]]), [
+      createdClaim(SECOND_CONSUMER_ID),
+    ]);
+    await worker.pollOnce();
+    expect((await loadDelivery(db, eventId, SECOND_CONSUMER_ID)).status).toBe('pending');
+    expect((await loadOutbox(db, eventId)).settled).toBeNull();
+  });
 });

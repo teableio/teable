@@ -614,7 +614,13 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
     );
 
     expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toEqual({ totalUpdated: 0, updatedRecords: [] });
+    expect(result._unsafeUnwrap()).toMatchObject({ totalUpdated: 0, updatedRecords: [] });
+    expect(result._unsafeUnwrap().recordActorsByRecord?.get(recordId)).toEqual({
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
+    });
 
     const rows = await sql<{
       __id: string;

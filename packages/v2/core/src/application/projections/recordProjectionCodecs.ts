@@ -1,19 +1,20 @@
 import { ok, type Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
+import type { AbstractTableUpdatedEvent } from '../../domain/table/events/AbstractTableUpdatedEvent';
 import { RecordCreated } from '../../domain/table/events/RecordCreated';
 import { RecordReordered } from '../../domain/table/events/RecordReordered';
 import { RecordsBatchCreated } from '../../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
 import { RecordsDeleted } from '../../domain/table/events/RecordsDeleted';
 import { RecordUpdated } from '../../domain/table/events/RecordUpdated';
-import type { AbstractTableUpdatedEvent } from '../../domain/table/events/AbstractTableUpdatedEvent';
 import type { EventType } from '../../ports/EventHandler';
 import type { IProjectionMessageCodec, ProjectionMessageJson } from '../../ports/ProjectionMessage';
 
 const jsonPayload = (value: unknown): ProjectionMessageJson => value as ProjectionMessageJson;
 
 const MAX_DURABLE_CELL_JSON_CHARS = 256;
+const MAX_DURABLE_DELETE_RECORD_IDS = 200;
 
 const compactCellValue = (value: unknown): unknown => {
   if (value == null || typeof value === 'number' || typeof value === 'boolean') {
@@ -140,6 +141,7 @@ export const recordsBatchUpdatedProjectionCodec: IProjectionMessageCodec<Records
         })),
         source: event.source,
         orchestration: event.orchestration,
+        auditSource: event.auditSource,
       })
     ),
   decode: passThroughDecode,
@@ -158,7 +160,10 @@ export const recordsDeletedProjectionCodec: IProjectionMessageCodec<RecordsDelet
       jsonPayload({
         tableId: event.tableId.toString(),
         baseId: event.baseId.toString(),
-        recordIds: event.recordIds.map((id) => id.toString()),
+        recordCount: event.recordIds.length,
+        recordIds: event.recordIds
+          .slice(0, MAX_DURABLE_DELETE_RECORD_IDS)
+          .map((id) => id.toString()),
         orchestration: event.orchestration,
         removalReason: event.removalReason,
       })

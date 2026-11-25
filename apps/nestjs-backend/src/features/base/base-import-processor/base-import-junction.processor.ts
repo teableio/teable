@@ -2,6 +2,7 @@
 import { finished, pipeline } from 'node:stream/promises';
 import { InjectQueue, WorkerHost } from '@nestjs/bullmq';
 import { Injectable, Logger } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -25,6 +26,7 @@ import { createFieldInstanceByRaw } from '../../field/model/factory';
 import type { LinkFieldDto } from '../../field/model/field-dto/link-field.dto';
 import { NotificationService } from '../../notification/notification.service';
 import { PersistedComputedBackfillService } from '../../record/computed/services/persisted-computed-backfill.service';
+import { BASE_IMPORT_DATA_COMPLETE, BASE_IMPORT_DATA_STATUS } from '../base-import-completion';
 import { BaseImportComputedService } from '../base-import-computed.service';
 import { notifyBaseImportFailure, notifyBaseImportWarnings } from '../base-import-warnings';
 import { BatchProcessor } from '../BatchProcessor.class';
@@ -42,10 +44,14 @@ type IDataPrismaScopedClient = IDataPrismaExecutor & {
 interface IBaseImportJunctionCsvJob {
   path: string;
   userId: string;
+  recordInitiator?: IClsStore['recordInitiator'];
   baseId: string;
   tableIdMap: Record<string, string>;
   fieldIdMap: Record<string, string>;
   structure: IBaseJson;
+  viewIdMap: Record<string, string>;
+  operationId: string;
+  hostResourceIdMaps?: Record<string, Record<string, string>>;
 }
 
 interface IImportedLink {
@@ -79,12 +85,16 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     public readonly queue: Queue<IBaseImportJunctionCsvJob>,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
     private readonly dataDbClientManager: DataDbClientManager,
+    private readonly eventEmitter: EventEmitter2,
     private readonly notificationService: NotificationService
   ) {
     super();
   }
 
   public async process(job: Job<IBaseImportJunctionCsvJob>) {
+    const completion = { ...job.data, hostResourceIdMaps: job.data.hostResourceIdMaps ?? {} };
+    const completed = await this.eventEmitter.emitAsync(BASE_IMPORT_DATA_STATUS, completion);
+    if (completed.some((value) => value === true)) return;
     const jobId = String(job.id);
     if (this.processedJobs.has(jobId)) {
       this.logger.log(`Job ${jobId} already processed, skipping`);
@@ -102,6 +112,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       });
       await this.cls.run(async () => {
         this.cls.set('user.id', userId);
+        this.cls.set('recordInitiator', job.data.recordInitiator);
         const links = await this.getImportedLinks(baseId, tableIdMap, fieldIdMap, structure);
         const fallback = await this.importJunctionChunk(path, baseId, links);
         const skippedLinkCells =
@@ -115,6 +126,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
           skippedLinkCells,
           relaxedRequiredUserFields: 0,
         });
+        await this.eventEmitter.emitAsync(BASE_IMPORT_DATA_COMPLETE, completion);
       });
     } catch (error) {
       this.processedJobs.delete(jobId);

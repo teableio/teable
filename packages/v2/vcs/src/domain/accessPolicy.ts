@@ -51,8 +51,18 @@ const hasTablePatchOps = (tp: ITableVcsPatch, key: keyof ITableVcsPatch): boolea
   return Array.isArray(val) ? val.length > 0 : val !== undefined;
 };
 
-export const collectVcsPatchWriteActions = (tp: ITableVcsPatch): VcsPatchAction[] =>
-  TABLE_PATCH_ACTIONS.filter(([key]) => hasTablePatchOps(tp, key)).map(([, action]) => action);
+export const collectVcsPatchWriteActions = (tp: ITableVcsPatch): VcsPatchAction[] => {
+  const actions = TABLE_PATCH_ACTIONS.filter(([key]) => hasTablePatchOps(tp, key)).map(
+    ([, action]) => action
+  );
+  if (
+    tp.recordsUpdated.some((row) => row.orderChanges?.length) &&
+    !actions.includes('view|update')
+  ) {
+    actions.push('view|update');
+  }
+  return actions;
+};
 
 export interface ICollectedVcsAddedIds {
   readonly tableIds: string[];

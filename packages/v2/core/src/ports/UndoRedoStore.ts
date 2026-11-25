@@ -7,6 +7,7 @@ import type { ViewColumnMetaValue } from '../domain/table/views/ViewColumnMeta';
 import type { ViewQueryDefaultsDTO } from '../domain/table/views/ViewQueryDefaults';
 import type { ViewSnapshotValue } from '../domain/table/views/ViewSnapshot';
 import type { ITableFieldInput } from '../schemas/field';
+import type { IExecutionContext } from './ExecutionContext';
 
 /**
  * Identifies a single user interaction stack.
@@ -58,6 +59,8 @@ export type UndoRedoRestoreRecord = {
   readonly autoNumber?: number;
   readonly createdTime?: string;
   readonly createdBy?: string;
+  readonly createdByActorType?: NonNullable<IExecutionContext['initiator']>['type'] | null;
+  readonly createdByActorId?: string | null;
   readonly lastModifiedTime?: string;
   readonly lastModifiedBy?: string;
 };

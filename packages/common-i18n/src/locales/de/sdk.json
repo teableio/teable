@@ -304,6 +304,14 @@
     "addRecordComment": "Kommentar hinzufügen",
     "viewRecordHistory": "Datensatzverlauf anzeigen",
     "recordHistory": {
+      "actorTypes": {
+        "user": "Plattformbenutzer",
+        "appUser": "App-Benutzer",
+        "automation": "Automatisierung",
+        "system": "System"
+      },
+      "actor": "Initiator",
+      "actorUnknown": "Unbekannt",
       "hiddenRecordHistory": "Datensatz Historie verstecken",
       "showRecordHistory": "Datensatz Historie anzeigen",
       "createdTime": "Änderungszeit",
@@ -464,6 +472,8 @@
       "appDelete": "App löschen",
       "appRead": "App lesen",
       "appUpdate": "App aktualisieren",
+      "appReadUsers": "App-Benutzer und Identitätsmetadaten lesen",
+      "appReadUserPii": "Personenbezogene App-Identitätsdaten lesen",
       "userEmailRead": "Aktuelles Benutzer E-Mail lesen",
       "userIntegrations": "Manage user integrations",
       "userSpacesRead": "Spaces des aktuellen Benutzers lesen (Name, Tarif und Benutzerlizenzen)",
@@ -488,6 +498,7 @@
     "routine": "Routine",
     "app": "App",
     "user": "Benutzer",
+    "appUser": "App-Benutzer",
     "recordHistory": "Datensatzhistorie",
     "you": "Sie",
     "instance": "Instanz",
@@ -1732,7 +1743,11 @@
         "signInStateInvalid": "Die Anmeldesitzung ist ungültig oder abgelaufen. Bitte melden Sie sich erneut an.",
         "domainNotAllowed": "Die Registrierung ist auf bestimmte E-Mail-Domains beschränkt. Ihre E-Mail-Domain steht nicht auf der Liste der zulässigen Domains.",
         "inviteOnly": "Diese App ist nur auf Einladung zugänglich. Wenden Sie sich an den App-Administrator, um Zugriff anzufordern.",
-        "emailMissing": "Ihre E-Mail-Adresse konnte nicht abgerufen werden"
+        "emailMissing": "Ihre E-Mail-Adresse konnte nicht abgerufen werden",
+        "accountExists": "Für diese E-Mail-Adresse besteht bereits eine Anmeldemethode. Melden Sie sich damit an und verknüpfen Sie die neue Methode in den Kontoeinstellungen.",
+        "accountExistsWithProviders": "Diese E-Mail-Adresse nutzt {{providers}} zur Anmeldung. Melden Sie sich mit einer bestehenden Methode an und verknüpfen Sie die neue Methode in den Kontoeinstellungen.",
+        "userTableLocked": "Diese App hat bereits App-Benutzer, daher kann ihre Benutzertabelle nicht geändert werden.",
+        "emailAmbiguous": "Mehrere Profile verwenden diese E-Mail"
       },
       "previewOriginNotReady": "Die Vorschau-App ist nicht bereit. Laden Sie die Vorschau neu und versuchen Sie es erneut.",
       "publishedOriginNotReady": "Die veröffentlichte App ist nicht bereit. Veröffentlichen Sie die App und versuchen Sie es erneut.",
@@ -1742,6 +1757,8 @@
       },
       "customDomainNotConfigured": "Keine benutzerdefinierte Domain konfiguriert",
       "vercelTokenNotConfigured": "In den App-Builder-Einstellungen ist kein Vercel-Token konfiguriert",
+      "managedFieldReadOnly": "Diese Spalte wird von der App-Anmeldung verwaltet und kann hier nicht bearbeitet werden",
+      "managedRecordReadOnly": "Anmeldeprofilzeilen werden von der App-Anmeldung verwaltet und können hier nicht hinzugefügt oder gelöscht werden",
       "deleteSandboxCloseFailed": "Die Sandbox konnte nicht geschlossen werden. Es wurde nichts gelöscht, versuchen Sie es erneut"
     },
     "reward": {

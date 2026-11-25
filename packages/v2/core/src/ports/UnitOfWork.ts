@@ -8,10 +8,17 @@ export type UnitOfWorkOperation<T> = (
   context: IExecutionContext
 ) => Promise<Result<T, DomainError>>;
 
+/** A nonblocking transaction lock could not be acquired. The whole transaction can be retried. */
+export const TRANSACTION_RETRYABLE_CONTENTION_CODE = 'transaction.retryable_contention';
+
 export interface IUnitOfWorkOptions {
   scope?: UnitOfWorkScope;
+  /** Minimum isolation for a transaction that reads a consistent snapshot across statements. */
+  isolationLevel?: 'repeatable read' | 'serializable';
   /** Disable automatic retries when work consumes a non-replayable source. Defaults to true. */
   retry?: boolean;
+  /** Maps a retryable failure after this transaction owner exhausts its automatic retries. */
+  onRetryExhausted?: (cause: unknown) => DomainError;
 }
 
 export interface IUnitOfWork {

@@ -4,6 +4,7 @@ import { OperationName, type ICreateRecordsOperation } from '../../../cache/type
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordService } from '../../record/record.service';
+import { TRUSTED_CREATED_ACTOR } from '../../record-attribution/trusted-created-actor';
 import type { TableDomainQueryService } from '../../table-domain';
 
 export interface ICreateRecordsPayload {
@@ -55,7 +56,13 @@ export class CreateRecordsOperation {
 
     await this.recordOpenApiService.multipleCreateRecords(params.tableId, {
       fieldKeyType: FieldKeyType.Id,
-      records: result.records,
+      records: result.records.map((record) => ({
+        ...record,
+        [TRUSTED_CREATED_ACTOR]:
+          record.createdByActorType && record.createdByActorId
+            ? { type: record.createdByActorType, id: record.createdByActorId }
+            : null,
+      })),
     });
     return operation;
   }

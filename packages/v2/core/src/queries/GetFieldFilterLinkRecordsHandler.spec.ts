@@ -24,6 +24,13 @@ import { GetFieldFilterLinkRecordsHandler } from './GetFieldFilterLinkRecordsHan
 import { GetFieldFilterLinkRecordsQuery } from './GetFieldFilterLinkRecordsQuery';
 import type { ViewFilterLinkRecordGroup } from './GetViewFilterLinkRecordsHandler';
 
+const unknownActorAttribution = {
+  createdByActorType: null,
+  createdByActorId: null,
+  lastModifiedByActorType: null,
+  lastModifiedByActorId: null,
+} as const;
+
 const context: IExecutionContext = {
   actorId: ActorId.create('system')._unsafeUnwrap(),
 };
@@ -208,11 +215,13 @@ describe('GetFieldFilterLinkRecordsHandler', () => {
               id: tables.firstRecordId.toString(),
               fields: { [tables.lookupTable.primaryFieldId().toString()]: 'Alpha' },
               version: 1,
+              ...unknownActorAttribution,
             },
             {
               id: tables.secondRecordId.toString(),
               fields: { [tables.lookupTable.primaryFieldId().toString()]: null },
               version: 1,
+              ...unknownActorAttribution,
             },
           ],
           total: 2,

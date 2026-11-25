@@ -52,6 +52,10 @@ const buildTable = (baseIdSeed: string, name: string): Table => {
 };
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   tables: Table[] = [];
   updated: Table[] = [];
   failUpdate: DomainError | undefined;
@@ -128,6 +132,10 @@ class FakeEventBus implements IEventBus {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   updates: Table[] = [];
 
   async insert(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {

@@ -13,4 +13,5 @@ export const v2VcsServerTokens = {
   listVcsTableRecordsChunkService: Symbol.for('v2.vcs.server.listVcsTableRecordsChunkService'),
   listVcsChangesService: Symbol.for('v2.vcs.server.listVcsChangesService'),
   pushVcsPatchService: Symbol.for('v2.vcs.server.pushVcsPatchService'),
+  historyService: Symbol.for('v2.vcs.server.historyService'),
 } as const;

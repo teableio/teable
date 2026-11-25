@@ -2,8 +2,9 @@
 import { Readable } from 'node:stream';
 import type { TestingModule } from '@nestjs/testing';
 import { Test } from '@nestjs/testing';
+import { ANONYMOUS_USER_ID, FieldType, ViewType } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
-import { axios } from '@teable/openapi';
+import { axios, UploadType } from '@teable/openapi';
 import { AxiosHeaders, type AxiosResponse } from 'axios';
 import { ClsService } from 'nestjs-cls';
 import { vi } from 'vitest';
@@ -11,7 +12,7 @@ import { getError } from '../../../test/utils/get-error';
 import { storageConfig } from '../../configs/storage';
 import { GlobalModule } from '../../global/global.module';
 import { AttachmentsModule } from './attachments.module';
-import { AttachmentsService } from './attachments.service';
+import { AttachmentsService, shareCanUploadAttachments } from './attachments.service';
 import type { LocalStorage } from './plugins/local';
 
 describe('AttachmentsService', () => {
@@ -169,5 +170,189 @@ describe('AttachmentsService', () => {
       expect(error?.status).toBe(400);
       expect(localStorage.read).not.toHaveBeenCalled();
     });
+  });
+
+  describe('assertShareCanUpload', () => {
+    const findMany = vi.fn();
+    let permissions: string[];
+    const shareInfo = (view: Record<string, unknown> | undefined) =>
+      ({ shareId: 'shrShared', tableId: 'tblShared', view }) as never;
+    const form = { id: 'viwForm', type: ViewType.Form, columnMeta: { fldFile: { visible: true } } };
+    const grid = { id: 'viwGrid', type: ViewType.Grid, columnMeta: { fldFile: {} } };
+
+    beforeEach(() => {
+      findMany.mockReset().mockResolvedValue([{ id: 'fldFile' }]);
+      permissions = ['record|read'];
+      Object.assign(service['prismaService'], { txClient: () => ({ field: { findMany } }) });
+      Object.assign(service['cls'], {
+        get: (key: string) => (key === 'permissions' ? permissions : undefined),
+      });
+    });
+
+    it('lets a form that shows an attachment field upload table attachments', async () => {
+      await expect(
+        service.assertShareCanUpload(shareInfo(form), UploadType.Table)
+      ).resolves.toBeUndefined();
+      expect(findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({ tableId: 'tblShared', type: FieldType.Attachment }),
+        })
+      );
+    });
+
+    it('refuses a read-only grid share', async () => {
+      const error = await getError(() =>
+        service.assertShareCanUpload(shareInfo(grid), UploadType.Table)
+      );
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('lets a share with editing on upload when its view shows an attachment field', async () => {
+      permissions = ['record|read', 'record|update'];
+
+      await expect(
+        service.assertShareCanUpload(shareInfo(grid), UploadType.Table)
+      ).resolves.toBeUndefined();
+    });
+
+    it('refuses any other upload type, even on a form', async () => {
+      const error = await getError(() =>
+        service.assertShareCanUpload(shareInfo(form), UploadType.Avatar)
+      );
+
+      expect(error?.status).toBe(403);
+      expect(findMany).not.toHaveBeenCalled();
+    });
+
+    it('lets an editable include-hidden-fields share upload into a hidden attachment field', async () => {
+      permissions = ['record|read', 'record|update'];
+      const hiddenGrid = {
+        id: 'viwGrid',
+        type: ViewType.Grid,
+        columnMeta: { fldFile: { hidden: true } },
+        shareMeta: { includeHiddenField: true },
+      };
+
+      await expect(
+        service.assertShareCanUpload(shareInfo(hiddenGrid), UploadType.Table)
+      ).resolves.toBeUndefined();
+    });
+
+    it('refuses an anonymous visitor of a login-required form', async () => {
+      Object.assign(service['cls'], {
+        get: (key: string) =>
+          key === 'permissions' ? permissions : key === 'user.id' ? ANONYMOUS_USER_ID : undefined,
+      });
+      const loginForm = {
+        shareId: 'shrShared',
+        tableId: 'tblShared',
+        view: form,
+        shareMeta: { submit: { requireLogin: true } },
+      } as never;
+
+      const error = await getError(() => service.assertShareCanUpload(loginForm, UploadType.Table));
+
+      expect(error?.status).toBe(403);
+    });
+
+    it('still lets a signed-in visitor of a login-required form upload', async () => {
+      Object.assign(service['cls'], {
+        get: (key: string) =>
+          key === 'permissions' ? permissions : key === 'user.id' ? 'usrSignedIn' : undefined,
+      });
+      const loginForm = {
+        shareId: 'shrShared',
+        tableId: 'tblShared',
+        view: form,
+        shareMeta: { submit: { requireLogin: true } },
+      } as never;
+
+      await expect(
+        service.assertShareCanUpload(loginForm, UploadType.Table)
+      ).resolves.toBeUndefined();
+    });
+  });
+});
+
+describe('shareCanUploadAttachments', () => {
+  const view = (
+    type: ViewType,
+    columnMeta: Record<string, unknown>,
+    options?: { includeHiddenField?: boolean }
+  ) =>
+    ({
+      view: {
+        id: 'viwX',
+        type,
+        columnMeta,
+        ...(options?.includeHiddenField ? { shareMeta: { includeHiddenField: true } } : {}),
+      },
+    }) as never;
+
+  it.each([
+    [
+      'a form showing the attachment field',
+      ViewType.Form,
+      { fldFile: { visible: true } },
+      false,
+      true,
+    ],
+    ['a form that hides it', ViewType.Form, { fldFile: { visible: false } }, false, false],
+    ['a form without it in its columns', ViewType.Form, {}, false, false],
+    ['a read-only grid', ViewType.Grid, { fldFile: {} }, false, false],
+    ['an editable grid', ViewType.Grid, { fldFile: {} }, true, true],
+    [
+      'an editable grid hiding the field',
+      ViewType.Grid,
+      { fldFile: { hidden: true } },
+      true,
+      false,
+    ],
+    // Kanban/gallery hide with `visible: false`, so the grid-only `hidden` check used to pass them.
+    [
+      'an editable gallery hiding the field',
+      ViewType.Gallery,
+      { fldFile: { visible: false } },
+      true,
+      false,
+    ],
+    [
+      'an editable gallery showing the field',
+      ViewType.Gallery,
+      { fldFile: { visible: true } },
+      true,
+      true,
+    ],
+    [
+      'an editable kanban hiding the field',
+      ViewType.Kanban,
+      { fldFile: { visible: false } },
+      true,
+      false,
+    ],
+  ])('%s', (_label, type, columnMeta, canEdit, expected) => {
+    expect(shareCanUploadAttachments(view(type, columnMeta), ['fldFile'], canEdit)).toBe(expected);
+  });
+
+  it('lets an editable share with include-hidden-fields upload into a hidden attachment field', () => {
+    const hiddenGrid = view(
+      ViewType.Grid,
+      { fldFile: { hidden: true } },
+      { includeHiddenField: true }
+    );
+    expect(shareCanUploadAttachments(hiddenGrid, ['fldFile'], true)).toBe(true);
+    // still needs editing on
+    expect(shareCanUploadAttachments(hiddenGrid, ['fldFile'], false)).toBe(false);
+  });
+
+  it('refuses a share whose table has no attachment field', () => {
+    expect(
+      shareCanUploadAttachments(view(ViewType.Form, { fldFile: { visible: true } }), [], true)
+    ).toBe(false);
+  });
+
+  it('refuses a share without a view', () => {
+    expect(shareCanUploadAttachments({ view: undefined } as never, ['fldFile'], true)).toBe(false);
   });
 });

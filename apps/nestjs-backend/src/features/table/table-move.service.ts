@@ -727,6 +727,7 @@ export class TableMoveService {
     }
     return {
       ...table,
+      actorStorageVersion: table.actorStorageVersion === 1 ? 1 : 0,
       description: table.description ?? undefined,
       icon: table.icon ?? undefined,
       lastModifiedTime: table.lastModifiedTime?.toISOString() || table.createdTime.toISOString(),

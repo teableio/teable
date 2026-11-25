@@ -66,9 +66,9 @@ const pointAt = async (stage: HTMLElement, x: number, y: number) => {
   });
 };
 
-// Renders a 2x2 grid whose cells record every render of their editor, then puts the top-left
-// cell into editing mode.
-const renderEditingGrid = async () => {
+// Renders a 2x2 grid whose cells record every render of their editor, then double-clicks
+// the top-left cell. A readonly first column must reject that edit attempt.
+const renderEditingGrid = async (firstColumnReadonly = false) => {
   // Every render of the active cell editor: which cell it is for and whether it edits
   const editorRenders: Array<{ cell: string; isEditing?: boolean }> = [];
   const gridRef: RefObject<IGridRef | null> = { current: null };
@@ -82,6 +82,7 @@ const renderEditingGrid = async () => {
         getCellContent={([columnIndex, rowIndex]) =>
           ({
             type: CellType.Text,
+            readonly: firstColumnReadonly && columnIndex === 0,
             data: `${columnIndex}:${rowIndex}`,
             displayData: `${columnIndex}:${rowIndex}`,
             customEditor: (props) => {
@@ -113,11 +114,32 @@ const renderEditingGrid = async () => {
     fireEvent.click(stage, { detail: 2 });
     await nextFrame();
   });
-  expect(gridRef.current!.isEditing()).toBe(true);
+  expect(gridRef.current!.isEditing()).toBe(!firstColumnReadonly);
   editorRenders.length = 0;
 
   return { stage, gridRef, editorRenders };
 };
+
+describe('managed profile cells', () => {
+  it('keeps the managed column readonly without disabling custom column editing', async () => {
+    const { stage, gridRef, editorRenders } = await renderEditingGrid(true);
+
+    expect(gridRef.current!.isEditing()).toBe(false);
+    const bounds = gridRef.current!.getCellBounds([1, 0])!;
+    await pointAt(stage, bounds.x + bounds.width / 2, bounds.y + bounds.height / 2);
+    await act(async () => {
+      fireEvent.mouseDown(stage);
+      fireEvent.mouseUp(stage);
+      await nextFrame();
+      await nextFrame();
+      fireEvent.click(stage, { detail: 2 });
+      await nextFrame();
+    });
+
+    expect(gridRef.current!.isEditing()).toBe(true);
+    expect(editorRenders).toContainEqual({ cell: '1:0', isEditing: true });
+  });
+});
 
 // Leaving editing while the edited cell is still active paints it in its expanded active
 // layout for a frame (T2422). Each input is flushed in its own act, apart from the frames

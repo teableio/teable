@@ -22,6 +22,30 @@ export type OutboxTaskType = 'computed-update' | 'field-backfill' | 'seed';
  * Unlike computed-update, this doesn't track individual records -
  * it updates ALL records in the table for the specified fields.
  */
+export type FieldBackfillStageEntry = {
+  tableId: string;
+  fieldIds: string[];
+};
+
+export type FieldBackfillPeriodicRefreshMeta = {
+  sourceFieldId: string;
+  sourceTableId: string;
+  rangeHash: string;
+  localDate: string;
+  timeZone: string;
+  containsNowPrecision: boolean;
+  triggeredAtIso: string;
+};
+
+export type FieldBackfillStageChain = {
+  /** Downstream stages executed strictly after all cursor batches of the current stage finish. */
+  remainingStages: FieldBackfillStageEntry[];
+  /** Accumulated table/field pairs to broadcast via TableActionTriggerRequested once final stage completes. */
+  notifyTargets?: FieldBackfillStageEntry[];
+  /** Periodic-refresh metadata settled strictly when the final stage commits or fails terminally. */
+  periodicRefresh?: FieldBackfillPeriodicRefreshMeta;
+};
+
 export type FieldBackfillOutboxPayload = {
   taskType: 'field-backfill';
   baseId: string;
@@ -31,6 +55,8 @@ export type FieldBackfillOutboxPayload = {
   estimatedRowCount?: number;
   /** Last record id committed by the preceding cursor-ordered batch. */
   cursor?: string;
+  /** Ordered downstream backfill stages for staged periodic/manual refresh cascades. */
+  stageChain?: FieldBackfillStageChain;
 };
 
 /**
@@ -54,6 +80,7 @@ export const serializeFieldBackfillPayload = (params: {
   fieldIds: ReadonlyArray<FieldId>;
   estimatedRowCount?: number;
   cursor?: string;
+  stageChain?: FieldBackfillStageChain;
 }): FieldBackfillOutboxPayload => ({
   taskType: 'field-backfill',
   baseId: params.baseId.toString(),
@@ -61,6 +88,7 @@ export const serializeFieldBackfillPayload = (params: {
   fieldIds: params.fieldIds.map((id) => id.toString()),
   estimatedRowCount: params.estimatedRowCount,
   cursor: params.cursor,
+  ...(params.stageChain ? { stageChain: params.stageChain } : {}),
 });
 
 /**
@@ -74,6 +102,7 @@ export const deserializeFieldBackfillPayload = (
     tableId: TableId;
     fieldIds: FieldId[];
     cursor?: string;
+    stageChain?: FieldBackfillStageChain;
   },
   DomainError
 > => {
@@ -100,6 +129,7 @@ export const deserializeFieldBackfillPayload = (
     tableId: tableIdResult.value,
     fieldIds: fieldIdsResult.value,
     cursor: payload.cursor,
+    ...(payload.stageChain ? { stageChain: payload.stageChain } : {}),
   });
 };
 
@@ -116,6 +146,7 @@ export const computeFieldBackfillHash = (
     tableId: payload.tableId,
     fieldIds: [...payload.fieldIds].sort((a, b) => Number(a > b) - Number(a < b)), // Sort for consistent hash
     cursor: payload.cursor,
+    ...(payload.stageChain ? { stageChain: payload.stageChain } : {}),
   };
   return hasher.sha256(JSON.stringify(hashInput));
 };
@@ -131,6 +162,7 @@ export const buildFieldBackfillTaskInput = (params: {
   runId: string;
   estimatedRowCount?: number;
   cursor?: string;
+  stageChain?: FieldBackfillStageChain;
   sourceChangedAt?: Date;
   stageDepth?: number;
   predecessorTaskId?: string;
@@ -143,6 +175,7 @@ export const buildFieldBackfillTaskInput = (params: {
     fieldIds: params.fieldIds,
     estimatedRowCount: params.estimatedRowCount,
     cursor: params.cursor,
+    stageChain: params.stageChain,
   });
 
   return {
@@ -163,4 +196,70 @@ export const buildFieldBackfillTaskInput = (params: {
 export const isFieldBackfillPayload = (payload: unknown): payload is FieldBackfillOutboxPayload => {
   if (!payload || typeof payload !== 'object') return false;
   return (payload as { taskType?: string }).taskType === 'field-backfill';
+};
+
+/**
+ * Coalesce table/field pairs preserving encounter order and deduplicating fieldIds per table.
+ */
+export const mergeStageNotificationTargets = (
+  existing: ReadonlyArray<FieldBackfillStageEntry> | undefined,
+  current?: FieldBackfillStageEntry
+): FieldBackfillStageEntry[] => {
+  const byTable = new Map<string, string[]>();
+  const append = (entry?: FieldBackfillStageEntry) => {
+    if (!entry || entry.fieldIds.length === 0) return;
+    const prev = byTable.get(entry.tableId) ?? [];
+    for (const fieldId of entry.fieldIds) {
+      if (!prev.includes(fieldId)) {
+        prev.push(fieldId);
+      }
+    }
+    if (prev.length > 0) {
+      byTable.set(entry.tableId, prev);
+    }
+  };
+  for (const entry of existing ?? []) append(entry);
+  append(current);
+  return [...byTable.entries()].map(([tableId, fieldIds]) => ({ tableId, fieldIds }));
+};
+
+/**
+ * Find and validate the next executable stage in a periodic refresh stage chain.
+ */
+export const takeNextValidBackfillStage = (
+  remainingStages: ReadonlyArray<FieldBackfillStageEntry>
+): {
+  nextStage?: {
+    tableId: TableId;
+    fieldIds: FieldId[];
+  };
+  remainingStages: FieldBackfillStageEntry[];
+} => {
+  for (let i = 0; i < remainingStages.length; i += 1) {
+    const entry = remainingStages[i]!;
+    const tableIdResult = TableId.create(entry.tableId);
+    if (tableIdResult.isErr()) continue;
+
+    const validFieldIds: FieldId[] = [];
+    for (const rawFieldId of entry.fieldIds) {
+      const fieldIdResult = FieldId.create(rawFieldId);
+      if (fieldIdResult.isOk() && !validFieldIds.some((id) => id.equals(fieldIdResult.value))) {
+        validFieldIds.push(fieldIdResult.value);
+      }
+    }
+    if (validFieldIds.length === 0) continue;
+
+    return {
+      nextStage: {
+        tableId: tableIdResult.value,
+        fieldIds: validFieldIds,
+      },
+      remainingStages: remainingStages.slice(i + 1).map((stage) => ({
+        tableId: stage.tableId,
+        fieldIds: [...stage.fieldIds],
+      })),
+    };
+  }
+
+  return { remainingStages: [] };
 };

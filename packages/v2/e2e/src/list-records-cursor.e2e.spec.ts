@@ -5,8 +5,8 @@ import {
   listTableRecordsOkResponseSchema,
 } from '@teable/v2-contract-http';
 import { FieldKeyType } from '@teable/v2-core';
-import { sql } from 'kysely';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { CompiledQuery } from 'kysely';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { getSharedTestContext, type SharedTestContext } from './shared/globalTestContext';
 
 describe('v2 http list records cursor pagination (e2e)', () => {
@@ -66,64 +66,104 @@ describe('v2 http list records cursor pagination (e2e)', () => {
     return parsed.data.data;
   };
 
-  const maxActualRows = (plan: unknown): number => {
-    if (!plan || typeof plan !== 'object') {
-      return 0;
+  const captureListRecords = async (tableId: string, query: Record<string, string>) => {
+    const queries: CompiledQuery[] = [];
+    const executor = ctx.testContainer.db.getExecutor();
+    const executeQuery = executor.executeQuery.bind(executor);
+    const querySpy = vi
+      .spyOn(executor, 'executeQuery')
+      .mockImplementation(<R>(...args: Parameters<typeof executor.executeQuery>) =>
+        executeQuery<R>(...args).then((result) => {
+          // Group metadata reads touch the same table but do not return record IDs.
+          if (
+            args[0].sql.includes(`"${ctx.baseId}"."${tableId}"`) &&
+            result.rows.some((row) => Object.prototype.hasOwnProperty.call(row, '__id'))
+          ) {
+            queries.push(args[0]);
+          }
+          return result;
+        })
+      );
+    try {
+      const page = await listRecords(tableId, query);
+      expect(
+        queries,
+        `Expected one HTTP page statement: ${queries.map(({ sql }) => sql).join('\n')}`
+      ).toHaveLength(1);
+      return { page, query: queries[0]! };
+    } finally {
+      querySpy.mockRestore();
     }
-    const node = plan as { 'Actual Rows'?: number; Plans?: unknown[] };
-    let highest = typeof node['Actual Rows'] === 'number' ? node['Actual Rows'] : 0;
-    for (const child of node.Plans ?? []) {
-      const childRows = maxActualRows(child);
-      if (childRows > highest) {
-        highest = childRows;
-      }
-    }
-    return highest;
   };
 
-  const explainSelect = async (options: {
-    physicalTable: string;
-    limit: number;
-    offset?: number;
-    afterAutoNumber?: number;
-  }) => {
-    const result =
-      options.afterAutoNumber != null
-        ? await sql<{ 'QUERY PLAN': unknown }>`
-            EXPLAIN (ANALYZE, FORMAT JSON)
-            SELECT __id
-            FROM ${sql.table(options.physicalTable)} AS t
-            WHERE t.__auto_number > ${options.afterAutoNumber}
-            ORDER BY t.__auto_number ASC
-            LIMIT ${options.limit}
-          `.execute(ctx.testContainer.db)
-        : await sql<{ 'QUERY PLAN': unknown }>`
-            EXPLAIN (ANALYZE, FORMAT JSON)
-            SELECT __id
-            FROM ${sql.table(options.physicalTable)} AS t
-            ORDER BY t.__auto_number ASC
-            LIMIT ${options.limit}
-            OFFSET ${options.offset ?? 0}
-          `.execute(ctx.testContainer.db);
-    const queryPlan = result.rows[0]?.['QUERY PLAN'];
-    const root = Array.isArray(queryPlan) ? queryPlan[0] : queryPlan;
-    if (root && typeof root === 'object' && 'Plan' in root) {
-      return (root as { Plan: unknown }).Plan;
-    }
-    return root;
+  type PlanNode = {
+    'Node Type': string;
+    'Relation Name'?: string;
+    'Actual Rows': number;
+    'Actual Loops': number;
+    'Rows Removed by Filter'?: number;
+    'Index Cond'?: string;
+    'Sort Key'?: string[];
+    Plans?: PlanNode[];
   };
 
-  const median = (samples: number[]): number => {
-    const sorted = [...samples].sort((left, right) => left - right);
-    const mid = Math.floor(sorted.length / 2);
-    if (sorted.length % 2 === 0) {
-      return (sorted[mid - 1]! + sorted[mid]!) / 2;
+  const planNodes = (node: PlanNode): PlanNode[] => [
+    node,
+    ...(node.Plans ?? []).flatMap(planNodes),
+  ];
+
+  const explainPage = async (query: CompiledQuery): Promise<PlanNode> => {
+    const result = await ctx.testContainer.db.executeQuery<{
+      'QUERY PLAN': Array<{ Plan: PlanNode }>;
+    }>(CompiledQuery.raw(`EXPLAIN (ANALYZE, FORMAT JSON) ${query.sql}`, [...query.parameters]));
+    const plan = result.rows[0]?.['QUERY PLAN']?.[0]?.Plan;
+    if (!plan) throw new Error(`Missing HTTP page plan: ${JSON.stringify(result.rows)}`);
+    return plan;
+  };
+
+  const scannedRows = (plan: PlanNode, tableId: string): number => {
+    const scans = planNodes(plan).filter(
+      (node) => node['Relation Name'] === tableId && node['Node Type'].includes('Scan')
+    );
+    expect(scans.length, JSON.stringify(plan)).toBeGreaterThan(0);
+    // Native page selection and record hydration can each scan one page. Bound
+    // the largest scan, including repeated nested-loop probes, not their sum.
+    return Math.max(
+      ...scans.map(
+        (node) =>
+          (node['Actual Rows'] + (node['Rows Removed by Filter'] ?? 0)) * node['Actual Loops']
+      )
+    );
+  };
+
+  const rowsEnteringPageSort = (plan: PlanNode, tableId: string): number => {
+    // The native query may sort the hydrated page again. Measure the largest
+    // order-sort input so that final page-sized reorder cannot hide deep work.
+    const sorts = planNodes(plan).filter(
+      (node) =>
+        node['Sort Key']?.length &&
+        (node.Plans ?? []).some((child) =>
+          planNodes(child).some((descendant) => descendant['Relation Name'] === tableId)
+        )
+    );
+    if (!sorts.length) {
+      throw new Error(`Expected an HTTP page order sort with table input: ${JSON.stringify(plan)}`);
     }
-    return sorted[mid]!;
+    return Math.max(
+      ...sorts.map((sort) =>
+        sort.Plans!.reduce(
+          (total, child) => total + child['Actual Rows'] * child['Actual Loops'],
+          0
+        )
+      )
+    );
   };
 
   beforeAll(async () => {
-    ctx = await getSharedTestContext();
+    ctx = await getSharedTestContext({ dbMode: 'postgres' });
+    expect(['postgres:', 'postgresql:']).toContain(
+      new URL(ctx.testContainer.connectionString).protocol
+    );
   });
 
   it('pages with cursor instead of offset and skips count(*) by default', async () => {
@@ -248,22 +288,18 @@ describe('v2 http list records cursor pagination (e2e)', () => {
       await createRecords(table.id, batch);
     }
 
-    const physicalTable = `${ctx.baseId}.${table.id}`;
-    const cursorRow = await sql<{ __auto_number: number }>`
-      SELECT __auto_number
-      FROM ${sql.table(physicalTable)}
-      ORDER BY __auto_number ASC
-      OFFSET ${unfilteredSkip - 1}
-      LIMIT 1
-    `.execute(ctx.testContainer.db);
-    const unfilteredCursor = String(cursorRow.rows[0]?.__auto_number);
-    expect(unfilteredCursor).not.toBe('undefined');
+    const { page: unfilteredBeforePage } = await captureListRecords(table.id, {
+      limit: '1',
+      offset: String(unfilteredSkip - 1),
+    });
+    expect(unfilteredBeforePage.pagination.nextCursor).toBeTruthy();
+    const unfilteredCursor = unfilteredBeforePage.pagination.nextCursor!;
 
-    const unfilteredOffsetPage = await listRecords(table.id, {
+    const { page: unfilteredOffsetPage, query: offsetQuery } = await captureListRecords(table.id, {
       limit: String(limit),
       offset: String(unfilteredSkip),
     });
-    const unfilteredCursorPage = await listRecords(table.id, {
+    const { page: unfilteredCursorPage, query: cursorQuery } = await captureListRecords(table.id, {
       limit: String(limit),
       cursor: unfilteredCursor,
     });
@@ -272,18 +308,23 @@ describe('v2 http list records cursor pagination (e2e)', () => {
     );
     expect(unfilteredCursorPage.records).toHaveLength(limit);
 
-    const offsetPlan = await explainSelect({
-      physicalTable,
-      limit,
-      offset: unfilteredSkip,
-    });
-    const cursorPlan = await explainSelect({
-      physicalTable,
-      limit,
-      afterAutoNumber: Number(unfilteredCursor),
-    });
-    expect(maxActualRows(cursorPlan)).toBeLessThanOrEqual(limit + 2);
-    expect(maxActualRows(offsetPlan)).toBeGreaterThan(unfilteredSkip);
+    const offsetPlan = await explainPage(offsetQuery);
+    const cursorPlan = await explainPage(cursorQuery);
+    expect(scannedRows(cursorPlan, table.id), JSON.stringify(cursorPlan)).toBeLessThanOrEqual(
+      limit + 2
+    );
+    expect(scannedRows(offsetPlan, table.id), JSON.stringify(offsetPlan)).toBeGreaterThan(
+      unfilteredSkip
+    );
+    expect(
+      planNodes(cursorPlan).some(
+        (node) =>
+          node['Relation Name'] === table.id &&
+          node['Index Cond']?.includes('__auto_number') &&
+          node['Index Cond'].includes('>')
+      ),
+      JSON.stringify(cursorPlan)
+    ).toBe(true);
 
     const keepFilter = JSON.stringify({
       conjunction: 'and',
@@ -294,27 +335,35 @@ describe('v2 http list records cursor pagination (e2e)', () => {
     const orderedQuery = {
       filter: keepFilter,
       groupBy,
+      includeGroups: 'true',
       sort,
     };
 
-    const beforePage = await listRecords(table.id, {
+    const { page: beforePage } = await captureListRecords(table.id, {
       ...orderedQuery,
       limit: '1',
       offset: String(filteredSkip - 1),
     });
+    expect(beforePage.records).toHaveLength(1);
     expect(beforePage.pagination.nextCursor).toBeTruthy();
     const filteredCursor = beforePage.pagination.nextCursor!;
 
-    const filteredOffsetPage = await listRecords(table.id, {
-      ...orderedQuery,
-      limit: String(limit),
-      offset: String(filteredSkip),
-    });
-    const filteredCursorPage = await listRecords(table.id, {
-      ...orderedQuery,
-      limit: String(limit),
-      cursor: filteredCursor,
-    });
+    const { page: filteredOffsetPage, query: filteredOffsetQuery } = await captureListRecords(
+      table.id,
+      {
+        ...orderedQuery,
+        limit: String(limit),
+        offset: String(filteredSkip),
+      }
+    );
+    const { page: filteredCursorPage, query: filteredCursorQuery } = await captureListRecords(
+      table.id,
+      {
+        ...orderedQuery,
+        limit: String(limit),
+        cursor: filteredCursor,
+      }
+    );
     expect(filteredCursorPage.records.map((record) => record.id)).toEqual(
       filteredOffsetPage.records.map((record) => record.id)
     );
@@ -325,40 +374,35 @@ describe('v2 http list records cursor pagination (e2e)', () => {
       )
     ).toBe(true);
 
-    await listRecords(table.id, {
-      ...orderedQuery,
-      limit: String(limit),
-      offset: String(filteredSkip),
-    });
-    await listRecords(table.id, {
+    expect(filteredCursorPage.groups).toEqual(filteredOffsetPage.groups);
+    expect(filteredCursorPage.groups).toEqual(
+      statuses.map((status, index) => ({
+        fields: { [statusFieldId!]: status },
+        count: index === 0 ? 834 : 833,
+      }))
+    );
+
+    const filteredOffsetPlan = await explainPage(filteredOffsetQuery);
+    const filteredCursorPlan = await explainPage(filteredCursorQuery);
+    // Mixed-direction lexicographic OR predicates can still scan all 5,000 rows.
+    // The contract is fewer candidates entering the sort, not faster HTTP wall time.
+    const offsetSortRows = rowsEnteringPageSort(filteredOffsetPlan, table.id);
+    const cursorSortRows = rowsEnteringPageSort(filteredCursorPlan, table.id);
+    expect(offsetSortRows, JSON.stringify(filteredOffsetPlan)).toBe(rowCount / 2);
+    expect(cursorSortRows, JSON.stringify(filteredCursorPlan)).toBe(rowCount / 2 - filteredSkip);
+    expect(cursorSortRows).toBeLessThan(offsetSortRows);
+
+    // Only mutate after both baseline pages and their plans: the emitted cursor must
+    // remain usable without looking up the deleted bookmark record.
+    await ctx.deleteRecord(table.id, beforePage.records[0]!.id);
+    const { page: afterBookmarkDeletion } = await captureListRecords(table.id, {
       ...orderedQuery,
       limit: String(limit),
       cursor: filteredCursor,
     });
-    const offsetSamples: number[] = [];
-    const cursorSamples: number[] = [];
-    for (let i = 0; i < 5; i++) {
-      const offsetStarted = performance.now();
-      await listRecords(table.id, {
-        ...orderedQuery,
-        limit: String(limit),
-        offset: String(filteredSkip),
-      });
-      offsetSamples.push(performance.now() - offsetStarted);
-      const cursorStarted = performance.now();
-      await listRecords(table.id, {
-        ...orderedQuery,
-        limit: String(limit),
-        cursor: filteredCursor,
-      });
-      cursorSamples.push(performance.now() - cursorStarted);
-    }
-    const offsetMedian = median(offsetSamples);
-    const cursorMedian = median(cursorSamples);
-    expect(
-      cursorMedian,
-      `filter/group/sort HTTP median cursor=${cursorMedian.toFixed(2)}ms offset=${offsetMedian.toFixed(2)}ms samples cursor=${cursorSamples.join(',')} offset=${offsetSamples.join(',')}`
-    ).toBeLessThan(offsetMedian);
+    expect(afterBookmarkDeletion.records.map((record) => record.id)).toEqual(
+      filteredCursorPage.records.map((record) => record.id)
+    );
   }, 180_000);
 
   it('reports hasMore instead of ending the list when a cursor would be oversized', async () => {

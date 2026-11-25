@@ -12,10 +12,9 @@ import {
 } from 'kysely';
 import { vi } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
-
-import { BaseImportService } from './base-import.service';
-import { BaseImportV2Service } from './base-import-v2.service';
 import { formatBaseImportError } from './base-import-contract';
+import { BaseImportV2Service } from './base-import-v2.service';
+import { BaseImportService } from './base-import.service';
 
 interface IRestoreRecordInputBuilder {
   toRestoreRecordInput(
@@ -201,7 +200,8 @@ describe('BaseImportService', () => {
         undefined,
         undefined,
         undefined,
-        { useTransaction: true }
+        { useTransaction: true },
+        true
       );
     });
 
@@ -660,12 +660,14 @@ describe('BaseImportService', () => {
       };
       service.createBaseV2 = vi.fn().mockResolvedValue(importedBase);
       service.restoreBaseExtrasV2 = vi.fn().mockResolvedValue({ appIdMap, workflowIdMap });
+      Object.assign(service, { eventEmitter: { emitAsync: vi.fn().mockResolvedValue([]) } });
       service.importAttachmentsV2 = vi.fn().mockResolvedValue(undefined);
-      service.importTableDataV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableDataV2 = vi.fn().mockResolvedValue(false);
       service.importTableLinkFieldsV2 = vi.fn().mockResolvedValue(undefined);
       service.computed = { recomputeForTables: vi.fn().mockResolvedValue(undefined) };
       service.audit = {
         withOperation: vi.fn((_resolved, run: () => Promise<unknown>) => run()),
+        current: () => ({ operationId: 'owned-import-operation' }),
       };
       service.cls = {
         get: vi.fn().mockReturnValue('usrImport'),
@@ -692,11 +694,14 @@ describe('BaseImportService', () => {
         structure,
         { tableIdMap, fieldIdMap, viewIdMap },
         BaseDuplicateMode.Normal,
-        undefined
+        undefined,
+        false,
+        true
       );
       expect(commandBus.execute).toHaveBeenCalledTimes(1);
       expect(service.importTableDataV2).toHaveBeenCalledTimes(1);
-      expect(service.importTableLinkFieldsV2).toHaveBeenCalledTimes(1);
+      expect(service.importTableLinkFieldsV2).not.toHaveBeenCalled();
+      expect(service.computed.recomputeForTables).not.toHaveBeenCalled();
     });
 
     it('rejects a hand-edited dbFieldName before touching the data database', async () => {
@@ -801,7 +806,7 @@ describe('BaseImportService', () => {
       service.createBaseV2 = vi.fn().mockResolvedValue(importedBase);
       service.restoreBaseExtrasV2 = vi.fn().mockResolvedValue({});
       service.importAttachmentsV2 = vi.fn().mockResolvedValue(undefined);
-      service.importTableDataV2 = vi.fn().mockResolvedValue(undefined);
+      service.importTableDataV2 = vi.fn().mockResolvedValue(true);
       service.importTableLinkFieldsV2 = vi.fn().mockResolvedValue(undefined);
       service.computed = {
         recomputeForTables: vi.fn().mockRejectedValue(new Error('statement timeout')),
@@ -904,6 +909,40 @@ describe('BaseImportService', () => {
   });
 
   describe('toRestoreRecordInput', () => {
+    it.each([
+      '__created_by_actor_type',
+      '__created_by_actor_id',
+      '__last_modified_by_actor_type',
+      '__last_modified_by_actor_id',
+    ])('never restores archive actor column %s, even with a colliding field', (column) => {
+      const service = createService();
+      const record = service.toRestoreRecordInput(
+        { __id: 'recImported', [column]: 'forged' },
+        {
+          dbTableName,
+          columnNames: new Set([column]),
+          fieldsByDbFieldName: new Map([
+            [
+              column,
+              {
+                id: 'fldSpoof',
+                type: FieldType.SingleLineText,
+                dbFieldName: column,
+                dbFieldType: DbFieldType.Text,
+                isMultipleCellValue: false,
+                isComputed: false,
+                notNull: false,
+              },
+            ],
+          ]),
+        },
+        {}
+      );
+      expect(record.fields).toEqual({});
+      expect(record.extraColumnValues).toBeUndefined();
+      expect(record).not.toHaveProperty('createdByActor');
+    });
+
     it('serializes JSON extra column values for v2 dottea row restore', () => {
       const service = createService();
       const config = {
@@ -1107,5 +1146,74 @@ describe('BaseImportService', () => {
       });
       expect(record.extraColumnValues).toBeUndefined();
     });
+  });
+});
+
+describe('BaseImportV2Service dottea stream actor provenance', () => {
+  it('routes actual CSV rows into import commands without trusting archive creator claims', async () => {
+    const service = Object.create(BaseImportV2Service.prototype) as {
+      importTableDataEntryV2: (...args: unknown[]) => Promise<void>;
+    };
+    const config = {
+      dbTableName: 'base.table',
+      columnNames: new Set([
+        '__created_by_actor_type',
+        '__created_by_actor_id',
+        '__last_modified_by_actor_type',
+        '__last_modified_by_actor_id',
+      ]),
+      fieldsByDbFieldName: new Map(),
+    };
+    Object.assign(service, {
+      recordMutationPolicy: { assertAllowed: async () => undefined },
+      buildTableDataImportConfig: async () => config,
+      authorizeImportedUserValues: async (records: RestoreRecordInput[]) => ({
+        records,
+        relaxedRequiredUserFields: 0,
+      }),
+    });
+    const csv = Readable.from([
+      '__id,__created_by_actor_type,__created_by_actor_id,__last_modified_by_actor_type,__last_modified_by_actor_id\n',
+      `rec${'a'.repeat(16)},user,forgedCreator,user,forgedModifier\n`,
+      `rec${'b'.repeat(16)},appUser,forgedAppCreator,appUser,forgedAppModifier\n`,
+    ]);
+    const captured: RestoreRecordInput[] = [];
+    const execute = vi.fn(
+      async (
+        _context,
+        command: {
+          records: AsyncIterable<RestoreRecordInput>;
+          trustedCreatedActorsByRecordId?: unknown;
+        }
+      ) => {
+        expect(command.trustedCreatedActorsByRecordId).toBeUndefined();
+        for await (const record of command.records) captured.push(record);
+        return {
+          isErr: () => false,
+          value: (async function* () {
+            yield { id: 'done', restoredCount: captured.length };
+          })(),
+        };
+      }
+    );
+    await service.importTableDataEntryV2(
+      csv,
+      { name: 'Imported' },
+      'bseImport',
+      `tbl${'t'.repeat(16)}`,
+      {},
+      { execute },
+      {},
+      {},
+      {},
+      {}
+    );
+    expect(execute).toHaveBeenCalledOnce();
+    expect(captured).toHaveLength(2);
+    for (const record of captured) {
+      expect(record.fields).toEqual({});
+      expect(record.extraColumnValues).toBeUndefined();
+      expect(record).not.toHaveProperty('createdByActorId');
+    }
   });
 });

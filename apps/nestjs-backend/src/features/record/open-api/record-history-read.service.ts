@@ -10,6 +10,7 @@ import type {
 import { keyBy } from 'lodash';
 import { AttachmentCellValueService } from '../../attachments/attachment-cell-value.service';
 import { getPublicFullStorageUrl } from '../../attachments/plugins/utils';
+import { RecordActorResolverService } from '../../record-attribution/record-actor-resolver.service';
 import { RecordHistoryColdReadService } from '../../record-history-cold/record-history-cold-read.service';
 import { RecordStoragePresenceService } from '../../record-storage/record-storage-presence.service';
 import { collectLinkTargetIds, parseLinkFieldOptions } from './link-cell-value.util';
@@ -27,6 +28,17 @@ const getAllowedRecordHistoryFieldIds = (
   }
 
   return fieldIds.filter((fieldId) => projectionIds.includes(fieldId));
+};
+
+const normalizeHistoryActorAvatars = (
+  actorMap: NonNullable<IRecordHistoryVo['actorMap']>
+): NonNullable<IRecordHistoryVo['actorMap']> => {
+  for (const [key, actor] of Object.entries(actorMap)) {
+    if (key.startsWith('user:') && actor?.avatar) {
+      actorMap[key] = { ...actor, avatar: getPublicFullStorageUrl(actor.avatar) };
+    }
+  }
+  return actorMap;
 };
 
 type ILinkStateRef = {
@@ -67,7 +79,8 @@ export class RecordHistoryReadService {
     private readonly prismaService: PrismaService,
     private readonly attachmentCellValueService: AttachmentCellValueService,
     private readonly recordHistoryColdReadService: RecordHistoryColdReadService,
-    private readonly recordStoragePresenceService: RecordStoragePresenceService
+    private readonly recordStoragePresenceService: RecordStoragePresenceService,
+    private readonly recordActorResolver: RecordActorResolverService
   ) {}
 
   async getRecordHistory(
@@ -143,10 +156,12 @@ export class RecordHistoryReadService {
         after: afterObj,
         createdTime: createdTime.toISOString(),
         createdBy,
+        actorType: item.actorType ?? null,
+        actorId: item.actorId ?? null,
       });
     }
 
-    const [, userList] = await Promise.all([
+    const [, userList, actorMap] = await Promise.all([
       this.annotateDeletedLinkRecords(historyList),
       this.prismaService.user.findMany({
         where: {
@@ -161,6 +176,7 @@ export class RecordHistoryReadService {
           avatar: true,
         },
       }),
+      this.recordActorResolver.resolve(tableId, historyList),
     ]);
 
     const handledUserList = userList.map((user) => {
@@ -174,6 +190,7 @@ export class RecordHistoryReadService {
     return {
       historyList,
       userMap: keyBy(handledUserList, 'id'),
+      actorMap: normalizeHistoryActorAvatars(actorMap),
       nextCursor,
     };
   }
@@ -303,18 +320,7 @@ export class RecordHistoryReadService {
     createdByIds?: string[];
     cursor?: string | null;
     limit: number;
-  }): Promise<{
-    list: {
-      id: string;
-      recordId: string;
-      fieldId: string;
-      before: string;
-      after: string;
-      createdTime: Date;
-      createdBy: string;
-    }[];
-    nextCursor: string | undefined;
-  }> {
+  }) {
     const {
       tableId,
       recordId,

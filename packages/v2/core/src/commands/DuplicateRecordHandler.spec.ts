@@ -30,7 +30,7 @@ import type { IEventBus } from '../ports/EventBus';
 import type { IExecutionContext, IUnitOfWorkTransaction } from '../ports/ExecutionContext';
 import { EventBusDomainWriteTransaction } from '../ports/memory/EventBusDomainWriteTransaction';
 import { RecordQueryOperationKind, type RecordQueryPluginScope } from '../ports/RecordQueryPlugin';
-import { RecordWriteOperationKind } from '../ports/RecordWritePlugin';
+import { RecordWriteOperationKind, type IRecordWritePlugin } from '../ports/RecordWritePlugin';
 import type { IFindOptions } from '../ports/RepositoryQuery';
 import type {
   ITableRecordQueryOptions,
@@ -39,7 +39,13 @@ import type {
   ITableRecordQueryStreamOptions,
 } from '../ports/TableRecordQueryRepository';
 import type { TableRecordReadModel } from '../ports/TableRecordReadModel';
-import type { ITableRecordRepository, RecordStoredSnapshot } from '../ports/TableRecordRepository';
+import type {
+  PhysicalTableDuplicatePlan,
+  PhysicalTableDuplicateResult,
+  BatchRecordMutationResult,
+  ITableRecordRepository,
+  RecordStoredSnapshot,
+} from '../ports/TableRecordRepository';
 import type { ITableRepository } from '../ports/TableRepository';
 import type { ITableSchemaRepository } from '../ports/TableSchemaRepository';
 import type { IUnitOfWork, UnitOfWorkOperation } from '../ports/UnitOfWork';
@@ -66,6 +72,10 @@ const createTableUpdateFlow = (
 ) => new TableUpdateFlow(tableRepository, new FakeTableSchemaRepository(), eventBus, unitOfWork);
 
 class FakeTableRepository implements ITableRepository {
+  async restore(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
+    throw new Error('Unexpected restore in this test');
+  }
+
   tables: Table[] = [];
   updated: Table[] = [];
   lastContext: IExecutionContext | undefined;
@@ -79,13 +89,6 @@ class FakeTableRepository implements ITableRepository {
   async insertMany(_context: IExecutionContext, tables: ReadonlyArray<Table>) {
     this.tables.push(...tables);
     return ok([...tables]);
-  }
-
-  async duplicatePhysicalRows(
-    _context: any,
-    _plan: any
-  ): Promise<Result<{ rowCount: number; recordIds: string[] }, DomainError>> {
-    return ok({ rowCount: 0, recordIds: [] });
   }
 
   async findOne(
@@ -127,6 +130,10 @@ class FakeTableRepository implements ITableRepository {
 }
 
 class FakeTableSchemaRepository implements ITableSchemaRepository {
+  async ensureActorColumns(_: IExecutionContext, __: Table): Promise<Result<void, DomainError>> {
+    return ok(undefined);
+  }
+
   async insert(_context: IExecutionContext, _table: Table): Promise<Result<void, DomainError>> {
     return ok(undefined);
   }
@@ -152,6 +159,14 @@ class FakeTableSchemaRepository implements ITableSchemaRepository {
 }
 
 class FakeTableRecordRepository implements ITableRecordRepository {
+  async duplicatePhysicalRows(
+    _context: IExecutionContext,
+    _plan: PhysicalTableDuplicatePlan,
+    _targetTable: Table
+  ): Promise<Result<PhysicalTableDuplicateResult, DomainError>> {
+    throw new Error('Unexpected duplicatePhysicalRows in this test');
+  }
+
   records: TableRecord[] = [];
   lastContext: IExecutionContext | undefined;
   lastTable: Table | undefined;
@@ -180,12 +195,7 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     context: IExecutionContext,
     table: Table,
     records: ReadonlyArray<TableRecord>
-  ): Promise<
-    Result<
-      { computedChangesByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>> },
-      DomainError
-    >
-  > {
+  ): Promise<Result<BatchRecordMutationResult, DomainError>> {
     this.lastContext = context;
     this.lastTable = table;
     if (this.failInsert) return err(this.failInsert);
@@ -257,8 +267,10 @@ class FakeTableRecordRepository implements ITableRecordRepository {
     return ok({});
   }
 
-  async deleteManyStream(): Promise<Result<{ totalDeleted: number }, DomainError>> {
-    return ok({ totalDeleted: 0 });
+  async deleteManyStream(
+    ..._args: Parameters<ITableRecordRepository['deleteManyStream']>
+  ): Promise<Result<{ totalDeleted: number }, DomainError>> {
+    throw new Error('Unexpected deleteManyStream in this test');
   }
 }
 
@@ -548,6 +560,10 @@ describe('DuplicateRecordHandler', () => {
     // Set up source record in query repository
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Original Value',
         [numberFieldId]: 100,
@@ -598,6 +614,10 @@ describe('DuplicateRecordHandler', () => {
 
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Original Value',
         [numberFieldId]: 100,
@@ -643,6 +663,10 @@ describe('DuplicateRecordHandler', () => {
     // Set up source record with specific values
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Test Title',
         [numberFieldId]: 42,
@@ -695,6 +719,10 @@ describe('DuplicateRecordHandler', () => {
 
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Visible value',
         [numberFieldId]: 42,
@@ -702,7 +730,7 @@ describe('DuplicateRecordHandler', () => {
       version: 1,
     });
 
-    const plugin = {
+    const plugin: IRecordWritePlugin = {
       name: 'duplicate-create-scope',
       supports(operation: RecordWriteOperationKind) {
         return operation === RecordWriteOperationKind.duplicate;
@@ -716,6 +744,7 @@ describe('DuplicateRecordHandler', () => {
         });
       },
       async guard(context) {
+        if (context.kind !== 'duplicate') throw new Error('Expected duplicate context');
         expect([...context.payload.fieldValues.keys()]).toEqual([textFieldId]);
         return ok(undefined);
       },
@@ -762,6 +791,10 @@ describe('DuplicateRecordHandler', () => {
     const sourceDate = new Date('2026-02-05T16:17:50.000Z');
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Date Row',
         [dateFieldId]: sourceDate,
@@ -878,6 +911,10 @@ describe('DuplicateRecordHandler', () => {
 
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Test',
       },
@@ -921,6 +958,10 @@ describe('DuplicateRecordHandler', () => {
 
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Test',
       },
@@ -963,6 +1004,10 @@ describe('DuplicateRecordHandler', () => {
 
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'My Title',
       },
@@ -1008,6 +1053,10 @@ describe('DuplicateRecordHandler', () => {
     // Source record with null value for number field
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: {
         [textFieldId]: 'Test',
         [numberFieldId]: null,
@@ -1056,6 +1105,10 @@ describe('DuplicateRecordHandler', () => {
     const unitOfWork = new FakeUnitOfWork();
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: { [textFieldId]: 'changed-secret', [numberFieldId]: 99 },
       version: 2,
     });
@@ -1101,6 +1154,10 @@ describe('DuplicateRecordHandler', () => {
     const unitOfWork = new FakeUnitOfWork();
     recordQueryRepository.records.set(sourceRecordId, {
       id: sourceRecordId,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
       fields: { [textFieldId]: 'Hidden', [numberFieldId]: 42 },
       version: 1,
     });

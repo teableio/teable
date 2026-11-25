@@ -37,7 +37,7 @@ export interface IPerformanceCacheStore {
   // base node list cache, format: base-node-list:base_id
   [key: `base-node-list:${string}`]: unknown;
 
-  // template cache, format: template:base:base_id
+  // template cache, format: template:base:snapshot:base_id
   [key: `template:base:${string}`]: unknown;
 
   // billable user count cache, format: instance-billable-count

@@ -306,7 +306,7 @@ export class RecordOpenApiController {
   @UseV2Feature('createRecord')
   @Permissions('record|create')
   @Post()
-  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
+  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE, { skipWhenV2: true })
   async createRecords(
     @Param('tableId') tableId: string,
     @Body(new ZodValidationPipe(createRecordsRoSchema)) createRecordsRo: ICreateRecordsRo,
@@ -423,7 +423,7 @@ export class RecordOpenApiController {
   @UseV2Feature('duplicateRecord')
   @Permissions('record|create', 'record|read')
   @Post(':recordId/duplicate')
-  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE)
+  @EmitControllerEvent(Events.OPERATION_RECORDS_CREATE, { skipWhenV2: true })
   async duplicateRecord(
     @Param('tableId') tableId: string,
     @Param('recordId') recordId: string,

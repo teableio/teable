@@ -10,10 +10,13 @@ import type * as ExecutionContextPort from '../../ports/ExecutionContext';
 import type { RealtimeChange } from '../../ports/RealtimeChange';
 import { RealtimeDocId } from '../../ports/RealtimeDocId';
 import * as RealtimeEnginePort from '../../ports/RealtimeEngine';
+import * as RecordQueryRepositoryPort from '../../ports/TableRecordQueryRepository';
+import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
+import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
 
 @ProjectionHandler(RecordUpdated)
@@ -22,6 +25,10 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
   constructor(
     @inject(v2CoreTokens.realtimeEngine)
     private readonly realtimeEngine: RealtimeEnginePort.IRealtimeEngine,
+    @inject(v2CoreTokens.tableRepository)
+    private readonly tables: TableRepositoryPort.ITableRepository,
+    @inject(v2CoreTokens.tableRecordQueryRepository)
+    private readonly records: RecordQueryRepositoryPort.ITableRecordQueryRepository,
     @inject(v2CoreTokens.attachmentValueDecoratorService)
     private readonly attachmentValueDecoratorService: AttachmentValueDecoratorService = new AttachmentValueDecoratorService(
       new NoopAttachmentUrlSignerService()
@@ -32,7 +39,7 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
     context: ExecutionContextPort.IExecutionContext,
     event: RecordUpdated
   ): Promise<Result<void, DomainError>> {
-    const { realtimeEngine, attachmentValueDecoratorService } = this;
+    const { realtimeEngine, attachmentValueDecoratorService, tables, records } = this;
 
     return safeTry(async function* () {
       const collection = buildRecordCollection(event.tableId.toString());
@@ -63,6 +70,20 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
       }
 
       if (batchedChanges.length === 0) return ok(undefined);
+      const actors = yield* await readRealtimeRecordActors(
+        context,
+        event.baseId,
+        event.tableId,
+        [event.recordId.toString()],
+        tables,
+        records
+      );
+      const stored = actors.get(event.recordId.toString())!;
+      if (stored.version === event.newVersion) {
+        for (const [key, value] of Object.entries(stored.actors)) {
+          batchedChanges.push({ type: 'set', path: [key], value });
+        }
+      }
 
       yield* (
         await realtimeEngine.applyChange(context, docId, batchedChanges, {

@@ -39,7 +39,7 @@ export const executeCreateRecordsEndpoint = async (
     };
   }
 
-  const mapped = mapCreateRecordsResultToDto(result.value);
+  const mapped = mapCreateRecordsResultToDto(result.value, result.value.recordActorsByRecord);
   if (mapped.isErr()) {
     const error = mapped.error;
     return {

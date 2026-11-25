@@ -3,110 +3,276 @@ import Knex from 'knex';
 import type { Knex as KnexType } from 'knex';
 import { vi } from 'vitest';
 import { DuplicateTableQueryPostgres } from '../../db-provider/duplicate-table/duplicate-query.postgres';
+import type { INewAuditOperationInput } from '../audit/audit-scope';
+import { RecordMutationPolicyService } from '../record-mutation-policy/record-mutation-policy.service';
 import { TableDuplicateService } from './table-duplicate.service';
 
 describe('TableDuplicateService.duplicateTableData', () => {
-  it('skips target-only columns when copying rows', async () => {
+  it('copies records into its own pending freshly-created destination without publishing actor capability early', async () => {
     const dataKnex = Knex({ client: 'pg' });
     const executedSql: string[] = [];
-    const sourceColumnSql = 'source-column-info';
-    const targetColumnSql = 'target-column-info';
-    const dataPrisma = {
-      $queryRawUnsafe: vi.fn(async <T = unknown>(sql: string): Promise<T> => {
-        if (sql === sourceColumnSql) {
-          return [
-            { name: '__id' },
-            { name: '__version' },
-            { name: '__auto_number' },
-            { name: 'Name' },
-            { name: 'Visible_Fields' },
-          ] as T;
-        }
-        if (sql === targetColumnSql) {
-          return [
-            { name: '__id' },
-            { name: '__version' },
-            { name: '__auto_number' },
-            { name: 'Name' },
-            { name: 'Visible_Fields' },
-            { name: 'AJ_Story_Fields' },
-          ] as T;
-        }
-        if (sql.includes('count(*)')) {
-          return [{ count: 1 }] as T;
-        }
-        return [] as T;
+    let created = false;
+    let provisionState = 'ready';
+    let transactionActive = false;
+    const tableMeta = {
+      findUniqueOrThrow: vi.fn(async () => ({ id: 'tblSource', dbTableName: 'bse.Source' })),
+      findFirstOrThrow: vi.fn(async () => ({ id: 'tblTarget' })),
+      update: vi.fn(async ({ data }: { data: { provisionState: string } }) => {
+        provisionState = data.provisionState;
       }),
-      $executeRawUnsafe: vi.fn(async (sql: string) => {
-        executedSql.push(sql);
+    };
+    const dataPrisma = {
+      $queryRawUnsafe: vi.fn(async (query: string) => {
+        expect(transactionActive).toBe(true);
+        if (query.startsWith('WITH inserted')) {
+          executedSql.push(query);
+          return [{ recordCount: '1', recordIds: ['recSource'] }];
+        }
+        return query.includes('count(*)')
+          ? [{ count: 1 }]
+          : [{ name: '__id' }, { name: '__version' }, { name: 'Title' }];
+      }),
+      $executeRawUnsafe: vi.fn(async (query: string) => {
+        expect(transactionActive).toBe(true);
+        executedSql.push(query);
         return 1;
       }),
     };
-    const fieldFindMany = vi.fn().mockResolvedValue([]);
-    const service = Object.create(TableDuplicateService.prototype) as TableDuplicateService;
-
-    (
-      service as unknown as {
-        prismaService: {
-          txClient: () => {
-            tableMeta: { findFirst: () => Promise<{ id: string }> };
-            field: { findMany: typeof fieldFindMany };
-          };
-        };
-        dbProvider: {
-          columnInfo: (tableName: string) => string;
-          duplicateTableQuery: (queryBuilder: KnexType.QueryBuilder) => DuplicateTableQueryPostgres;
-        };
-        dataKnex: KnexType;
-      }
-    ).prismaService = {
-      txClient: () => ({
-        tableMeta: { findFirst: async () => ({ id: 'tblTarget' }) },
-        field: { findMany: fieldFindMany },
+    const scopedDataPrisma = {
+      $tx: vi.fn(async (callback: (tx: typeof dataPrisma) => Promise<void>) => {
+        transactionActive = true;
+        try {
+          await callback(dataPrisma);
+        } finally {
+          transactionActive = false;
+        }
       }),
     };
-    (
-      service as unknown as {
-        dbProvider: {
-          columnInfo: (tableName: string) => string;
-          duplicateTableQuery: (queryBuilder: KnexType.QueryBuilder) => DuplicateTableQueryPostgres;
-        };
-      }
-    ).dbProvider = {
-      columnInfo: (tableName: string) =>
-        tableName === 'bseSource.SourceTable' ? sourceColumnSql : targetColumnSql,
-      duplicateTableQuery: (queryBuilder) => new DuplicateTableQueryPostgres(queryBuilder),
-    };
-    (service as unknown as { dataKnex: KnexType }).dataKnex = dataKnex;
-    (
-      service as unknown as {
-        audit: { emitAtomic: ReturnType<typeof vi.fn> };
-        cls: Record<string, never>;
-      }
-    ).audit = {
-      emitAtomic: vi.fn().mockResolvedValue(undefined),
-    };
-    (
-      service as unknown as {
-        cls: Record<string, never>;
-      }
-    ).cls = {};
-
-    await service.duplicateTableData(
-      'bseSource.SourceTable',
-      'bseTarget.TargetTable',
-      {},
-      {},
-      [],
-      dataPrisma
+    const dataPrismaForTable = vi.fn(async () => scopedDataPrisma);
+    const withTableWrite = vi.fn(async (_tableId, callback, options) => {
+      expect(created).toBe(true);
+      expect(provisionState).toBe('pending');
+      expect(options).toEqual({ provisioning: true });
+      return callback({ id: 'tblTarget', actorStorageVersion: 0 });
+    });
+    const persistRecordCreateOperationAudit = vi.fn(async (_tableId, _count, _ids, execute) =>
+      execute('audit-journal')
     );
-
-    expect(executedSql).toHaveLength(1);
-    expect(executedSql[0]).toContain('"Name", "Visible_Fields"');
-    expect(executedSql[0]).not.toContain('AJ_Story_Fields');
-
+    const service = Object.create(TableDuplicateService.prototype) as TableDuplicateService;
+    Object.assign(service, { recordMutationPolicy: new RecordMutationPolicyService() });
+    Object.assign(service, {
+      cls: {
+        get: (key: string) =>
+          key === 'recordInitiator' ? { type: 'appUser', id: 'apuCurrent' } : 'usrExecutor',
+      },
+      audit: {
+        withOperation: async <T>(_operation: INewAuditOperationInput, callback: () => Promise<T>) =>
+          callback(),
+        emitAtomic: vi.fn(),
+      },
+      prismaService: {
+        tableMeta,
+        txClient: () => ({
+          tableMeta,
+          field: { findMany: async () => [] },
+          view: { findMany: async () => [] },
+        }),
+      },
+      tableService: {
+        createTable: async () => {
+          created = true;
+          return { id: 'tblTarget', dbTableName: 'bse.Target' };
+        },
+      },
+      dataDbClientManager: { dataPrismaForTable },
+      dataKnex,
+      dbProvider: {
+        columnInfo: (table: string) => `columns:${table}`,
+        duplicateTableQuery: (query: KnexType.QueryBuilder) =>
+          new DuplicateTableQueryPostgres(query),
+      },
+      recordActorStorageService: { withTableWrite },
+      eventEmitterService: { persistRecordCreateOperationAudit },
+      disableTableDomainDataLoader: vi.fn(),
+      duplicateFields: async () => ({}),
+      duplicateViews: async () => ({}),
+      repairDuplicateOmit: vi.fn(),
+      assertSameDataDatabaseForRecordCopy: vi.fn(),
+      duplicateAttachments: vi.fn(),
+      duplicateLinkJunction: vi.fn(),
+    });
+    const result = await service.duplicateTable('bse', 'tblSource', {
+      name: 'Copy',
+      includeRecords: true,
+    });
+    expect(result.id).toBe('tblTarget');
+    expect(withTableWrite).toHaveBeenCalledTimes(2);
+    expect(scopedDataPrisma.$tx).toHaveBeenCalledOnce();
+    expect(dataPrismaForTable).toHaveBeenCalledOnce();
+    expect(transactionActive).toBe(false);
+    expect(executedSql[0]).toContain("'appUser'::text, 'apuCurrent'::text, NULL, NULL");
+    expect(persistRecordCreateOperationAudit).toHaveBeenCalledWith(
+      'tblTarget',
+      1,
+      ['recSource'],
+      expect.any(Function)
+    );
+    expect(executedSql[1]).toBe('audit-journal');
+    expect(
+      tableMeta.update.mock.calls.every(
+        ([argument]) => !Object.hasOwn(argument.data, 'actorStorageVersion')
+      )
+    ).toBe(true);
     await dataKnex.destroy();
   });
+
+  it.each([0, 1])(
+    'copies business values with current actor only for capability %s',
+    async (actorStorageVersion) => {
+      const dataKnex = Knex({ client: 'pg' });
+      const executedSql: string[] = [];
+      const sourceColumnSql = 'source-column-info';
+      const targetColumnSql = 'target-column-info';
+      const dataPrisma = {
+        $queryRawUnsafe: async <T = unknown>(sql: string): Promise<T> => {
+          if (sql.startsWith('WITH inserted')) {
+            executedSql.push(sql);
+            return [{ recordCount: '1', recordIds: ['recCopied'] }] as T;
+          }
+          if (sql === sourceColumnSql) {
+            return [
+              { name: '__id' },
+              { name: '__version' },
+              { name: '__auto_number' },
+              { name: '__created_by_actor_type' },
+              { name: '__created_by_actor_id' },
+              { name: '__last_modified_by_actor_type' },
+              { name: '__last_modified_by_actor_id' },
+              { name: 'Name' },
+              { name: 'Visible_Fields' },
+            ] as T;
+          }
+          if (sql === targetColumnSql) {
+            return [
+              { name: '__id' },
+              { name: '__version' },
+              { name: '__auto_number' },
+              { name: '__created_by_actor_type' },
+              { name: '__created_by_actor_id' },
+              { name: '__last_modified_by_actor_type' },
+              { name: '__last_modified_by_actor_id' },
+              { name: 'Name' },
+              { name: 'Visible_Fields' },
+              { name: 'AJ_Story_Fields' },
+            ] as T;
+          }
+          if (sql.includes('count(*)')) {
+            return [{ count: 1 }] as T;
+          }
+          return [] as T;
+        },
+        $executeRawUnsafe: vi.fn(async (sql: string) => {
+          executedSql.push(sql);
+          return 1;
+        }),
+      };
+      const fieldFindMany = vi.fn().mockResolvedValue([]);
+      const service = Object.create(TableDuplicateService.prototype) as TableDuplicateService;
+      Object.assign(service, { recordMutationPolicy: new RecordMutationPolicyService() });
+
+      (
+        service as unknown as {
+          prismaService: {
+            txClient: () => {
+              tableMeta: {
+                findFirst: () => Promise<{ id: string }>;
+                findFirstOrThrow: () => Promise<{ id: string }>;
+              };
+              field: { findMany: typeof fieldFindMany };
+            };
+          };
+          dbProvider: {
+            columnInfo: (tableName: string) => string;
+            duplicateTableQuery: (
+              queryBuilder: KnexType.QueryBuilder
+            ) => DuplicateTableQueryPostgres;
+          };
+          dataKnex: KnexType;
+        }
+      ).prismaService = {
+        txClient: () => ({
+          tableMeta: {
+            findFirst: async () => ({ id: 'tblTarget' }),
+            findFirstOrThrow: async () => ({ id: 'tblTarget' }),
+          },
+          field: { findMany: fieldFindMany },
+        }),
+      };
+      (
+        service as unknown as {
+          dbProvider: {
+            columnInfo: (tableName: string) => string;
+            duplicateTableQuery: (
+              queryBuilder: KnexType.QueryBuilder
+            ) => DuplicateTableQueryPostgres;
+          };
+        }
+      ).dbProvider = {
+        columnInfo: (tableName: string) =>
+          tableName === 'bseSource.SourceTable' ? sourceColumnSql : targetColumnSql,
+        duplicateTableQuery: (queryBuilder) => new DuplicateTableQueryPostgres(queryBuilder),
+      };
+      (service as unknown as { dataKnex: KnexType }).dataKnex = dataKnex;
+      (
+        service as unknown as {
+          audit: { emitAtomic: ReturnType<typeof vi.fn> };
+          cls: Record<string, never>;
+        }
+      ).audit = {
+        emitAtomic: vi.fn().mockResolvedValue(undefined),
+      };
+      const persistRecordCreateOperationAudit = vi.fn(async (_tableId, _count, _ids, execute) =>
+        execute('audit-journal')
+      );
+      Object.assign(service, {
+        cls: { get: () => ({ type: 'appUser', id: "apuCurrent'quoted" }) },
+        recordActorStorageService: {
+          withTableWrite: vi.fn(async (_id, callback) =>
+            callback({ id: 'tblTarget', actorStorageVersion })
+          ),
+        },
+        eventEmitterService: { persistRecordCreateOperationAudit },
+      });
+
+      await service.duplicateTableData(
+        'bseSource.SourceTable',
+        'bseTarget.TargetTable',
+        {},
+        {},
+        [],
+        dataPrisma
+      );
+
+      expect(executedSql).toHaveLength(2);
+      expect(persistRecordCreateOperationAudit).toHaveBeenCalledWith(
+        'tblTarget',
+        1,
+        ['recCopied'],
+        expect.any(Function)
+      );
+      expect(executedSql[1]).toBe('audit-journal');
+      expect(executedSql[0]).toContain('"Name", "Visible_Fields"');
+      expect(executedSql[0]).not.toContain('AJ_Story_Fields');
+      if (actorStorageVersion === 1) {
+        expect(executedSql[0]).toContain("'appUser'::text, 'apuCurrent''quoted'::text, NULL, NULL");
+        expect(executedSql[0]).not.toContain('SELECT "__created_by_actor_type"');
+      } else {
+        expect(executedSql[0]).not.toContain('_actor_');
+      }
+
+      await dataKnex.destroy();
+    }
+  );
 });
 
 describe('TableDuplicateService.duplicateLinkJunction', () => {

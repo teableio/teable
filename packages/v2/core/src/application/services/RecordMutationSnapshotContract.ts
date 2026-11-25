@@ -115,6 +115,12 @@ export const toUndoRedoRestoreRecord = (snapshot: RecordStoredSnapshot): UndoRed
   ...(snapshot.autoNumber !== undefined ? { autoNumber: snapshot.autoNumber } : {}),
   ...(snapshot.createdTime ? { createdTime: snapshot.createdTime } : {}),
   ...(snapshot.createdBy ? { createdBy: snapshot.createdBy } : {}),
+  ...(snapshot.createdByActorType !== undefined
+    ? { createdByActorType: snapshot.createdByActorType }
+    : {}),
+  ...(snapshot.createdByActorId !== undefined
+    ? { createdByActorId: snapshot.createdByActorId }
+    : {}),
   ...(snapshot.lastModifiedTime ? { lastModifiedTime: snapshot.lastModifiedTime } : {}),
   ...(snapshot.lastModifiedBy ? { lastModifiedBy: snapshot.lastModifiedBy } : {}),
 });

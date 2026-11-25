@@ -63,6 +63,7 @@ import type { Result } from 'neverthrow';
 import { getPostgresTransaction } from '../../shared/db';
 import { extractUndefinedColumnError } from '../../shared/errors';
 import { isUserCellField, normalizeStoredUserAvatarUrls } from '../../shared/userAvatarUrl';
+import { readStoredActor } from '../actorColumns';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import {
   applyStoredFieldOrderByClause,
@@ -1009,12 +1010,34 @@ export class PostgresTableRecordQueryRepository
     }
   }
 
+  private async readOrderColumns(context: IExecutionContext, table: Table) {
+    const name = table.dbTableName().andThen((value) => value.value());
+    if (name.isErr()) return err(name.error);
+    const [schema, relation] = name.value.split('.');
+    const db = getPostgresTransaction<DynamicDB>(context, 'data') ?? this.db;
+    try {
+      const columns = await sql<{ column_name: string }>`
+        SELECT column_name FROM information_schema.columns
+        WHERE table_schema = ${schema} AND table_name = ${relation}
+          AND starts_with(column_name, '__row_')
+        ORDER BY ordinal_position
+      `.execute(db);
+      return ok(columns.rows.map((column) => column.column_name));
+    } catch (error) {
+      return err(buildUnexpectedQueryError('Failed to load record order columns', error));
+    }
+  }
+
   private async prepareRead(
     context: IExecutionContext,
     table: Table,
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions,
-    output?: { readonly fieldIds?: ReadonlyArray<FieldId>; readonly omitOrder?: boolean }
+    output?: {
+      readonly fieldIds?: ReadonlyArray<FieldId>;
+      readonly omitOrder?: boolean;
+    },
+    orderColumnsForStream?: string[]
   ) {
     return safeTry(
       async function* (this: PostgresTableRecordQueryRepository) {
@@ -1191,20 +1214,10 @@ export class PostgresTableRecordQueryRepository
         searchWhereSpan?.setAttributes(actualSearchAttributes);
         searchWhereSpan?.end();
 
-        // Query order columns if requested
-        let orderColumns: string[] = [];
-        if (options?.includeOrders && !options.idsOnly) {
-          // Query for order columns
-          const orderColumnsResult = await sql<{ column_name: string }>`
-              SELECT column_name
-              FROM information_schema.columns
-              WHERE table_schema = ${schemaName}
-              AND table_name = ${tableNameOnly}
-              AND column_name LIKE '__row_%'
-            `.execute(dynamicDb);
-
-          orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
-        }
+        const orderColumns =
+          options?.includeOrders && !options.idsOnly
+            ? (orderColumnsForStream ?? (yield* await this.readOrderColumns(context, table)))
+            : [];
 
         // Build the query
         let builtQuery = yield* queryBuilder.build();
@@ -1313,6 +1326,16 @@ export class PostgresTableRecordQueryRepository
     spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
     options?: ITableRecordQueryOptions
   ): Promise<Result<ITableRecordQueryResult, DomainError>> {
+    return this.findPage(context, table, spec, options);
+  }
+
+  private async findPage(
+    context: IExecutionContext,
+    table: Table,
+    spec?: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>,
+    options?: ITableRecordQueryOptions,
+    orderColumnsForStream?: string[]
+  ): Promise<Result<ITableRecordQueryResult, DomainError>> {
     // Start tracing span for record query
     const span = context.tracer?.startSpan(
       'teable.repository.record.find',
@@ -1369,7 +1392,14 @@ export class PostgresTableRecordQueryRepository
             orderColumns,
             compiled,
             queryBuilder,
-          } = yield* await this.prepareRead(context, table, spec, options);
+          } = yield* await this.prepareRead(
+            context,
+            table,
+            spec,
+            options,
+            undefined,
+            orderColumnsForStream
+          );
           span?.setAttributes(actualSearchAttributes);
           this.logger.debug(`find:mode:${queryBuilder.mode}:sql\n${compiled.sql}`, {
             parameters: compiled.parameters,
@@ -1865,22 +1895,9 @@ export class PostgresTableRecordQueryRepository
           // Limit to 1
           queryBuilder.limit(1);
 
-          let orderColumns: string[] = [];
-          if (options?.includeOrders) {
-            const dbTableName = yield* table.dbTableName();
-            const tableName = yield* dbTableName.value();
-            const [schemaName, tableNameOnly] = tableName.split('.');
-            const dynamicDb = this.db as unknown as Kysely<DynamicDB>;
-            const orderColumnsResult = await sql<{ column_name: string }>`
-              SELECT column_name
-              FROM information_schema.columns
-              WHERE table_schema = ${schemaName}
-              AND table_name = ${tableNameOnly}
-              AND column_name LIKE '__row_%'
-            `.execute(dynamicDb);
-
-            orderColumns = orderColumnsResult.rows.map((r) => r.column_name);
-          }
+          const orderColumns = options?.includeOrders
+            ? yield* await this.readOrderColumns(context, table)
+            : [];
 
           // Build the query
           let builtQuery = yield* queryBuilder.build();
@@ -1948,6 +1965,15 @@ export class PostgresTableRecordQueryRepository
     let lastCursor: string | undefined;
     const paginationStrategy =
       options?.paginationStrategy ?? this.resolvePaginationStrategy(options?.pagination);
+    let orderColumns: string[] = [];
+    if (options?.includeOrders) {
+      const columns = await this.readOrderColumns(context, table);
+      if (columns.isErr()) {
+        yield err(columns.error);
+        return;
+      }
+      orderColumns = columns.value;
+    }
 
     while (true) {
       const nextPage = paginationStrategy.next({
@@ -1968,7 +1994,8 @@ export class PostgresTableRecordQueryRepository
               spec,
               options,
               nextPage.limit,
-              nextPage.offset
+              nextPage.offset,
+              orderColumns
             )
           : await this.findByCursorPage(
               context,
@@ -1976,7 +2003,8 @@ export class PostgresTableRecordQueryRepository
               spec,
               options,
               nextPage.limit,
-              nextPage.cursor
+              nextPage.cursor,
+              orderColumns
             );
 
       if (result.isErr()) {
@@ -2021,7 +2049,8 @@ export class PostgresTableRecordQueryRepository
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     options: ITableRecordQueryStreamOptions | undefined,
     limit: number,
-    offset: number
+    offset: number,
+    orderColumns: string[]
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
     const pageLimitResult = PageLimit.create(limit);
     if (pageLimitResult.isErr()) {
@@ -2033,17 +2062,23 @@ export class PostgresTableRecordQueryRepository
     }
 
     const pagination = OffsetPagination.create(pageLimitResult.value, pageOffsetResult.value);
-    const result = await this.find(context, table, spec, {
-      mode: options?.mode,
-      pagination,
-      orderBy: options?.orderBy,
-      includeOrders: options?.includeOrders,
-      includeTotal: false,
-      projectionFieldIds: options?.projectionFieldIds,
-      search: options?.search,
-      searchAccessPath: options?.searchAccessPath,
-      recordReadQuerySource: options?.recordReadQuerySource,
-    });
+    const result = await this.findPage(
+      context,
+      table,
+      spec,
+      {
+        mode: options?.mode,
+        pagination,
+        orderBy: options?.orderBy,
+        includeOrders: options?.includeOrders,
+        includeTotal: false,
+        projectionFieldIds: options?.projectionFieldIds,
+        search: options?.search,
+        searchAccessPath: options?.searchAccessPath,
+        recordReadQuerySource: options?.recordReadQuerySource,
+      },
+      orderColumns
+    );
 
     if (result.isErr()) {
       return err(result.error);
@@ -2058,7 +2093,8 @@ export class PostgresTableRecordQueryRepository
     spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
     options: ITableRecordQueryStreamOptions | undefined,
     limit: number,
-    cursor: string | undefined
+    cursor: string | undefined,
+    orderColumns: string[]
   ): Promise<Result<ReadonlyArray<TableRecordReadModel>, DomainError>> {
     return await safeTry<ReadonlyArray<TableRecordReadModel>, DomainError>(
       async function* (this: PostgresTableRecordQueryRepository) {
@@ -2111,7 +2147,10 @@ export class PostgresTableRecordQueryRepository
           );
         }
 
-        const builtQuery = yield* queryBuilder.build();
+        let builtQuery = yield* queryBuilder.build();
+        for (const column of orderColumns) {
+          builtQuery = builtQuery.select(sql.ref(`${TABLE_ALIAS}.${column}`).as(column));
+        }
 
         const compiled = this.withRecordReadQuerySource(
           builtQuery.compile(),
@@ -2135,7 +2174,7 @@ export class PostgresTableRecordQueryRepository
               compiled
             )
           ).rows;
-          const records = mapRowsToReadModels(fieldColumns, rows, []);
+          const records = mapRowsToReadModels(fieldColumns, rows, orderColumns);
           return ok(records);
         } catch (error) {
           return err(buildUnexpectedQueryError('Failed to load table records by cursor', error));
@@ -2432,6 +2471,11 @@ const mapRowsToReadModels = (
 
     const rawLastModifiedBy = row['__last_modified_by'];
     const lastModifiedBy = typeof rawLastModifiedBy === 'string' ? rawLastModifiedBy : undefined;
+    const creator = readStoredActor(row.__created_by_actor_type, row.__created_by_actor_id);
+    const modifier = readStoredActor(
+      row.__last_modified_by_actor_type,
+      row.__last_modified_by_actor_id
+    );
 
     // Extract order values if order columns were requested
     let orders: Record<string, number> | undefined;
@@ -2471,6 +2515,10 @@ const mapRowsToReadModels = (
       createdBy,
       lastModifiedTime,
       lastModifiedBy,
+      createdByActorType: creator?.type ?? null,
+      createdByActorId: creator?.id ?? null,
+      lastModifiedByActorType: modifier?.type ?? null,
+      lastModifiedByActorId: modifier?.id ?? null,
       orders,
     };
   });

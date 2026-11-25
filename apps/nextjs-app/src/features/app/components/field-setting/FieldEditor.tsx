@@ -27,6 +27,7 @@ import { useUpdateConditionalLookupOptions } from './hooks/useUpdateConditionalL
 import { useUpdateLookupOptions } from './hooks/useUpdateLookupOptions';
 import { LookupOptions } from './lookup-options/LookupOptions';
 import { ConditionalLookupOptions } from './options/ConditionalLookupOptions';
+import { PeriodicRefreshSetting } from './PeriodicRefreshSetting';
 import { SelectFieldType } from './SelectFieldType';
 import { SystemInfo } from './SystemInfo';
 import { FieldOperator } from './type';
@@ -60,12 +61,22 @@ const useSelectedLookupField = (field: Partial<IFieldEditorRo>) => {
 
 export const FieldEditor = (props: {
   isPrimary?: boolean;
-  field: Partial<IFieldEditorRo>;
+  field: Partial<IFieldEditorRo> & Pick<Partial<IFieldVo>, 'periodicRefresh'>;
   operator: FieldOperator;
   onChange?: (field: IFieldEditorRo) => void;
   onSave?: () => void;
+  periodicRefreshEnabled?: boolean;
+  onPeriodicRefreshEnabledChange?: (enabled: boolean) => void;
 }) => {
-  const { isPrimary, field, operator, onChange, onSave } = props;
+  const {
+    isPrimary,
+    field,
+    operator,
+    onChange,
+    onSave,
+    periodicRefreshEnabled,
+    onPeriodicRefreshEnabledChange,
+  } = props;
   const [showDescription, setShowDescription] = useState<boolean>(Boolean(field.description));
   const setFieldFn = useCallback(
     (field: IFieldEditorRo) => {
@@ -300,6 +311,13 @@ export const FieldEditor = (props: {
       <FieldValidation field={field} operator={operator} onChange={updateFieldProps} />
       {(isCloud || isEE) && <FieldAiConfig field={field} onChange={updateFieldProps} />}
       {getUnionOptions()}
+      {onPeriodicRefreshEnabledChange && (
+        <PeriodicRefreshSetting
+          field={field}
+          periodicRefreshEnabled={Boolean(periodicRefreshEnabled)}
+          onPeriodicRefreshEnabledChange={onPeriodicRefreshEnabledChange}
+        />
+      )}
     </div>
   );
 };

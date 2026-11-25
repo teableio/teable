@@ -41,6 +41,25 @@ const createContext = (): IExecutionContext => ({
   actorId: ActorId.create('system')._unsafeUnwrap(),
 });
 
+const withActorStorageVersion = (table: Table, version: number): Table =>
+  table
+    .dbTableName()
+    .andThen((dbTableName) =>
+      Table.rehydrate({
+        id: table.id(),
+        baseId: table.baseId(),
+        name: table.name(),
+        properties: table.properties(),
+        fields: table.getFields(),
+        views: table.views(),
+        primaryFieldId: table.primaryFieldId(),
+        dbTableName,
+        searchIndex: table.searchIndex(),
+        actorStorageVersion: version,
+      })
+    )
+    ._unsafeUnwrap();
+
 const buildTable = () => {
   const baseId = BaseId.create(`bse${'r'.repeat(16)}`)._unsafeUnwrap();
   const tableId = TableId.create(`tbl${'s'.repeat(16)}`)._unsafeUnwrap();
@@ -147,7 +166,7 @@ class CapturingTableRecordRepository extends NoopTableRecordRepository {
     return ok({});
   }
 
-  override async listExistingRecordIds(
+  async listExistingRecordIds(
     _context: IExecutionContext,
     _table: Table,
     recordIds: ReadonlyArray<string>
@@ -188,6 +207,143 @@ class FakeUnitOfWork implements IUnitOfWork {
 }
 
 describe('RestoreRecordsHandler', () => {
+  it.each([
+    ['appUser' as const, 0, true],
+    ['appUser' as const, 1, false],
+    ['user' as const, 0, false],
+  ])(
+    'gates trusted %s restores on actor capability %s (conflict %s)',
+    async (type, version, conflicts) => {
+      const { table, tableId, textFieldId } = buildTable();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(withActorStorageVersion(table, version));
+      const records = new CapturingTableRecordRepository();
+      const handler = new RestoreRecordsHandler(
+        new TableQueryService(tableRepository),
+        records,
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+        createRecordWritePluginRunner()
+      );
+      const command = RestoreRecordsCommand.create({
+        tableId: tableId.toString(),
+        records: [
+          { recordId: `rec${'z'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Value' } },
+        ],
+      })._unsafeUnwrap();
+      const result = await handler.handle(
+        {
+          ...createContext(),
+          initiator: { type, id: 'usrActor' },
+          requireActorStorage: type === 'appUser',
+        },
+        command
+      );
+      expect(result.isErr()).toBe(conflicts);
+      if (conflicts) expect(result._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+      expect(records.restoreMaps.length).toBe(conflicts ? 0 : 1);
+    }
+  );
+
+  it('releases the shared lease after rejecting a disabled App restore', async () => {
+    const { table, tableId, textFieldId } = buildTable();
+    const tableRepository = new FakeTableRepository();
+    let released = false;
+    tableRepository.tables.push(withActorStorageVersion(table, 0));
+    const handler = new RestoreRecordsHandler(
+      new TableQueryService(tableRepository),
+      new CapturingTableRecordRepository(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      createRecordWritePluginRunner(),
+      {
+        acquire: async (_context, ids, mode) =>
+          ok({
+            mode,
+            tableIds: ids,
+            release: async () => {
+              released = true;
+            },
+          }),
+      }
+    );
+    const command = RestoreRecordsCommand.create({
+      tableId: tableId.toString(),
+      records: [
+        { recordId: `rec${'y'.repeat(16)}`, fields: { [textFieldId.toString()]: 'Value' } },
+      ],
+    })._unsafeUnwrap();
+    const result = await handler.handle(
+      {
+        ...createContext(),
+        initiator: { type: 'appUser', id: 'apuActor' },
+        requireActorStorage: true,
+      },
+      command
+    );
+    expect(result._unsafeUnwrapErr().code).toBe('actor_storage.not_enabled');
+    expect(released).toBe(true);
+  });
+
+  it.each([false, true])(
+    'restores only server creator metadata while holding the shared lease (%s)',
+    async (knownCreator) => {
+      const { table, tableId, textFieldId } = buildTable();
+      const tableRepository = new FakeTableRepository();
+      let held = false;
+      let released = false;
+      tableRepository.findOne = async () => {
+        expect(held).toBe(true);
+        return ok(withActorStorageVersion(table, 1));
+      };
+      const records = new CapturingTableRecordRepository();
+      const handler = new RestoreRecordsHandler(
+        new TableQueryService(tableRepository),
+        records,
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+        createRecordWritePluginRunner(),
+        {
+          acquire: async (_context, ids, mode) => {
+            expect(ids).toEqual([tableId.toString()]);
+            expect(mode).toBe('shared');
+            held = true;
+            return ok({
+              mode,
+              tableIds: ids,
+              release: async () => {
+                held = false;
+                released = true;
+              },
+            });
+          },
+        }
+      );
+      const recordId = `rec${'a'.repeat(16)}`;
+      const original = knownCreator ? { type: 'user' as const, id: 'usrOriginal' } : null;
+      const command = RestoreRecordsCommand.create(
+        {
+          tableId: tableId.toString(),
+          records: [
+            {
+              recordId,
+              fields: { [textFieldId.toString()]: 'Restored' },
+              createdByActorType: 'user',
+              createdByActorId: 'forged',
+            },
+          ],
+        },
+        { trustedCreatedActorsByRecordId: new Map([[recordId, original]]) }
+      )._unsafeUnwrap();
+      const result = await handler.handle(
+        { ...createContext(), initiator: { type: 'appUser', id: 'apuCurrent' } },
+        command
+      );
+      if (result.isErr()) throw new Error(`Trusted restore failed: ${result.error.code}`);
+      expect(result.value.restoredCount).toBe(1);
+      expect(records.restoreMaps[0]?.get(recordId)?.createdByActor).toEqual(original);
+      expect(records.restoreMaps[0]?.get(recordId)).not.toHaveProperty('lastModifiedByActor');
+      expect(released).toBe(true);
+    }
+  );
+
   it('restores records with system metadata and publishes a batch created event', async () => {
     const { table, tableId, textFieldId, numberFieldId } = buildTable();
     const tableRepository = new FakeTableRepository();

@@ -1,9 +1,10 @@
 import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
-import { domainError } from '../../domain/shared/DomainError';
+import { domainError, type DomainError } from '../../domain/shared/DomainError';
 import { FieldName } from '../../domain/table/fields/FieldName';
 import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
@@ -12,6 +13,7 @@ import { NoopLogger } from '../../ports/defaults/NoopLogger';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import { MemoryTableRepository } from '../../ports/memory/MemoryTableRepository';
 import type { ITableRecordQueryRepository } from '../../ports/TableRecordQueryRepository';
+import type { TableRecordReadModel } from '../../ports/TableRecordReadModel';
 import type { ITableRepository } from '../../ports/TableRepository';
 import { GetRecordByIdHandler } from '../GetRecordByIdHandler';
 import { GetRecordByIdQuery } from '../GetRecordByIdQuery';
@@ -33,10 +35,14 @@ const buildTable = (baseIdSeed: string, tableIdSeed: string, name: string) => {
   return builder.build()._unsafeUnwrap();
 };
 
-const createMockRecordQueryRepo = (findOneResult: any): ITableRecordQueryRepository => ({
-  find: async () => ok({ records: [], total: 0 }),
+const createMockRecordQueryRepo = (
+  findOneResult: Result<TableRecordReadModel, DomainError>
+): ITableRecordQueryRepository => ({
+  find: async () => err(domainError.unexpected({ message: 'Unexpected record query' })),
   findOne: async () => findOneResult,
-  async *findStream() {},
+  async *findStream() {
+    yield err(domainError.unexpected({ message: 'Unexpected record stream query' }));
+  },
 });
 
 describe('GetRecordByIdHandler', () => {
@@ -46,7 +52,15 @@ describe('GetRecordByIdHandler', () => {
     await repo.insert(createContext(), table);
 
     const fieldId = table.primaryFieldId().toString();
-    const mockRecord = { id: `rec${'a'.repeat(16)}`, fields: { [fieldId]: 'Alpha' } };
+    const mockRecord: TableRecordReadModel = {
+      id: `rec${'a'.repeat(16)}`,
+      fields: { [fieldId]: 'Alpha' },
+      version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
+    };
     const recordQueryRepo = createMockRecordQueryRepo(ok(mockRecord));
 
     const query = GetRecordByIdQuery.create({
@@ -62,11 +76,18 @@ describe('GetRecordByIdHandler', () => {
       id: query.recordId.toString(),
       name: 'Alpha',
       fields: { [fieldId]: 'Alpha' },
+      version: 1,
+      createdByActorType: null,
+      createdByActorId: null,
+      lastModifiedByActorType: null,
+      lastModifiedByActorId: null,
     });
   });
 
   it('returns table not found error', async () => {
-    const mockRecordQueryRepo = createMockRecordQueryRepo(ok(null));
+    const mockRecordQueryRepo = createMockRecordQueryRepo(
+      err(domainError.unexpected({ message: 'Unexpected record lookup' }))
+    );
 
     const query = GetRecordByIdQuery.create({
       tableId: `tbl${'b'.repeat(16)}`,
@@ -110,10 +131,13 @@ describe('GetRecordByIdHandler', () => {
       findOne: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       find: async () => err(domainError.unexpected({ message: 'lookup failed' })),
       updateOne: async () => err(domainError.unexpected({ message: 'update failed' })),
+      restore: async () => err(domainError.unexpected({ message: 'Unexpected table restore' })),
       delete: async () => err(domainError.unexpected({ message: 'delete failed' })),
     };
 
-    const mockRecordQueryRepo = createMockRecordQueryRepo(ok(null));
+    const mockRecordQueryRepo = createMockRecordQueryRepo(
+      err(domainError.unexpected({ message: 'Unexpected record lookup' }))
+    );
 
     const query = GetRecordByIdQuery.create({
       tableId: `tbl${'d'.repeat(16)}`,
