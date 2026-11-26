@@ -1,16 +1,58 @@
 import { promises as dns } from 'node:dns';
 import { createServer, type Server } from 'node:http';
 import { LLMProviderType } from '@teable/openapi';
-import { generateText, type LanguageModel } from 'ai';
+import { generateImage, generateText, type LanguageModel } from 'ai';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CustomHttpException } from '../../custom.exception';
 import {
   assertAiProviderBaseUrlsAllowed,
+  createMiniMaxImageFetch,
   instanceAdminProviderFetch,
   isAiProviderBaseUrlBlocked,
   modelProviders,
   setInstanceAiProviderOriginsResolver,
 } from './util';
+
+describe('MiniMax image generation transport', () => {
+  it('routes image-01 to image_generation and normalizes URL output', async () => {
+    const calls: Array<[string, RequestInit | undefined]> = [];
+    const transport: typeof fetch = async (input, init) => {
+      const url =
+        typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      calls.push([url, init]);
+      if (url.endsWith('/image_generation')) {
+        return Response.json({ data: { image_urls: ['https://cdn.example.test/image.png'] } });
+      }
+      return new Response(new Uint8Array([137, 80, 78, 71]), {
+        headers: { 'content-type': 'image/png' },
+      });
+    };
+
+    const response = await createMiniMaxImageFetch(transport)(
+      'https://api.minimax.io/v1/images/generations',
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer test' },
+        body: JSON.stringify({
+          model: 'image-01',
+          prompt: 'a red circle',
+          n: 1,
+          size: '1024x1024',
+        }),
+      }
+    );
+    const payload = (await response.json()) as { data: Array<{ b64_json: string }> };
+
+    expect(calls[0][0]).toBe('https://api.minimax.io/v1/image_generation');
+    expect(JSON.parse(String(calls[0][1]?.body))).toMatchObject({
+      model: 'image-01',
+      prompt: 'a red circle',
+      width: 1024,
+      height: 1024,
+    });
+    expect(payload.data[0].b64_json).toBe('iVBORw0=');
+  });
+});
 
 /**
  * A space integration's provider `baseUrl` is tenant input, so its requests go
