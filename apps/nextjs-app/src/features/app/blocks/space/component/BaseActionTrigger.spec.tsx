@@ -45,6 +45,9 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getNotificationSummary: () =>
     Promise.resolve({ data: { unreadCount: 1, criticalAdminNotices: [], unreadInvites: [] } }),
 }));
+vi.mock('@/features/app/hooks/usePublicFileEnabled', () => ({
+  usePublicFileEnabled: () => false,
+}));
 vi.mock('@/features/app/components/billing/UpgradeWrapper', () => ({
   useUpgradeAction: () => ({}),
 }));

@@ -30,7 +30,7 @@ import {
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { PostgreSqlContainer, type StartedPostgreSqlContainer } from '@testcontainers/postgresql';
 import { CompiledQuery, sql, type Kysely, type Transaction, type TransactionBuilder } from 'kysely';
-import { ok } from 'neverthrow';
+import { ok, type Result } from 'neverthrow';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { PostgresDataQueryExecutor } from './PostgresDataQueryExecutor';
@@ -43,6 +43,11 @@ const describePg = process.env.TEABLE_V2_RUN_PG_INTEGRATION === '1' ? describe :
 const baseId = BaseId.create(`bse${'s'.repeat(16)}`)._unsafeUnwrap();
 const titleId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
 const context = { actorId: ActorId.create('query-budget-actor')._unsafeUnwrap() };
+
+function requireOk<T, E extends { message: string }>(result: Result<T, E>): T {
+  if (result.isErr()) throw new Error(result.error.message, { cause: result.error });
+  return result.value;
+}
 
 const tableFor = (seed: string) => {
   const builder = Table.builder()
@@ -626,6 +631,430 @@ describePg('PostgresDataQueryExecutor transaction isolation (Postgres)', () => {
       page: { limit: 1, offset: 1, total: 101 },
     });
   });
+
+  it.each(['root', 'relation'] as const)(
+    'compares calendar months before pagination on the %s executor',
+    async (mode) => {
+      const physicalName = `month_comparison_${mode}`;
+      const physical = sql.id(baseId.toString(), physicalName);
+      const suffix = mode === 'root' ? '1' : '2';
+      const dateId = `fld${'d'.repeat(16)}`;
+      const amountId = `fld${'a'.repeat(16)}`;
+      const receiptId = `fld${'r'.repeat(16)}`;
+      const refundId = `fld${'f'.repeat(16)}`;
+      const storedNetId = `fld${'n'.repeat(16)}`;
+      const statusId = `fld${'s'.repeat(16)}`;
+      const table = requireOk(
+        new DefaultTableMapper().toDomain({
+          id: `tbl${suffix.repeat(16)}`,
+          baseId: baseId.toString(),
+          name: 'Monthly sales',
+          dbTableName: `${baseId.toString()}.${physicalName}`,
+          primaryFieldId: titleId.toString(),
+          fields: [
+            {
+              id: titleId.toString(),
+              name: 'Region',
+              type: 'singleLineText',
+              dbFieldName: 'region',
+              isPrimary: true,
+            },
+            {
+              id: dateId,
+              name: 'Sold at',
+              type: 'date',
+              dbFieldName: 'sold_at',
+              dbFieldType: 'DATETIME',
+            },
+            {
+              id: amountId,
+              name: 'Amount',
+              type: 'number',
+              dbFieldName: 'amount',
+              dbFieldType: 'NUMERIC',
+            },
+            {
+              id: receiptId,
+              name: 'Receipt',
+              type: 'number',
+              dbFieldName: 'receipt',
+              dbFieldType: 'REAL',
+            },
+            {
+              id: refundId,
+              name: 'Refund',
+              type: 'number',
+              dbFieldName: 'refund',
+              dbFieldType: 'REAL',
+            },
+            {
+              id: storedNetId,
+              name: 'Stored net',
+              type: 'formula',
+              dbFieldName: 'stored_net',
+              dbFieldType: 'REAL',
+              options: { expression: `{${receiptId}} - {${refundId}}` },
+              cellValueType: 'number',
+              isMultipleCellValue: false,
+            },
+            { id: statusId, name: 'Status', type: 'singleLineText', dbFieldName: 'status' },
+          ],
+          views: [{ id: `viw${suffix.repeat(16)}`, name: 'Grid', type: 'grid', columnMeta: {} }],
+        })
+      );
+      await sql`create table ${physical} (
+        __id text primary key, region text, sold_at timestamptz, amount numeric, status text,
+        receipt double precision, refund double precision,
+        stored_net double precision generated always as (receipt - refund) stored
+      )`.execute(db);
+      await sql`insert into ${physical} (__id, region, sold_at, amount, status) values
+        ('a', 'north', '2026-01-01T07:59:59Z', 130, 'active'),
+        ('b', 'north', '2025-12-01T08:00:00Z', 10, 'active'),
+        ('c', 'north', '2026-01-01T08:00:00Z', 40, 'active'),
+        ('d', 'north', '2026-02-01T07:59:59Z', 20, 'active'),
+        ('e', 'north', '2025-12-01T07:59:59Z', 999, 'active'),
+        ('f', 'north', '2026-02-01T08:00:00Z', 999, 'active'),
+        ('g', 'north', null, 999, 'active'),
+        ('h', 'north', '2025-12-25T00:00:00Z', 999, 'inactive'),
+        ('i', 'north', '2026-01-25T00:00:00Z', 999, 'inactive'),
+        ('j', 'zero', '2025-12-25T00:00:00Z', 0, 'active'),
+        ('k', 'zero', '2026-01-25T00:00:00Z', 40, 'active'),
+        ('l', 'nulls', '2025-12-25T00:00:00Z', null, 'active'),
+        ('m', 'nulls', '2026-01-25T00:00:00Z', 40, 'active'),
+        ('n', 'missing', '2026-01-25T00:00:00Z', 40, 'active'),
+        ('o', 'precise', '2025-12-25T00:00:00Z', 9007199254740993.1234567890123456789, 'active'),
+        ('p', 'precise', '2026-01-25T00:00:00Z', 9007199254740993.1234567890123456790, 'active'),
+        ('bc1', 'legacy', '2025-12-15 00:00:00+00 BC', 10, 'active'),
+        ('bc2', 'legacy', '2026-01-15 00:00:00+00 BC', 40, 'active')
+      `.execute(db);
+      await sql`insert into ${physical} (__id, region, sold_at, receipt, status) values
+        ('r1', 'receipts', '2025-12-02T00:00:00Z', 0.1, 'active'),
+        ('r2', 'receipts', '2025-12-03T00:00:00Z', 0.2, 'active'),
+        ('r3', 'receipts', '2025-12-04T00:00:00Z', -0.3, 'active'),
+        ('r4', 'receipts', '2026-01-02T00:00:00Z', 40, 'active'),
+        ('r5', 'roundTrip', '2026-01-02T00:00:00Z', 0.30000000000000004, 'active')`.execute(db);
+      await sql`insert into ${physical} (__id, region, sold_at, receipt, refund, status) values
+        ('net1', 'net', '2025-12-02T00:00:00Z', 0.30, 0.10, 'active'),
+        ('net2', 'net', '2025-12-03T00:00:00Z', 0, 0.20, 'active'),
+        ('net3', 'net', '2026-01-02T00:00:00Z', 45, 5, 'active'),
+        ('net4', 'filteredNet', '2025-12-02T00:00:00Z', 0.30, 0.10, 'active'),
+        ('net5', 'filteredNet', '2026-01-02T00:00:00Z', 0.40, 0.30, 'active'),
+        ('tiny1', 'tinyNet', '2025-12-02T00:00:00Z', 0.00000000000000000001, 0, 'active'),
+        ('tiny2', 'tinyNet', '2026-01-02T00:00:00Z', 0.00000000000000000002, 0, 'active')`.execute(
+        db
+      );
+      await sql`insert into ${physical} (__id, region, sold_at, amount, status)
+        select 'background-' || n, 'north', '2000-01-01T00:00:00Z'::timestamptz
+          + n * interval '1 hour', 1000, 'active'
+        from generate_series(1, 20000) as fixture(n)`.execute(db);
+      const dateIndex = `${physicalName}_sold_at_idx`;
+      await sql`create index ${sql.id(dateIndex)} on ${physical} (sold_at)`.execute(db);
+      await sql`analyze ${physical}`.execute(db);
+      const comparisons: CompiledQuery[] = [];
+      const recordingDb = db.withPlugin({
+        transformQuery({ node, queryId }) {
+          const compiled = db.getExecutor().compileQuery(node, queryId);
+          if (compiled.sql.includes('as "changeRate"')) comparisons.push(compiled);
+          return node;
+        },
+        transformResult: ({ result }) => Promise.resolve(result),
+      });
+      const maskedActor = requireOk(ActorId.create('masked-calendar-reader'));
+      const visibleWhen = requireOk(
+        buildRecordConditionSpec(table, {
+          fieldId: titleId.toString(),
+          operator: 'is',
+          value: 'zero',
+        })
+      );
+      const service = new QueryExecutionService(
+        new DataQueryService(
+          { findOne: async () => ok(table) },
+          new RecordQueryPluginRunner(
+            [
+              {
+                name: 'mask-calendar-for-reader',
+                supports: () => true,
+                scope: ({ executionContext }) =>
+                  ok(
+                    executionContext.actorId.equals(maskedActor)
+                      ? { fieldMasks: [{ fieldId: dateId, visibleWhen }] }
+                      : undefined
+                  ),
+              },
+            ],
+            new NoopLogger()
+          ),
+          new PostgresDataQueryExecutor(recordingDb)
+        )
+      );
+      const source = requireOk(
+        dataQueryCompositionSource({
+          version: 3,
+          kind: 'records',
+          tableId: table.id().toString(),
+          page: { limit: 1, includeTotal: true },
+          select: [
+            {
+              fieldId: dateId,
+              alias: 'month',
+              bucket: { kind: 'dateTrunc', unit: 'month', timeZone: 'America/Los_Angeles' },
+              ...(mode === 'relation' ? { source: 'root' } : {}),
+            },
+            { fieldId: titleId.toString(), alias: 'region' },
+            { fieldId: dateId, alias: 'soldAt' },
+            { fieldId: amountId, alias: 'amount' },
+            { fieldId: amountId, alias: '__teable_composition_decimal_metric' },
+            { fieldId: receiptId, alias: 'receipt' },
+            {
+              alias: 'storedNet',
+              expr: {
+                type: 'formula',
+                formula: '{stored}',
+                references: { stored: { type: 'field', fieldId: storedNetId } },
+              },
+            },
+            {
+              alias: 'netRevenue',
+              expr: {
+                type: 'formula',
+                formula: '{gross} - {refund}',
+                references: {
+                  gross: { type: 'field', fieldId: receiptId },
+                  refund: { type: 'field', fieldId: refundId },
+                },
+              },
+            },
+            { fieldId: statusId, alias: 'status' },
+          ],
+        })
+      );
+      const request = { definition: source.definition };
+      const { outputs } = requireOk(await service.validate(context, request));
+      type Metric = NonNullable<DataQueryComposition['metrics']>[number];
+      const metricFor = (statistic: Metric['statistic'], input: string) =>
+        requireOk(
+          prepareDataQueryComposition(
+            {
+              kind: 'composition',
+              source: { id: `qlb${'1'.repeat(16)}`, revision: 1 },
+              metricDimensions: ['month', 'region', 'soldAt'],
+              metrics: [{ alias: 'current', statistic, ...(input ? { input } : {}) }],
+              filter: [{ alias: 'status', operator: 'eq', value: 'active' }],
+              page: { limit: 1, includeTotal: true },
+            },
+            outputs,
+            source
+          )
+        );
+      const run = async (
+        statistic: Metric['statistic'],
+        region: string,
+        input = 'amount',
+        soldAt?: string
+      ) => {
+        const { composition } = requireOk(
+          metricFor(statistic, input).bind({
+            compareMonth: '2026-01',
+            compareDimension: 'month',
+            where_region: region,
+            ...(soldAt === undefined ? {} : { where_soldAt: soldAt }),
+          })
+        );
+        const result = requireOk(await service.executeComposition(context, request, composition));
+        expect(result.page).toBeUndefined();
+        expect(result.rows).toHaveLength(1);
+        const [row] = result.rows;
+        expect(Object.keys(row)).toHaveLength(6);
+        expect(row).toMatchObject({ currentMonth: '2026-01', previousMonth: '2025-12' });
+        return row;
+      };
+
+      const sum = await run('sum', 'north');
+      expect(sum).toMatchObject({ current: '60', previous: '140', difference: '-80' });
+      expect(Number(sum.changeRate)).toBeCloseTo(-4 / 7);
+      expect(comparisons).toHaveLength(1);
+      const [compiled] = comparisons;
+      const plan = await db.executeQuery<{ 'QUERY PLAN': string }>({
+        ...compiled,
+        sql: `explain (analyze, format text) ${compiled.sql}`,
+      });
+      const planText = plan.rows.map((row) => row['QUERY PLAN']).join('\n');
+      expect(planText).toContain(dateIndex);
+      expect(planText).toMatch(/Index Cond:.*sold_at.*>=.*sold_at.*</);
+      expect(planText).not.toContain(`Seq Scan on ${physicalName}`);
+
+      const { composition: maskedComposition } = requireOk(
+        metricFor('sum', 'amount').bind({
+          compareMonth: '2026-01',
+          compareDimension: 'month',
+          where_region: 'north',
+        })
+      );
+      const masked = requireOk(
+        await service.executeComposition({ actorId: maskedActor }, request, maskedComposition)
+      );
+      expect(masked.rows).toEqual([
+        {
+          currentMonth: '2026-01',
+          previousMonth: '2025-12',
+          current: null,
+          previous: null,
+          difference: null,
+          changeRate: null,
+        },
+      ]);
+      expect(comparisons[1].sql).not.toMatch(/"sold_at"(?:::timestamptz)?\s*(?:>=|<)/);
+
+      expect(await run('sum', 'north', 'amount', '2026-01-01T08:00:00Z')).toMatchObject({
+        current: '40',
+        previous: null,
+        difference: null,
+        changeRate: null,
+      });
+      expect(await run('sum', 'north', 'amount', '2026-01-01T07:59:59Z')).toMatchObject({
+        current: null,
+        previous: '130',
+        difference: null,
+        changeRate: null,
+      });
+      expect(await run('average', 'north')).toMatchObject({
+        current: expect.stringMatching(/^30(?:\.0+)?$/),
+        previous: expect.stringMatching(/^70(?:\.0+)?$/),
+      });
+      expect(await run('min', 'north')).toMatchObject({ current: '20', previous: '10' });
+      expect(await run('max', 'north')).toMatchObject({ current: '40', previous: '130' });
+      expect(await run('sum', 'zero')).toMatchObject({
+        current: '40',
+        previous: '0',
+        difference: '40',
+        changeRate: null,
+      });
+      for (const statistic of ['sum', 'average'] as const) {
+        expect(await run(statistic, 'receipts', 'receipt')).toMatchObject({
+          current: expect.stringMatching(/^40(?:\.0+)?$/),
+          previous: expect.stringMatching(/^0(?:\.0+)?$/),
+          difference: expect.stringMatching(/^40(?:\.0+)?$/),
+          changeRate: null,
+        });
+        expect(await run(statistic, 'net', 'netRevenue')).toMatchObject({
+          current: expect.stringMatching(/^40(?:\.0+)?$/),
+          previous: expect.stringMatching(/^0(?:\.0+)?$/),
+          difference: expect.stringMatching(/^40(?:\.0+)?$/),
+          changeRate: null,
+        });
+      }
+      expect(await run('sum', 'roundTrip', 'receipt')).toMatchObject({
+        current: '0.30000000000000004',
+        previous: null,
+      });
+      const tiny = await run('sum', 'tinyNet', 'netRevenue');
+      expect(tiny.previous).toBe('0.00000000000000000001');
+      expect(tiny.difference).toBe('0.00000000000000000001');
+      expect(Number(tiny.changeRate)).toBe(1);
+      // Referencing a stored numeric Formula reads its persisted value, including its residue.
+      const stored = await run('sum', 'net', 'storedNet');
+      expect(stored.previous).toBe('-0.00000000000000002');
+      expect(stored.current).toBe('40');
+      expect(stored.changeRate).toBeDefined();
+      expect(Number(stored.changeRate)).toBeLessThan(0);
+      for (const statistic of ['sum', 'average'] as const) {
+        const { composition } = requireOk(
+          metricFor(statistic, 'netRevenue').bind({
+            groupBy: ['month'],
+            where_region: 'net',
+            where_month: '2025-12-01',
+          })
+        );
+        const result = requireOk(await service.executeComposition(context, request, composition));
+        expect(result.rows).toEqual([
+          { month: '2025-12-01', region: null, soldAt: null, current: 0 },
+        ]);
+      }
+      const filteredNet = requireOk(
+        prepareDataQueryComposition(
+          {
+            kind: 'composition',
+            source: { id: `qlb${'1'.repeat(16)}`, revision: 1 },
+            metricDimensions: ['month', 'region', 'netRevenue'],
+            metrics: [{ alias: 'current', statistic: 'sum', input: 'netRevenue' }],
+            filter: [{ alias: 'netRevenue', operator: 'lt', value: 0.2 }],
+          },
+          outputs,
+          source
+        )
+      );
+      const filteredGroup = requireOk(
+        filteredNet.bind({
+          groupBy: ['netRevenue'],
+          where_region: 'filteredNet',
+          where_month: '2025-12-01',
+        })
+      );
+      const groupedResult = requireOk(
+        await service.executeComposition(context, request, filteredGroup.composition)
+      );
+      expect(groupedResult.rows).toEqual([
+        { month: null, region: null, netRevenue: 0.3 - 0.1, current: 0.2 },
+      ]);
+      const filteredComparison = requireOk(
+        filteredNet.bind({
+          compareMonth: '2026-01',
+          compareDimension: 'month',
+          where_region: 'filteredNet',
+        })
+      );
+      const filteredResult = requireOk(
+        await service.executeComposition(context, request, filteredComparison.composition)
+      );
+      expect(filteredResult.rows).toHaveLength(1);
+      expect(filteredResult.rows[0]).toMatchObject({
+        current: '0.1',
+        previous: '0.2',
+        difference: '-0.1',
+      });
+      expect(Number(filteredResult.rows[0].changeRate)).toBe(-0.5);
+      expect(await run('sum', 'nulls')).toMatchObject({
+        current: '40',
+        previous: null,
+        difference: null,
+        changeRate: null,
+      });
+      expect(await run('count', 'nulls')).toMatchObject({
+        current: '1',
+        previous: '0',
+        difference: '1',
+        changeRate: null,
+      });
+      expect(await run('count', 'nulls', '')).toMatchObject({
+        current: '1',
+        previous: '1',
+        difference: '0',
+      });
+      expect(await run('count', 'missing')).toMatchObject({
+        current: '1',
+        previous: null,
+        difference: null,
+        changeRate: null,
+      });
+      expect(await run('count', 'empty', '')).toMatchObject({
+        current: null,
+        previous: null,
+        difference: null,
+        changeRate: null,
+      });
+      expect(await run('sum', 'precise')).toMatchObject({
+        current: '9007199254740993.1234567890123456790',
+        previous: '9007199254740993.1234567890123456789',
+        difference: '0.0000000000000000001',
+      });
+      expect(await run('sum', 'legacy')).toMatchObject({
+        current: '40',
+        previous: '10',
+        difference: '30',
+      });
+    }
+  );
 
   it.each(['createdBy', 'lastModifiedBy'] as const)(
     'aggregates historical %s TEXT identities without a JSON cast failure',

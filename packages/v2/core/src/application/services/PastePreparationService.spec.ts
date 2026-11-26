@@ -8,6 +8,7 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import type { ISpecification } from '../../domain/shared/specification/ISpecification';
 import { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldName } from '../../domain/table/fields/FieldName';
+import { AttachmentField } from '../../domain/table/fields/types/AttachmentField';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { SelectOption } from '../../domain/table/fields/types/SelectOption';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
@@ -318,6 +319,31 @@ describe('PastePreparationService', () => {
     expect(repository.calls).toEqual([]);
   });
 
+  it('applies the command budget to the resolved whole-column selection', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const repository = new CapturingRecordQueryRepository([], 3);
+    const command = PasteCommand.create(
+      {
+        tableId: tableId.toString(),
+        viewId: viewId.toString(),
+        type: 'columns',
+        ranges: [[0, 0]],
+        content: [['x']],
+      },
+      2
+    )._unsafeUnwrap();
+
+    const result = await createService(table, repository).prepare(context, command, {
+      readAuthorization: 'unknown',
+    });
+
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.paste.max_cells_exceeded',
+      details: { max: 2 },
+    });
+    expect(repository.calls).toEqual([]);
+  });
+
   it('projects column expansion on a detached aggregate without persistence collaborators', async () => {
     const { table, tableId, viewId } = buildTable();
     const command = PasteCommand.create({
@@ -345,6 +371,34 @@ describe('PastePreparationService', () => {
     expect(preparation.tableForPaste.getFields()).toHaveLength(3);
     expect(preparation.columnExpansion?.newFields).toHaveLength(1);
     expect(preparation.facts.columnExpansionCount).toBe(1);
+  });
+
+  it('creates a column copied from a public attachment field without public links', async () => {
+    const { table, tableId, viewId } = buildTable();
+    const command = PasteCommand.create({
+      tableId: tableId.toString(),
+      viewId: viewId.toString(),
+      ranges: [
+        [0, 0],
+        [2, 0],
+      ],
+      content: [['title', 'status', '']],
+      sourceFields: [
+        { type: 'singleLineText' },
+        { type: 'singleSelect' },
+        { name: 'Files', type: 'attachment', options: { isPublic: true } },
+      ],
+    })._unsafeUnwrap();
+
+    const preparation = (
+      await createService(table, new CapturingRecordQueryRepository([])).prepare(context, command, {
+        readAuthorization: 'unknown',
+      })
+    )._unsafeUnwrap();
+
+    const [created] = preparation.columnExpansion?.newFields ?? [];
+    expect(created).toBeInstanceOf(AttachmentField);
+    expect((created as AttachmentField).publicAccess().toBoolean()).toBe(false);
   });
 
   it('does not mutate fields on the repository-loaded table while projecting columns', async () => {

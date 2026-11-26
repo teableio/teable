@@ -49,7 +49,7 @@ export const validateForeignTablesForFields = (
     }
   }
 
-  return fields.reduce<Result<void, DomainError>>(
+  const result = fields.reduce<Result<void, DomainError>>(
     (acc, field) =>
       acc.andThen(() => {
         if (!isForeignTableRelatedField(field)) return ok(undefined);
@@ -57,4 +57,18 @@ export const validateForeignTablesForFields = (
       }),
     ok(undefined)
   );
+  if (result.isErr()) return result;
+
+  const lookupFields = fields.filter((field): field is LookupField => field instanceof LookupField);
+  for (let pass = 0; pass < lookupFields.length; pass++) {
+    let changed = false;
+    for (const lookupField of lookupFields) {
+      if (lookupField.recomputeLegacyMultiplicity(context)) {
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+
+  return ok(undefined);
 };

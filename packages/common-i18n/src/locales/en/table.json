@@ -1,6 +1,10 @@
 {
   "searchAcceleration": {
     "title": "Search acceleration",
+    "configure": "Configure",
+    "stateUnknown": "Unknown",
+    "contactAdmin": "Contact a space administrator to change this setting.",
+    "shareServing": "Acceleration is available for visible fields in this view.",
     "stateLabel": "Setting",
     "state": {
       "disabled": "Off",
@@ -18,6 +22,11 @@
     "readOnly": "Only space owners and creators with permission to update this table can change this setting.",
     "statusError": "Could not load the setting. You can continue searching this table.",
     "changeError": "Could not change the setting. Try again.",
+    "quotaExceeded": "To turn on search acceleration, reduce this space’s row usage or increase its row limit.",
+    "quotaLimit": "Space row limit",
+    "quotaCurrent": "Rows currently used",
+    "quotaIncrement": "Additional rows for acceleration",
+    "unavailable": "Search acceleration is temporarily unavailable. Try again in a moment.",
     "confirmTitle": "Turn on acceleration for this large table?",
     "confirmDetail": "This table has at least 50,000 records. Preparation may take time. You can keep searching while it runs.",
     "confirm": "Confirm and turn on"
@@ -397,6 +406,22 @@
       "removeDuplicateValues": "Remove duplicate values",
       "moreOptions": "More options",
       "allowNewOptionsWhenEditing": "Allow new options when editing",
+      "publicLinks": {
+        "label": "Public links",
+        "description": "Anyone with the link can open files in this field",
+        "enableDescription": "Every file in this field, including files added later, gets a link that anyone can open without signing in.",
+        "status": "Public",
+        "copying": "Copying files",
+        "failed": "{{count}} failed",
+        "retry": "Copy again",
+        "paused": "Public links are paused because this space is out of credits. They work again after a top-up.",
+        "planLapsed": "This space's plan no longer includes public files: new files are not made public, and the published copies are deleted when the grace period ends. Renewing brings them back.",
+        "legacyEngine": "This project is not on V2 yet. Public links need V2; ask an administrator to switch it.",
+        "enableBackground": "Files are copied in the background and open as soon as they are copied",
+        "enableNoRecall": "Content that has been downloaded cannot be recalled",
+        "enableTraffic": "Traffic is charged to your credit at {{credit}} credits per GB",
+        "disableDescription": "Existing public links to files in this field will stop working."
+      },
       "deleteField": {
         "title": "Delete field",
         "simpleConfirm": "Are you sure you want to delete the field <b>{{fieldName}}</b>?",

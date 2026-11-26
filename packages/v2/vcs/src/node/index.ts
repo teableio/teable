@@ -57,6 +57,7 @@ const vcsWorkspaceConfigSchema = z.object({
   readOnly: z.boolean().optional(),
   clonedAt: z.string().datetime().optional(),
   cloneRevision: z.number().int().nonnegative().optional(),
+  promotionBaselineRevision: z.number().int().nonnegative().optional(),
   lastPulledAt: z.string().optional(),
   lastPushedAt: z.string().optional(),
 });
@@ -629,7 +630,30 @@ export class FileVcsStateRepository implements IVcsStateRepository {
     return this.writeJsonFile('config.json', vcsWorkspaceConfigSchema.parse(config));
   }
 
+  private readPromotionSnapshot() {
+    return this.readJsonFile('promotion.snapshot.json', (raw) => baseVcsSnapshotSchema.parse(raw));
+  }
+
+  async writePromotionSnapshot(snapshot: IBaseVcsSnapshot): Promise<Result<void, DomainError>> {
+    return this.writeJsonFile('promotion.snapshot.json', snapshot);
+  }
+
   async readBaseSchemaSnapshot(): Promise<Result<IVcsBaseSchemaSummary | null, DomainError>> {
+    const promotion = await this.readPromotionSnapshot();
+    if (promotion.isErr()) return err(promotion.error);
+    if (promotion.value) {
+      const tableRecordCounts: Record<string, number> = {};
+      let totalRecords = 0;
+      for (const table of promotion.value.tables) {
+        tableRecordCounts[table.id] = table.records.length;
+        totalRecords += table.records.length;
+      }
+      return ok({
+        schemaSnapshot: toSchemaOnlySnapshot(promotion.value),
+        tableRecordCounts,
+        totalRecords,
+      });
+    }
     const schemaFileRes = await this.readStoredBaseSchemaFile();
     if (schemaFileRes.isErr()) return err(schemaFileRes.error);
     if (schemaFileRes.value) {
@@ -713,6 +737,16 @@ export class FileVcsStateRepository implements IVcsStateRepository {
   ): Promise<Result<ReadonlyMap<string, IRecordVcsSnapshot>, DomainError>> {
     const out = new Map<string, IRecordVcsSnapshot>();
     if (recordIds.length === 0) return ok(out);
+    const promotion = await this.readPromotionSnapshot();
+    if (promotion.isErr()) return err(promotion.error);
+    if (promotion.value) {
+      const wanted = new Set(recordIds);
+      for (const record of promotion.value.tables.find((table) => table.id === tableId)?.records ??
+        []) {
+        if (wanted.has(record.id)) out.set(record.id, record);
+      }
+      return ok(out);
+    }
 
     const schemaFileRes = await this.readStoredBaseSchemaFile();
     if (schemaFileRes.isErr()) return err(schemaFileRes.error);
@@ -948,6 +982,8 @@ export class FileVcsStateRepository implements IVcsStateRepository {
   }
 
   async readBaseSnapshot(): Promise<Result<IBaseVcsSnapshot | null, DomainError>> {
+    const promotion = await this.readPromotionSnapshot();
+    if (promotion.isErr() || promotion.value) return promotion;
     const schemaFileRes = await this.readStoredBaseSchemaFile();
     if (schemaFileRes.isErr()) return err(schemaFileRes.error);
     if (!schemaFileRes.value) {
@@ -977,6 +1013,7 @@ export class FileVcsStateRepository implements IVcsStateRepository {
 
   async writeBaseSnapshot(snapshot: IBaseVcsSnapshot): Promise<Result<void, DomainError>> {
     const canonical = canonicalizeSnapshot(snapshot, { preserveComputed: true });
+    await rm(join(this.stateDir, 'promotion.snapshot.json'), { force: true });
     await rm(this.baseRecordsDir, { recursive: true, force: true });
 
     const tableRecordCounts: Record<string, number> = {};

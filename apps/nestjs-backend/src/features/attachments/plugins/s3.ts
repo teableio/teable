@@ -705,11 +705,13 @@ export class S3Storage implements StorageAdapter {
           Prefix: prefix,
           Delimiter: options?.delimiter,
           ContinuationToken: continuationToken,
+          StartAfter: continuationToken ? undefined : options?.startAfter,
+          MaxKeys: options?.maxKeys,
         })
       );
       this.collectListedPage(page, objects, prefixes);
       continuationToken = page.IsTruncated ? page.NextContinuationToken : undefined;
-    } while (continuationToken);
+    } while (continuationToken && !options?.maxKeys);
     return { objects, prefixes: [...prefixes] };
   }
 

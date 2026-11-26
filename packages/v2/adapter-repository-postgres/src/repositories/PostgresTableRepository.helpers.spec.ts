@@ -29,16 +29,42 @@ const createMappedTable = () =>
     .field()
     .singleLineText();
 
+const decodeSelectOptions = (options: Record<string, unknown>) => {
+  const field = PostgresTableRepository.deserializeFieldDto({
+    id: 'fld1',
+    name: 'Status',
+    type: 'select',
+    options: JSON.stringify(options),
+    description: null,
+    meta: null,
+    ai_config: null,
+    cell_value_type: 'string',
+    is_multiple_cell_value: false,
+    not_null: null,
+    unique: null,
+    is_computed: null,
+    is_lookup: null,
+    is_conditional_lookup: null,
+    has_error: null,
+    lookup_linked_field_id: null,
+    lookup_options: null,
+    db_field_name: 'status',
+    db_field_type: 'TEXT',
+  });
+  if (field.type !== 'singleSelect' || !field.options) throw new Error('Expected select options');
+  return field.options;
+};
+
 describe('PostgresTableRepository helpers', () => {
   it('normalizes legacy select options and resolves sort columns', () => {
     const repo = createRepository() as any;
 
-    const legacy = repo.normalizeSelectOptions({ options: ['Todo', '', 'Done'] });
+    const legacy = decodeSelectOptions({ options: ['Todo', '', 'Done'] });
     expect(legacy.choices).toHaveLength(2);
     expect(legacy.choices[0].id).toMatch(/^cho/);
     expect(legacy.choices[0].name).toBe('Todo');
 
-    const modern = repo.normalizeSelectOptions({
+    const modern = decodeSelectOptions({
       choices: [
         { id: 'choEmpty', name: '', color: 'redBright' },
         { id: '', name: 'Ready', color: 'invalid' },
@@ -54,7 +80,7 @@ describe('PostgresTableRepository helpers', () => {
     expect(modern.choices[0].id).toMatch(/^cho/);
     expect(modern.choices[0].name).toBe('Ready');
 
-    expect(repo.normalizeSelectOptions({ choices: [], defaultValue: [' ', 'Done'] })).toEqual({
+    expect(decodeSelectOptions({ choices: [], defaultValue: [' ', 'Done'] })).toEqual({
       choices: [],
       defaultValue: ['Done'],
     });
@@ -87,8 +113,6 @@ describe('PostgresTableRepository helpers', () => {
     expect(repo.parseViewGroup('"oops"')).toBeUndefined();
     expect(repo.serializeViewQuery({ query: { group: [] } }).group).toBe('[]');
     expect(repo.serializeViewQuery({ query: {} }).group).toBeNull();
-    expect(repo.parseJsonValue('{"a":1}')).toEqual({ a: 1 });
-    expect(repo.parseJsonValue('oops')).toBeUndefined();
   });
 
   it('maps legacy and v2 filters into normalized v2 nodes', () => {
@@ -161,7 +185,7 @@ describe('PostgresTableRepository helpers', () => {
     const repo = createRepository() as any;
 
     expect(
-      repo.deserializeFieldDto({
+      PostgresTableRepository.deserializeFieldDto({
         id: 'fld1',
         name: 'Rating',
         description: null,
@@ -189,7 +213,7 @@ describe('PostgresTableRepository helpers', () => {
     });
 
     expect(
-      repo.deserializeFieldDto({
+      PostgresTableRepository.deserializeFieldDto({
         id: 'fld2',
         name: 'Lookup',
         description: null,
@@ -222,7 +246,7 @@ describe('PostgresTableRepository helpers', () => {
     });
 
     expect(
-      repo.deserializeFieldDto({
+      PostgresTableRepository.deserializeFieldDto({
         id: 'fld3',
         name: 'Fallback',
         description: null,

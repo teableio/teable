@@ -14,9 +14,23 @@ import { TopBannerId, useTopBannerSlot } from '@/features/app/hooks/useTopBanner
 
 const dismissedKey = (userId: string) => `teable:admin-todo-banner-dismissed:${userId}`;
 
-const readDismissed = (key: string) => {
+// A dismissed banner comes back after this long while the risks are still there.
+const REMIND_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
+
+interface IDismissal {
+  /** The set of risks that was dismissed. */
+  signature: string;
+  dismissedAt: number;
+}
+
+const readDismissal = (key: string): IDismissal | null => {
   try {
-    return localStorage.getItem(key);
+    const stored: unknown = JSON.parse(localStorage.getItem(key) ?? 'null');
+    if (typeof stored !== 'object' || stored === null) return null;
+    const { signature, dismissedAt } = stored as Partial<IDismissal>;
+    return typeof signature === 'string' && typeof dismissedAt === 'number'
+      ? { signature, dismissedAt }
+      : null;
   } catch {
     return null;
   }
@@ -25,9 +39,10 @@ const readDismissed = (key: string) => {
 /**
  * Points instance admins at the security group of the admin checklist from
  * the space and settings pages; on a fresh install that is right after the
- * first user signs up and becomes the admin. Dismissing hides it until the set
- * of risks changes. The admin pages show the checklist itself, so they do not
- * mount it.
+ * first user signs up and becomes the admin. Dismissing hides it for 14 days,
+ * or until the set of risks changes, whichever comes first: a risk nobody
+ * acted on is brought up again. The admin pages show the checklist itself, so
+ * they do not mount it.
  */
 export const AdminTodoBanner = () => {
   const { t } = useTranslation('common');
@@ -50,12 +65,16 @@ export const AdminTodoBanner = () => {
     .join('|');
 
   const storageKey = user?.id ? dismissedKey(user.id) : undefined;
-  const [dismissed, setDismissed] = useState<string | null>(null);
+  const [dismissal, setDismissal] = useState<IDismissal | null>(null);
   useEffect(() => {
-    setDismissed(storageKey ? readDismissed(storageKey) : null);
+    setDismissal(storageKey ? readDismissal(storageKey) : null);
   }, [storageKey]);
+  // Read once per mount: the banner returns on the next page load after the 14 days.
+  const [mountedAt] = useState(() => Date.now());
 
-  const visible = securityItems.length > 0 && dismissed !== signature;
+  const stillDismissed =
+    dismissal?.signature === signature && mountedAt - dismissal.dismissedAt < REMIND_AFTER_MS;
+  const visible = securityItems.length > 0 && !stillDismissed;
 
   const [bannerRef, { height }] = useMeasure<HTMLDivElement>();
   const { offset } = useTopBannerSlot({
@@ -68,12 +87,13 @@ export const AdminTodoBanner = () => {
   if (!visible || typeof document === 'undefined') return null;
 
   const dismiss = () => {
+    const next: IDismissal = { signature, dismissedAt: Date.now() };
     try {
-      if (storageKey) localStorage.setItem(storageKey, signature);
+      if (storageKey) localStorage.setItem(storageKey, JSON.stringify(next));
     } catch {
       // storage unavailable: hide for this page view only
     }
-    setDismissed(signature);
+    setDismissal(next);
   };
 
   return createPortal(

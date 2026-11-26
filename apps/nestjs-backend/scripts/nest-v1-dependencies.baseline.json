@@ -97,38 +97,6 @@
   },
   {
     "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/event-emitter/event-emitter.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
-    "symbol": "RecordModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/event-emitter/event-emitter.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.module.ts",
-    "symbol": "RecordModule",
-    "kind": "provider",
-    "owner": "EventEmitterModule:imports"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/event-emitter/listeners/collaborator-notification.listener.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
-    "symbol": "RecordService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/event-emitter/listeners/collaborator-notification.listener.ts",
-    "target": "community/apps/nestjs-backend/src/features/record/record.service.ts",
-    "symbol": "RecordService",
-    "kind": "injection",
-    "owner": "CollaboratorNotificationListener"
-  },
-  {
-    "scope": "external-consumer",
     "source": "community/apps/nestjs-backend/src/features/base-node/base-node.module.ts",
     "target": "community/apps/nestjs-backend/src/features/table/open-api/table-open-api.module.ts",
     "symbol": "TableOpenApiModule",
@@ -633,22 +601,6 @@
   },
   {
     "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/dashboard/dashboard.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
-    "symbol": "BaseImportService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/dashboard/dashboard.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
-    "symbol": "BaseImportService",
-    "kind": "injection",
-    "owner": "DashboardService"
-  },
-  {
-    "scope": "external-consumer",
     "source": "community/apps/nestjs-backend/src/features/export/open-api/export-open-api.module.ts",
     "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
     "symbol": "FieldModule",
@@ -918,22 +870,6 @@
     "symbol": "TableDomainQueryService",
     "kind": "injection",
     "owner": "LinkIntegrityService"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/plugin-panel/plugin-panel.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
-    "symbol": "BaseImportService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/plugin-panel/plugin-panel.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/base/base-import.service.ts",
-    "symbol": "BaseImportService",
-    "kind": "injection",
-    "owner": "PluginPanelService"
   },
   {
     "scope": "external-consumer",
@@ -1334,38 +1270,6 @@
     "symbol": "TableDomainQueryService",
     "kind": "injection",
     "owner": "ArchiveService"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.controller.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
-    "symbol": "ViewOpenApiService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.controller.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.service.ts",
-    "symbol": "ViewOpenApiService",
-    "kind": "injection",
-    "owner": "WorkflowController"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
-    "symbol": "ViewOpenApiModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/automation/workflow/workflow.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/open-api/view-open-api.module.ts",
-    "symbol": "ViewOpenApiModule",
-    "kind": "provider",
-    "owner": "WorkflowModule:imports"
   },
   {
     "scope": "external-consumer",
@@ -2550,22 +2454,6 @@
     "symbol": "ViewModule",
     "kind": "provider",
     "owner": "TrashModule:imports"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/user-data-export/user-data-export.service.ts",
-    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
-    "symbol": "BaseExportService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/user-data-export/user-data-export.service.ts",
-    "target": "enterprise/backend-ee/src/features/community/base/base-export.service.ts",
-    "symbol": "BaseExportService",
-    "kind": "injection",
-    "owner": "UserDataExportService"
   },
   {
     "scope": "v2-host",

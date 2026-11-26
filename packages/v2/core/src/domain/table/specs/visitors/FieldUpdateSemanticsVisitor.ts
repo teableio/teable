@@ -1,6 +1,7 @@
 import type { FieldUpdatedPropertySemantics } from '../../events/FieldUpdated';
 import {
   RemoveSymmetricLinkFieldSpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
@@ -126,6 +127,8 @@ export class FieldUpdateSemanticsVisitor {
     if (spec instanceof UpdateRatingColorSpec) return this.visitUpdateRatingColor(spec);
     if (spec instanceof UpdateUserMultiplicitySpec) return this.visitUpdateUserMultiplicity(spec);
     if (spec instanceof UpdateUserNotificationSpec) return this.visitUpdateUserNotification(spec);
+    if (spec instanceof UpdateAttachmentPublicAccessSpec)
+      return this.visitUpdateAttachmentPublicAccess(spec);
     if (spec instanceof UpdateUserDefaultValueSpec) return this.visitUpdateUserDefaultValue(spec);
     if (spec instanceof UpdateButtonLabelSpec) return this.visitUpdateButtonLabel(spec);
     if (spec instanceof UpdateButtonColorSpec) return this.visitUpdateButtonColor(spec);
@@ -261,6 +264,12 @@ export class FieldUpdateSemanticsVisitor {
 
   visitUpdateUserMultiplicity(_spec: UpdateUserMultiplicitySpec): FieldUpdateSpecSemantics {
     return buildSemantics([['isMultiple', optionBackedProperty('isMultiple')]])!;
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): FieldUpdateSpecSemantics {
+    return buildSemantics([['isPublic', optionBackedProperty('isPublic')]])!;
   }
 
   visitUpdateUserNotification(_spec: UpdateUserNotificationSpec): FieldUpdateSpecSemantics {

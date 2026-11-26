@@ -112,9 +112,31 @@ export const presignAttachmentFieldMaps = async (
   attachmentFieldKeys: ReadonlySet<string>,
   signer: IAttachmentUrlSignerService
 ): Promise<Result<ReadonlyArray<Record<string, unknown>>, DomainError>> =>
+  (await presignAttachmentFieldMapsWithSigned(fieldMaps, attachmentFieldKeys, signer)).map(
+    ({ fieldMaps: signed }) => signed
+  );
+
+/**
+ * `presignAttachmentFieldMaps`, also giving the signer's result, which the public links of the
+ * same cells reuse.
+ */
+export const presignAttachmentFieldMapsWithSigned = async (
+  fieldMaps: ReadonlyArray<Record<string, unknown>>,
+  attachmentFieldKeys: ReadonlySet<string>,
+  signer: IAttachmentUrlSignerService
+): Promise<
+  Result<
+    {
+      fieldMaps: ReadonlyArray<Record<string, unknown>>;
+      signed: ReadonlyMap<string, AttachmentSignedUrls>;
+    },
+    DomainError
+  >
+> =>
   safeTry(async function* () {
+    const none = new Map<string, AttachmentSignedUrls>();
     if (!fieldMaps.length || !attachmentFieldKeys.size) {
-      return ok(fieldMaps);
+      return ok({ fieldMaps, signed: none });
     }
 
     type CellRef = { mapIndex: number; fieldKey: string; items: AttachmentCellValue };
@@ -141,7 +163,7 @@ export const presignAttachmentFieldMaps = async (
     }
 
     if (!refs.length) {
-      return ok(fieldMaps);
+      return ok({ fieldMaps, signed: none });
     }
 
     const signed =
@@ -153,5 +175,5 @@ export const presignAttachmentFieldMaps = async (
     for (const { mapIndex, fieldKey, items } of refs) {
       nextMaps[mapIndex]![fieldKey] = applySignedUrls(items, signed);
     }
-    return ok(nextMaps);
+    return ok({ fieldMaps: nextMaps, signed });
   });

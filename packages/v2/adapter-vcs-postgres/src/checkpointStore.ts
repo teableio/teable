@@ -17,6 +17,7 @@ import {
   containsForeignReferences,
   type IVcsTableManifest,
   type IVcsRevisionComparison,
+  type SelectHistoricalCheckpointRecords,
   type VcsCheckpointCapture,
 } from '@teable/v2-vcs/server';
 import { sql, type Kysely, type Transaction } from 'kysely';
@@ -182,6 +183,95 @@ function snapshotFromTables(
   };
 }
 
+function recordChunkHashes(manifest: IVcsTableManifest, ids: ReadonlySet<string>) {
+  if (!manifest.chunkPrefixes) return new Set(manifest.chunks);
+  const byPrefix = new Map(manifest.chunkPrefixes.map((prefix, i) => [prefix, manifest.chunks[i]]));
+  const hashes = new Set<string>();
+  for (const id of ids) {
+    const key = checkpointRecordKey(id);
+    for (let length = 0; length <= key.length; length++) {
+      const hash = byPrefix.get(key.slice(0, length));
+      if (hash) {
+        hashes.add(hash);
+        break;
+      }
+    }
+  }
+  return hashes;
+}
+
+async function readSelectedRecordChunks(
+  db: Database,
+  base: string,
+  hashes: ReadonlySet<string>,
+  ids: ReadonlySet<string>
+): Promise<ReadonlyMap<string, readonly IRecordVcsSnapshot[]>> {
+  const records = new Map<string, IRecordVcsSnapshot[]>();
+  if (!hashes.size) return records;
+  // Keep unrelated rows in PostgreSQL, including when a legacy manifest needs a chunk scan.
+  const { rows } = await sql<{ hash: string; records: IRecordVcsSnapshot[] }>`
+    SELECT hash, COALESCE((
+      SELECT jsonb_agg(item.value) FROM jsonb_array_elements(payload) AS item(value)
+      WHERE item.value ->> 'id' = ANY(${[...ids]}::text[])
+    ), '[]'::jsonb) AS records
+    FROM base_vcs_object WHERE base_id = ${base} AND hash = ANY(${[...hashes]}::text[])
+  `.execute(db);
+  for (const row of rows) records.set(row.hash, row.records);
+  // Every required chunk must exist to prove a requested record is absent.
+  if (records.size !== hashes.size) throw new Error('VCS checkpoint references missing objects');
+  return records;
+}
+
+export async function readHistoricalSelection(
+  db: Database,
+  base: string,
+  revision: number,
+  selectRecords?: SelectHistoricalCheckpointRecords
+): Promise<Result<IBaseVcsSnapshot, DomainError>> {
+  const root = await readCheckpoint(db, base, revision);
+  if (root.isErr()) return err(root.error);
+  const manifests = await readObjects<IVcsTableManifest>(
+    db,
+    base,
+    new Set(root.value.tables.map(({ hash }) => hash))
+  );
+  const tables: ITableVcsSnapshot[] = root.value.tables.map(({ hash }) => ({
+    ...manifests.get(hash)!.schema,
+    records: [],
+  }));
+  const schema = snapshotFromTables(base, revision, root.value, tables);
+  if (!selectRecords) return ok(schema);
+  const selection = selectRecords(schema);
+  if (selection.isErr()) return err(selection.error);
+
+  const hashes = new Set<string>();
+  const idsToRead = new Set<string>();
+  const selected: Array<{
+    index: number;
+    ids: ReadonlySet<string>;
+    needed: ReadonlySet<string>;
+  }> = [];
+  for (const [index, { id, hash }] of root.value.tables.entries()) {
+    const ids = selection.value.get(id);
+    if (!ids?.size) continue;
+    const needed = recordChunkHashes(manifests.get(hash)!, ids);
+    if (!needed.size) continue;
+    for (const chunk of needed) hashes.add(chunk);
+    for (const id of ids) idsToRead.add(id);
+    selected.push({ index, ids, needed });
+  }
+  const chunks = await readSelectedRecordChunks(db, base, hashes, idsToRead);
+  for (const { index, ids, needed } of selected) {
+    const records: IRecordVcsSnapshot[] = [];
+    for (const hash of needed) {
+      for (const row of chunks.get(hash)!) if (ids.has(row.id)) records.push(row);
+    }
+    records.sort((a, b) => a.id.localeCompare(b.id));
+    tables[index] = { ...tables[index], records };
+  }
+  return ok(schema);
+}
+
 function materializeTable(
   manifest: IVcsTableManifest,
   chunks: ReadonlyMap<string, readonly IRecordVcsSnapshot[]>
@@ -319,21 +409,7 @@ async function projectionCandidates(
   }
   for (const [id, ids] of targets) {
     const manifest = manifests.get(refs.get(id)!)!;
-    const prefixes = manifest.chunkPrefixes;
-    const byPrefix = prefixes && new Map(prefixes.map((p, i) => [p, manifest.chunks[i]]));
-    const needed = new Set<string>(byPrefix ? [] : manifest.chunks);
-    if (byPrefix) {
-      for (const row of ids) {
-        const key = checkpointRecordKey(row);
-        for (let n = 0; n <= key.length; n++) {
-          const hash = byPrefix.get(key.slice(0, n));
-          if (hash) {
-            needed.add(hash);
-            break;
-          }
-        }
-      }
-    }
+    const needed = recordChunkHashes(manifest, ids);
     const missing = new Set([...needed].filter((hash) => !chunks.has(hash)));
     for (const [hash, rows] of await readObjects<IRecordVcsSnapshot[]>(
       db,

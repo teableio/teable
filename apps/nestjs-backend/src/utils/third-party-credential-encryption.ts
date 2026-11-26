@@ -1,12 +1,12 @@
 import { Logger } from '@nestjs/common';
-import { resolveSecret } from '../configs/secrets/resolve-secret';
-import { SECRET_SPECS } from '../configs/secrets/secret-specs';
+import {
+  resolveStoredSecretRoots,
+  STORED_SECRET_PURPOSES,
+} from '../configs/secrets/stored-secret-roots';
 import type { ISecretMapper } from './secret-value-codec';
 import { SecretValueCodec } from './secret-value-codec';
 
 type IEnv = Record<string, string | undefined>;
-
-const OLD_ROOT_ENV_KEY = 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET_OLD';
 
 /**
  * Value codec for third-party credentials we hold on a customer's behalf:
@@ -15,16 +15,17 @@ const OLD_ROOT_ENV_KEY = 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET_OLD';
  * secrets of the instance imConfig setting, SSO client secrets
  * (authentication.config), SMTP passwords (mail transport settings), the
  * app-builder appConfig secrets and the automation node secrets (legacy mail
- * passwords, webhook bearer secret / token). Rooted at
- * BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET (SECRET_KEY fallback), with
- * its own HKDF info so it never shares key material with the AI-config codec.
+ * passwords, webhook bearer secret / token). Rooted at the stored credential
+ * root (BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET, else SECRET_KEY; the
+ * superseded BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET still takes its
+ * place while set), with its own HKDF info so it never shares key material
+ * with the AI-config codec.
  */
 export class ThirdPartyCredentialCodec extends SecretValueCodec {
   constructor(env: IEnv = process.env) {
     super(
       {
-        spec: SECRET_SPECS.thirdPartyCredentialEncryptionSecret,
-        oldEnvKey: OLD_ROOT_ENV_KEY,
+        purpose: STORED_SECRET_PURPOSES.thirdPartyCredential,
         hkdfInfo: 'teable:third-party-credential',
         label: 'Third-party credential',
       },
@@ -41,10 +42,10 @@ let defaultCodec: { roots: string; codec: ThirdPartyCredentialCodec } | undefine
  * root gets the codec of that root.
  */
 export const getThirdPartyCredentialCodec = (): ThirdPartyCredentialCodec => {
-  const roots = [
-    resolveSecret(SECRET_SPECS.thirdPartyCredentialEncryptionSecret),
-    process.env[OLD_ROOT_ENV_KEY] ?? '',
-  ].join('\n');
+  const { primary, decryptOnly } = resolveStoredSecretRoots(
+    STORED_SECRET_PURPOSES.thirdPartyCredential
+  );
+  const roots = [primary, ...decryptOnly].join('\n');
   if (defaultCodec?.roots !== roots) {
     defaultCodec = { roots, codec: new ThirdPartyCredentialCodec() };
   }
@@ -54,8 +55,8 @@ export const getThirdPartyCredentialCodec = (): ThirdPartyCredentialCodec => {
 /**
  * Encrypt one credential for storage (idempotent).
  *
- * An instance with neither BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET
- * nor SECRET_KEY has only the publicly known default root, and there the value
+ * An instance with no root set (the stored credential root, its superseded
+ * dedicated var, SECRET_KEY) has only the publicly known default root, and there the value
  * is stored as it is: a ciphertext anyone can open protects nothing, and it
  * would stop opening the day the operator sets a private SECRET_KEY. The
  * re-encrypt page refuses that root as well (blockedPublicDefaultKey).
@@ -85,7 +86,7 @@ export const decryptThirdPartyCredential = (value: string, logLabel = 'unknown')
     return getThirdPartyCredentialCodec().decryptValueStrict(value);
   } catch {
     logger.error(
-      `Failed to decrypt a third-party credential in ${logLabel} — check BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET(_OLD)`
+      `Failed to decrypt a third-party credential in ${logLabel} — check BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET(_OLD) and BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET(_OLD)`
     );
     return value;
   }

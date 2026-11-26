@@ -22,6 +22,7 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: describe field subtypes and value objects.
 - `AttachmentField.ts` - Role: field subtype; Purpose: attachment field entity.
+- `AttachmentPublicAccess.ts` - Role: value object; Purpose: whether an attachment field's files get public links (`options.isPublic`); publishing the files is a host concern. `withoutAttachmentPublicAccess` drops the switch wherever a field comes back or is copied (duplicate, trash restore, undo).
 - `AutoNumberField.ts` - Role: field subtype; Purpose: system auto-number field entity.
 - `ButtonField.ts` - Role: field subtype; Purpose: button field entity.
 - `ButtonLabel.ts` - Role: value object; Purpose: button label validation.

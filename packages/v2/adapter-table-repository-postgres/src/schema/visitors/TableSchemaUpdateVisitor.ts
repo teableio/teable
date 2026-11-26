@@ -69,6 +69,7 @@ import type {
   UpdateRatingIconSpec,
   UpdateRatingColorSpec,
   UpdateUserMultiplicitySpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateUserNotificationSpec,
   UpdateUserDefaultValueSpec,
   UpdateButtonLabelSpec,
@@ -1826,6 +1827,13 @@ $teable_unique$`
       yield* addCond(statements);
       return ok(statements);
     });
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): Result<ReadonlyArray<TableSchemaStatementBuilder>, DomainError> {
+    const statements: ReadonlyArray<TableSchemaStatementBuilder> = [];
+    return this.addCond(statements).map(() => statements);
   }
 
   visitUpdateUserNotification(

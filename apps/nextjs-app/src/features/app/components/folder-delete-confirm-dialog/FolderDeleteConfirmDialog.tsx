@@ -14,6 +14,7 @@ import { AlertCircle, AlertTriangle } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import type { ReactNode } from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import { usePublicFileEnabled } from '../../hooks/usePublicFileEnabled';
 import { LoginAppWarning } from '../LoginAppWarning';
 import { OperationPreviewPanel, useOperationPreview } from '../operation-preview';
 import type { IFolderDeleteListItem } from './folderDeletePresentation';
@@ -173,6 +174,7 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
   const { open, nodeId, folderName, isDeleting, progress, onOpenChange, onConfirm } = props;
   const { t } = useTranslation('common');
   const baseId = useBaseId();
+  const publicFileEnabled = usePublicFileEnabled();
   const preview = useOperationPreview(
     { operation: 'folder.delete', input: { baseId, nodeId }, options: { detail: 'full' } },
     open && Boolean(baseId && nodeId)
@@ -217,6 +219,7 @@ export const FolderDeleteConfirmDialog = (props: FolderDeleteConfirmDialogProps)
       )}
       <div className="space-y-1 rounded-md bg-muted/50 p-3">
         <p>{t('folderDelete.summary')}</p>
+        {publicFileEnabled && <p>{t('trash.publicLinksOffAll')}</p>}
         <p className="flex flex-wrap gap-x-3 text-muted-foreground">
           {Object.entries(presentation.counts).map(([type, count]) => (
             <span key={type}>

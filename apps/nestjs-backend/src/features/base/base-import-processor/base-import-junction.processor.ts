@@ -52,6 +52,7 @@ interface IBaseImportJunctionCsvJob {
   viewIdMap: Record<string, string>;
   operationId: string;
   hostResourceIdMaps?: Record<string, Record<string, string>>;
+  ignoredJunctionArchiveNames?: string[];
 }
 
 interface IImportedLink {
@@ -103,7 +104,15 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
 
     this.processedJobs.add(jobId);
 
-    const { path, baseId, userId, tableIdMap, fieldIdMap, structure } = job.data;
+    const {
+      path,
+      baseId,
+      userId,
+      tableIdMap,
+      fieldIdMap,
+      structure,
+      ignoredJunctionArchiveNames,
+    } = job.data;
 
     try {
       const base = await this.prismaService.base.findUniqueOrThrow({
@@ -114,7 +123,12 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
         this.cls.set('user.id', userId);
         this.cls.set('recordInitiator', job.data.recordInitiator);
         const links = await this.getImportedLinks(baseId, tableIdMap, fieldIdMap, structure);
-        const fallback = await this.importJunctionChunk(path, baseId, links);
+        const fallback = await this.importJunctionChunk(
+          path,
+          baseId,
+          links,
+          ignoredJunctionArchiveNames
+        );
         const skippedLinkCells =
           fallback.skippedCells +
           (await this.clearDanglingLinks(baseId, links, fallback.junctions));
@@ -240,8 +254,14 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
     return isJunction;
   }
 
-  private async importJunctionChunk(path: string, baseId: string, links: IImportedLink[]) {
+  private async importJunctionChunk(
+    path: string,
+    baseId: string,
+    links: IImportedLink[],
+    ignoredJunctionArchiveNames?: string[]
+  ) {
     const fallback = { skippedCells: 0, junctions: new Set<string>() };
+    const ignoredJunctionNames = new Set(ignoredJunctionArchiveNames ?? []);
     const byArchiveName = new Map<string, IImportedLink>();
     const junctions = new Map<string, IImportedLink>();
     for (const link of links) {
@@ -261,7 +281,7 @@ export class BaseImportJunctionCsvQueueProcessor extends WorkerHost {
       const archiveName = entry.path.slice('tables/'.length, -'.csv'.length);
       const link = byArchiveName.get(archiveName);
       if (!link) {
-        if (archiveName.includes('junction_')) {
+        if (archiveName.includes('junction_') && !ignoredJunctionNames.has(archiveName)) {
           throw new Error('Unknown imported junction metadata');
         }
         return;

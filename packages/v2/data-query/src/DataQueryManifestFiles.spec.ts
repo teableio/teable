@@ -53,6 +53,55 @@ queries:
         - { system: autoNumber, alias: sequence }
 `;
 
+function monthComparisonArtifacts() {
+  const manifest = parseDataQueryManifestText(`schemaVersion: 1
+queries:
+  sales:
+    mode: library
+    library: { id: qlb0123456789abcdef, revision: 2 }
+  otherMetric:
+    mode: library
+    library: { id: qlb0123456789abcdef, revision: 1 }
+`)._unsafeUnwrap();
+  const description = {
+    composition: {
+      kind: 'composition' as const,
+      source: { id: 'qlb1111111111111111', revision: 1 },
+      metrics: [{ alias: 'value', statistic: 'count' as const }],
+      metricDimensions: ['month', 'billingMonth', 'region'],
+    },
+    outputs: [
+      {
+        alias: 'value',
+        wireType: 'numberOrString' as const,
+        cellValueType: 'number',
+        isMultipleCellValue: false,
+        nullable: false,
+      },
+    ],
+    parameters: {
+      groupBy: { type: 'string[]' as const },
+      where_month: { type: 'string' as const, nullable: true },
+      where_billingMonth: { type: 'string' as const, nullable: true },
+      where_region: { type: 'string' as const, nullable: true },
+    },
+    optionalParameters: ['groupBy', 'where_month', 'where_billingMonth', 'where_region'],
+  };
+  return generateAppQueryArtifacts(manifest, {
+    sales: {
+      ...description,
+      parameters: {
+        ...description.parameters,
+        compareDimension: { type: 'string' },
+        compareMonth: { type: 'string' },
+      },
+      optionalParameters: [...description.optionalParameters, 'compareDimension', 'compareMonth'],
+      monthDimensions: { month: 'America/New_York', billingMonth: 'UTC' },
+    },
+    otherMetric: description,
+  })._unsafeUnwrap();
+}
+
 describe('generated client integrity', () => {
   it('requires a live contract and emits a fixed library run without embedding its definition', () => {
     const parsed = parseDataQueryManifestText(
@@ -179,6 +228,202 @@ describe('generated client integrity', () => {
     });
     expect(compareAppQueryContracts(none, both)).toEqual([]);
   });
+  it('runs the pinned month comparison, unwraps exactly one row and preserves library errors', async () => {
+    const generated = monthComparisonArtifacts();
+    const row = {
+      currentMonth: '2026-02',
+      previousMonth: '2026-01',
+      current: '40',
+      previous: 130,
+      difference: -90,
+      changeRate: '-0.6923076923076923',
+    };
+    const source = {
+      kind: 'library',
+      baseId: 'bseFallback',
+      id: 'qlb0123456789abcdef',
+      revision: 2,
+      name: 'Net receipts',
+      monthComparison: {
+        dimension: 'month',
+        currentMonth: '2026-02',
+        previousMonth: '2026-01',
+      },
+    };
+    let response: unknown = { ok: true, data: { rows: [row], source } };
+    const requests: unknown[] = [];
+    const loaded = loadModule(
+      async (endpoint, options) => {
+        requests.push({ endpoint, options });
+        return response;
+      },
+      () => ({ baseId: 'bseFallback' }),
+      generated
+    ) as unknown as {
+      compareMetricMonth: { sales(parameters: unknown): Promise<unknown> };
+      queries: { sales(parameters: unknown): Promise<unknown> };
+    };
+    const parameters = { compareMonth: '2026-02', compareDimension: 'month', where_region: 'EU' };
+
+    expect(Object.keys(loaded.compareMetricMonth)).toEqual(['sales']);
+    await expect(loaded.compareMetricMonth.sales(parameters)).resolves.toEqual({ ...row, source });
+    expect(requests).toEqual([
+      {
+        endpoint: '/base/bseFallback/query-library/qlb0123456789abcdef/revisions/2/run',
+        options: { method: 'POST', acceptErrorResponse: true, body: { parameters } },
+      },
+    ]);
+
+    await expect(loaded.queries.sales(parameters)).rejects.toMatchObject({
+      code: 'data_query.unknown_parameter',
+    });
+    expect(requests).toHaveLength(1);
+    response = {
+      ok: true,
+      data: { rows: [{ ...row, current: null, difference: null, changeRate: null }], source },
+    };
+    await expect(loaded.compareMetricMonth.sales(parameters)).resolves.toMatchObject({
+      current: null,
+    });
+    for (const invalidRows of [[], [row, row]]) {
+      response = { ok: true, data: { rows: invalidRows } };
+      await expect(loaded.compareMetricMonth.sales(parameters)).rejects.toMatchObject({
+        code: 'data_query.cardinality',
+      });
+    }
+    response = { ok: true, data: { rows: [{ value: 40 }] } };
+    await expect(loaded.compareMetricMonth.sales(parameters)).rejects.toMatchObject({
+      code: 'data_query.invalid_response',
+    });
+    for (const invalidSource of [
+      undefined,
+      { ...source, id: 'qlb1111111111111111' },
+      { ...source, revision: 1 },
+      { ...source, monthComparison: { ...source.monthComparison, dimension: 'billingMonth' } },
+      { ...source, monthComparison: { ...source.monthComparison, previousMonth: '2025-12' } },
+    ]) {
+      response = { ok: true, data: { rows: [row], source: invalidSource } };
+      await expect(loaded.compareMetricMonth.sales(parameters)).rejects.toMatchObject({
+        code: 'data_query.invalid_response',
+      });
+    }
+    response = {
+      ok: true,
+      data: {
+        rows: [{ ...row, previousMonth: '2025-12' }],
+        source: {
+          ...source,
+          monthComparison: { ...source.monthComparison, previousMonth: '2025-12' },
+        },
+      },
+    };
+    await expect(loaded.compareMetricMonth.sales(parameters)).rejects.toMatchObject({
+      code: 'data_query.invalid_response',
+    });
+    const january = { ...row, currentMonth: '2026-01', previousMonth: '2025-12' };
+    response = {
+      ok: true,
+      data: {
+        rows: [january],
+        source: {
+          ...source,
+          monthComparison: {
+            dimension: 'month',
+            currentMonth: '2026-01',
+            previousMonth: '2025-12',
+          },
+        },
+      },
+    };
+    await expect(
+      loaded.compareMetricMonth.sales({ ...parameters, compareMonth: '2026-01' })
+    ).resolves.toMatchObject(january);
+    response = { status: 404, code: 'query_library.unavailable', message: 'Revision unavailable' };
+    await expect(loaded.compareMetricMonth.sales(parameters)).rejects.toMatchObject({
+      code: 'query_library.unavailable',
+      message: 'Revision unavailable',
+    });
+  });
+
+  it('types eligible comparison aliases and keeps ordinary metric arguments and rows distinct', () => {
+    const files: Record<string, string> = {
+      '/comparison/queries.ts': monthComparisonArtifacts().module,
+      '/comparison/request.ts':
+        'export declare function request<T>(path:string, options:unknown):Promise<T>; export declare function getConfig(): {baseId:string};',
+      '/comparison/server-only.d.ts': "declare module 'server-only';",
+      '/comparison/consumer.ts': `import { compareMetricMonth, queries } from './queries';
+async function read() {
+  const comparison = await compareMetricMonth.sales({ compareMonth: '2026-02', compareDimension: 'month', where_region: 'EU', groupBy: [] });
+  const rate: number | string | null = comparison.changeRate;
+  const revision: number = comparison.source.revision;
+  const month: string = comparison.source.monthComparison.currentMonth;
+  const ordinary: Array<{ value: number | string }> = await queries.sales({ groupBy: ['region'], where_month: '2026-02-01' });
+  await compareMetricMonth.sales({ compareMonth: '2026-02', compareDimension: 'billingMonth', where_month: '2026-02-01' });
+  // @ts-expect-error only eligible month aliases are accepted
+  await compareMetricMonth.sales({ compareMonth: '2026-02', compareDimension: 'region' });
+  // @ts-expect-error both comparison controls are required
+  await compareMetricMonth.sales({ compareMonth: '2026-02' });
+  // @ts-expect-error comparison refuses a filter on the selected month alias
+  await compareMetricMonth.sales({ compareMonth: '2026-02', compareDimension: 'month', where_month: '2026-02-01' });
+  // @ts-expect-error comparison refuses groups
+  await compareMetricMonth.sales({ compareMonth: '2026-02', compareDimension: 'month', groupBy: ['region'] });
+  // @ts-expect-error ordinary queries have their own output contract
+  await queries.sales({ compareMonth: '2026-02', compareDimension: 'month' });
+  // @ts-expect-error this pin does not expose month comparison
+  await compareMetricMonth.otherMetric({ compareMonth: '2026-02', compareDimension: 'month' });
+  void rate; void revision; void month; void ordinary;
+}
+void read;`,
+    };
+    const options: ts.CompilerOptions = {
+      noEmit: true,
+      strict: true,
+      skipLibCheck: true,
+      types: [],
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    };
+    const host = ts.createCompilerHost(options);
+    const read = host.readFile;
+    const exists = host.fileExists;
+    const directoryExists = host.directoryExists;
+    host.readFile = (path) => files[path] ?? read(path);
+    host.fileExists = (path) => path in files || exists(path);
+    host.directoryExists = (path) => path === '/comparison' || Boolean(directoryExists?.(path));
+    host.getSourceFile = (path, languageVersion) => {
+      const source = host.readFile(path);
+      return source === undefined ? undefined : ts.createSourceFile(path, source, languageVersion);
+    };
+    expect(
+      ts
+        .getPreEmitDiagnostics(ts.createProgram(Object.keys(files), options, host))
+        .map((diagnostic) => ts.flattenDiagnosticMessageText(diagnostic.messageText, '\n'))
+    ).toEqual([]);
+  });
+
+  it('requires review when upgrading a pin drops a comparison alias or changes its timezone', () => {
+    const contract = {
+      composition: {
+        kind: 'composition' as const,
+        source: { id: 'qlb1111111111111111', revision: 1 },
+        metricDimensions: ['month', 'billingMonth', 'signedMonth'],
+        metrics: [{ alias: 'value', statistic: 'count' as const }],
+      },
+      result: 'many' as const,
+      outputs: [],
+      parameters: {},
+    };
+    expect(
+      compareAppQueryContracts(
+        { ...contract, monthDimensions: { month: 'UTC', billingMonth: 'America/Los_Angeles' } },
+        { ...contract, monthDimensions: { month: 'Asia/Tokyo', signedMonth: 'America/New_York' } }
+      )
+    ).toEqual([
+      { path: 'monthDimensions.month', change: 'changed' },
+      { path: 'monthDimensions.billingMonth', change: 'removed' },
+    ]);
+  });
+
   it('reports incompatible changes when upgrading a pinned revision', () => {
     const definition =
       parseDataQueryManifestText(todo)._unsafeUnwrap().queries.getTodos.definition!;

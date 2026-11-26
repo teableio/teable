@@ -1263,6 +1263,7 @@
           "description": "Secrets that are unset or still on a publicly known default: {{total}}. They may let others forge sign-in tokens or decrypt stored data. Set them as environment variables and restart; the startup log explains each one. On an instance with existing data, pin the current values first and rotate afterwards: replacing an encryption key outright makes the data stored under it unreadable.",
           "missing": "Not set",
           "publicDefault": "Public default",
+          "secretKeyRequired": "A later version will refuse to start while SECRET_KEY is unset or still its public default. Set a private value before upgrading.",
           "docsLink": "Environment variable reference",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1396,6 +1397,8 @@
     "addToTrash": "Move to trash",
     "description": "Items in the trash still count toward record and attachment usage.",
     "publishedAppsOffline": "Published apps that go offline right away: {{total}}. After a restore from the trash, they have to be published again.",
+    "publicLinksOffFields": "Public links of {{names}} stop working right away. After a restore, they have to be turned on again.",
+    "publicLinksOffAll": "Attachment fields with public links lose them right away. After a restore, they have to be turned on again.",
     "spaceDescription": "Restore spaces deleted within the past {{retentionDays}} days",
     "spaceInnerDescription": "Restore projects deleted from this space within the past {{retentionDays}} days",
     "baseDescription": "Restore resources deleted from this project within the past {{retentionDays}} days",
@@ -1686,6 +1689,30 @@
             "released": {
               "title": "Space {{spaceName}} custom domain disabled",
               "message": "The Business plan for space {{spaceName}} was not renewed, so custom domain {{domains}} has been disabled and unbound from your app. Upgrade to Business to bind a custom domain again."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "Space {{spaceName}} plan expired: public files will be deleted",
+              "message": "The plan for space {{spaceName}} has expired, so public file links are no longer included. The published copies of its files will be deleted on {{releaseDate}} (UTC), and their public links will stop working. Renew your plan before then to keep them."
+            },
+            "withdrawn": {
+              "title": "Space {{spaceName}} public file links stopped working",
+              "message": "The plan for space {{spaceName}} was not renewed, so public links to its files have stopped working and the published copies have been deleted."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "Space {{spaceName}} file domain released",
+              "message": "The Business plan for space {{spaceName}} was not renewed, so file domain {{hostname}} has been released. Public files are served from {{spaceSubdomain}} again, and links under {{hostname}} have stopped working. Upgrade to Business to bind a file domain again."
+            },
+            "notVerified": {
+              "title": "Space {{spaceName}} file domain {{hostname}} was not set up",
+              "message": "The DNS record of {{hostname}} was not verified within 7 days, so the file domain change was cancelled. Public files are still served from the current domain. Add the CNAME record, then request the domain again in the space settings."
+            },
+            "failed": {
+              "title": "Space {{spaceName}} file domain {{hostname}} could not be set up",
+              "message": "The hostname or certificate of {{hostname}} could not be validated ({{error}}), so the file domain change was cancelled. Public files are still served from the current domain. Check the domain's DNS and CAA records, then request it again in the space settings."
             }
           }
         },

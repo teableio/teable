@@ -182,6 +182,55 @@ export async function loadVcsWorkspace(
   });
 }
 
+/** Use target storage defaults when comparing stable record IDs in a Builder working copy. */
+export function alignPromotionWorkingSnapshot(
+  working: IBaseVcsSnapshot,
+  baseline: IBaseVcsSnapshot
+): IBaseVcsSnapshot {
+  const baselineTables = new Map(baseline.tables.map((table) => [table.id, table]));
+  return {
+    ...working,
+    tables: working.tables.map((table) => {
+      const base = baselineTables.get(table.id);
+      if (!base?.records.length) return table;
+      const baselineRecords = new Map(base.records.map((record) => [record.id, record]));
+      return {
+        ...table,
+        records: table.records.map((record) => {
+          const checkpoint = baselineRecords.get(record.id);
+          if (checkpoint?.autoNumber === undefined) return record;
+          // Restoring an explicit order may materialize an entire view's order column.
+          // A value equal to the checkpoint's implicit default still represents no edit.
+          const { orders } = record;
+          let projectedOrders: Record<string, number> | undefined;
+          if (orders) {
+            for (const viewId of Object.keys(orders)) {
+              if (
+                checkpoint.orders?.[viewId] === undefined &&
+                orders[viewId] === checkpoint.autoNumber
+              ) {
+                projectedOrders ??= { ...orders };
+                delete projectedOrders[viewId];
+              }
+            }
+          }
+          if (checkpoint.autoNumber === record.autoNumber && projectedOrders === undefined) {
+            return record;
+          }
+          return {
+            ...record,
+            autoNumber: checkpoint.autoNumber,
+            orders:
+              projectedOrders && !Object.keys(projectedOrders).length
+                ? undefined
+                : (projectedOrders ?? orders),
+          };
+        }),
+      };
+    }),
+  };
+}
+
 function hasComputedFieldSchemaDifference(
   beforeTable: ITableVcsSnapshot,
   afterTable: ITableVcsSnapshot
@@ -525,7 +574,20 @@ export async function loadIndexedWorkspaceDiff(
     options,
   });
   if (indexedRes.isErr()) return err(indexedRes.error);
-  if (indexedRes.value) return ok(indexedRes.value);
+  if (indexedRes.value) {
+    const workspace = indexedRes.value;
+    return ok(
+      workspace.config.promotionBaselineRevision === undefined
+        ? workspace
+        : {
+            ...workspace,
+            workingSnapshot: alignPromotionWorkingSnapshot(
+              workspace.workingSnapshot,
+              workspace.baseSnapshot
+            ),
+          }
+    );
+  }
 
   const fallbackRes = await loadVcsWorkspace(stateRepository, localEngine);
   if (fallbackRes.isErr()) return err(fallbackRes.error);
@@ -533,7 +595,12 @@ export async function loadIndexedWorkspaceDiff(
     toMonolithicIndexedDiff(
       configRes.value,
       fallbackRes.value.baseSnapshot,
-      fallbackRes.value.workingSnapshot,
+      configRes.value.promotionBaselineRevision === undefined
+        ? fallbackRes.value.workingSnapshot
+        : alignPromotionWorkingSnapshot(
+            fallbackRes.value.workingSnapshot,
+            fallbackRes.value.baseSnapshot
+          ),
       conflictsRes.value
     )
   );

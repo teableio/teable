@@ -37,6 +37,7 @@ import {
 export interface IDiffBaseVcsInput {
   readonly offline?: boolean;
   readonly upstreamSnapshot?: IBaseVcsSnapshot;
+  readonly requirePromotionBaseId?: string;
 }
 
 export interface IDiffBaseVcsOutput {
@@ -87,7 +88,7 @@ function alignHydratedFieldDefaults(
   };
 }
 
-function alignSourceSnapshot(
+export function alignSourceSnapshot(
   source: IBaseVcsSnapshot,
   baseline: IBaseVcsSnapshot
 ): IBaseVcsSnapshot {
@@ -127,6 +128,29 @@ export class DiffBaseVcsService {
       if (loadedRes.isErr()) return err(loadedRes.error);
 
       const { config, baseSnapshot, workingSnapshot, conflicts: storedConflicts } = loadedRes.value;
+      if (
+        input.requirePromotionBaseId &&
+        (config.baseId !== input.requirePromotionBaseId ||
+          baseSnapshot.baseId !== input.requirePromotionBaseId ||
+          workingSnapshot.baseId !== input.requirePromotionBaseId ||
+          config.remoteMode !== 'v2-vcs' ||
+          config.selectedTables !== undefined ||
+          config.schemaOnly ||
+          config.readOnly ||
+          config.headlessUrl !== undefined ||
+          config.promotionBaselineRevision === undefined ||
+          config.promotionBaselineRevision > baseSnapshot.revision ||
+          baseSnapshot.accessScope ||
+          storedConflicts.length > 0)
+      ) {
+        return err(
+          vcsDomainError.validation({
+            code: 'vcs.invalid_promotion_workspace',
+            message:
+              'Initialize a complete, writable Builder checkpoint and resolve any local conflicts before proposing changes.',
+          })
+        );
+      }
       const localPatch = diffSnapshots(baseSnapshot, workingSnapshot, {
         accessScope: baseSnapshot.accessScope,
       });

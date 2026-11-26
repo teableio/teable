@@ -2,7 +2,6 @@ import { HttpException, HttpStatus, Injectable, Optional } from '@nestjs/common'
 import type {
   IColumnMetaRo,
   IFilterRo,
-  IFilter,
   IManualSortRo,
   IPluginViewOptions,
   ISnapshotBase,
@@ -927,12 +926,15 @@ export class ViewOpenApiV2Service {
 
   async getFilterLinkRecordsByTable(
     tableId: string,
-    filter?: IFilter
+    filter?: unknown
   ): Promise<IGetViewFilterLinkRecordsVo> {
     const container = await this.v2ContainerService.getContainerForTable(tableId);
     const context = await this.v2ContextFactory.createContext(container);
     const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const query = GetFilterLinkRecordsQuery.create({ tableId, filter });
+    const query = GetFilterLinkRecordsQuery.create(
+      { tableId, filter },
+      { omitForbiddenGroups: true }
+    );
     if (query.isErr()) {
       throwV2Error(mapDomainErrorToHttpError(query.error), mapDomainErrorToHttpStatus(query.error));
     }

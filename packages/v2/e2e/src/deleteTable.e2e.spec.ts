@@ -1671,6 +1671,57 @@ describe('v2 http deleteTable (e2e)', () => {
     }
   });
 
+  it('turns public links off as a table goes to the trash, and restores it private', async () => {
+    let tableId: string | undefined;
+
+    try {
+      const table = await ctx.createTable({
+        baseId: ctx.baseId,
+        name: nextName('Trash Public Files'),
+        fields: [
+          { type: 'singleLineText', name: 'Name', isPrimary: true },
+          { type: 'attachment', name: 'Cover', options: { isPublic: true } },
+          { type: 'attachment', name: 'Contracts' },
+        ],
+      });
+      tableId = table.id;
+      const versions = async () => {
+        const result = await sql<{ name: string; version: number; options: string | null }>`
+          SELECT "name", "version", "options" FROM "field" WHERE "table_id" = ${table.id}
+        `.execute(ctx.testContainer.db);
+        return Object.fromEntries(result.rows.map((row) => [row.name, row]));
+      };
+      const before = await versions();
+      expect(JSON.parse(before.Cover!.options ?? '{}').isPublic).toBe(true);
+
+      const beforeDeleteEventCount = ctx.testContainer.eventBus.events().length;
+      await ctx.deleteTable(table.id, { mode: 'soft' });
+      const deleteEvents = ctx.testContainer.eventBus.events().slice(beforeDeleteEventCount);
+
+      const trashed = await versions();
+      expect(JSON.parse(trashed.Cover!.options ?? '{}').isPublic).toBeFalsy();
+      expect(trashed.Cover!.version).toBe(before.Cover!.version + 1);
+      expect(trashed.Contracts!.version).toBe(before.Contracts!.version);
+      const deleteEventNames = deleteEvents.map(getDomainEventName);
+      expect(deleteEventNames).toContain('TableTrashed');
+      expect(deleteEventNames).not.toContain('FieldUpdated');
+
+      const restored = await ctx.restoreTable(table.id);
+      const cover = restored.fields.find((field) => field.name === 'Cover');
+      expect((cover?.options as { isPublic?: boolean } | undefined)?.isPublic).toBeFalsy();
+
+      // the switch turns back on as any edit does
+      await ctx.updateField({
+        tableId: table.id,
+        fieldId: cover!.id,
+        field: { type: 'attachment', options: { isPublic: true } },
+      });
+      expect(JSON.parse((await versions()).Cover!.options ?? '{}').isPublic).toBe(true);
+    } finally {
+      await safeDeleteTable(tableId);
+    }
+  });
+
   it('does not restore fields and views deleted before the table was soft-deleted', async () => {
     let tableId: string | undefined;
 

@@ -75,7 +75,9 @@
       "downloadSuccess": "Téléchargement terminé",
       "downloadFailed": "Échec du téléchargement",
       "downloadCancelled": "Téléchargement annulé",
-      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Accédez au site via HTTPS ou localhost"
+      "requireHttps": "Le téléchargement groupé nécessite HTTPS. Accédez au site via HTTPS ou localhost",
+      "copyPublicLink": "Copier le lien public",
+      "publicLinkCopied": "Lien public copié"
     },
     "date": {
       "placeholder": "Choisir une date",
@@ -1840,6 +1842,10 @@
       "endpointChanged": "Un secret enregistré ne peut être envoyé qu'à l'adresse pour laquelle il a été enregistré. Saisissez à nouveau {{field}}.",
       "reenterForNewAddress": "L'adresse a changé. Saisissez à nouveau ou effacez d'abord {{fields}}.",
       "staleMask": "Le {{field}} enregistré a changé depuis le chargement de la page. Saisissez-le à nouveau."
+    },
+    "publicFile": {
+      "fieldNotFound": "Champ introuvable",
+      "noPublicFields": "L'espace n'existe pas ou n'a aucun champ de pièces jointes avec l'accès public activé"
     }
   },
   "usageLimitBanner": {

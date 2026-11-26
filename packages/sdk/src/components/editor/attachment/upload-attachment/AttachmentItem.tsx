@@ -1,10 +1,12 @@
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { IAttachmentItem } from '@teable/core';
-import { Download, X } from '@teable/icons';
-import { Button, cn, FilePreviewItem, isImage } from '@teable/ui-lib';
+import { Download, Link, X } from '@teable/icons';
+import { Button, cn, FilePreviewItem, isImage, sonner } from '@teable/ui-lib';
 import type { CSSProperties } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from '../../../../context/app/i18n';
+import { syncCopy } from '../../../../utils';
 import { EllipsisFileName } from '../../../upload/EllipsisFileName';
 import { FileCover } from '../../../upload/FileCover';
 import { formatFileSize, isSystemFileIcon } from '../utils';
@@ -15,10 +17,24 @@ interface IUploadAttachment {
   onDelete: (id: string) => void;
   onRename: (id: string, newName: string) => void;
   downloadFile: (data: IAttachmentItem) => void;
+  /** Set when the field has public links on and the backend gave this file one. */
+  publicUrl?: string;
 }
 
+// a third button needs room: the hover bar is compact only with the copy link button
+const HOVER_BAR = {
+  compact: { bar: 'gap-0.5 p-1', size: 'text-[11px]', icon: 'size-3.5 shrink-0' },
+  regular: { bar: 'gap-1 px-1.5 py-1', size: 'text-xs', icon: 'size-4 shrink-0' },
+};
+
 function AttachmentItem(props: Readonly<IUploadAttachment>) {
-  const { attachment, onDelete, onRename, downloadFile, readonly } = props;
+  const { attachment, onDelete, onRename, downloadFile, readonly, publicUrl } = props;
+  const { t } = useTranslation();
+  const copyPublicLink = useCallback(() => {
+    if (!publicUrl) return;
+    syncCopy(publicUrl);
+    sonner.toast.success(t('editor.attachment.publicLinkCopied'));
+  }, [publicUrl, t]);
   const [isEditing, setIsEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +85,8 @@ function AttachmentItem(props: Readonly<IUploadAttachment>) {
     }
   }, [isEditing, attachment.name]);
 
+  const hoverBar = HOVER_BAR[publicUrl ? 'compact' : 'regular'];
+
   const previewUrl =
     attachment.lgThumbnailUrl ??
     (isImage(attachment.mimetype) ? attachment.presignedUrl : undefined);
@@ -95,6 +113,7 @@ function AttachmentItem(props: Readonly<IUploadAttachment>) {
             mimetype={attachment.mimetype}
             size={attachment.size}
             onDelete={readonly ? undefined : () => onDelete(attachment.id)}
+            onCopyLink={publicUrl ? copyPublicLink : undefined}
           >
             <FileCover
               className="size-full object-cover"
@@ -105,9 +124,14 @@ function AttachmentItem(props: Readonly<IUploadAttachment>) {
               draggable={false}
             />
           </FilePreviewItem>
-          <div className="absolute inset-x-0 top-0 z-10 hidden items-center gap-1 rounded-t-lg bg-black/60 px-1.5 py-1 text-white group-hover:flex">
+          <div
+            className={cn(
+              'absolute inset-x-0 top-0 z-10 hidden items-center rounded-t-lg bg-black/60 text-white group-hover:flex',
+              hoverBar.bar
+            )}
+          >
             <span
-              className="me-auto min-w-0 truncate text-xs"
+              className={cn('me-auto min-w-0 truncate', hoverBar.size)}
               title={formatFileSize(attachment.size)}
             >
               {formatFileSize(attachment.size)}
@@ -120,8 +144,22 @@ function AttachmentItem(props: Readonly<IUploadAttachment>) {
                 downloadFile(attachment);
               }}
             >
-              <Download className="size-4 shrink-0" />
+              <Download className={hoverBar.icon} />
             </Button>
+            {publicUrl && (
+              <Button
+                variant={'ghost'}
+                title={t('editor.attachment.copyPublicLink')}
+                aria-label={t('editor.attachment.copyPublicLink')}
+                className="size-auto shrink-0 p-0 text-white hover:bg-white/20 hover:text-white focus-visible:ring-transparent focus-visible:ring-offset-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  copyPublicLink();
+                }}
+              >
+                <Link className={hoverBar.icon} />
+              </Button>
+            )}
             {!readonly && (
               <Button
                 variant={'ghost'}
@@ -131,7 +169,7 @@ function AttachmentItem(props: Readonly<IUploadAttachment>) {
                   onDelete(attachment.id);
                 }}
               >
-                <X className="size-4 shrink-0" />
+                <X className={hoverBar.icon} />
               </Button>
             )}
           </div>

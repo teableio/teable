@@ -1272,6 +1272,7 @@
           "description": "Secretos sin configurar o con un valor predeterminado público: {{total}}. Podrían permitir a terceros falsificar tokens de inicio de sesión o descifrar los datos almacenados. Configúrelos como variables de entorno y reinicie; el registro de arranque explica cada uno. En una instancia con datos existentes, fije primero los valores actuales y rótelos después: sustituir directamente una clave de cifrado deja ilegibles los datos cifrados con ella.",
           "missing": "Sin configurar",
           "publicDefault": "Valor predeterminado público",
+          "secretKeyRequired": "Una versión posterior se negará a iniciar mientras SECRET_KEY no esté configurado o siga con su valor predeterminado público. Configura un valor privado antes de actualizar.",
           "docsLink": "Referencia de variables de entorno",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1407,6 +1408,8 @@
     "addToTrash": "Mover a la papelera",
     "description": "Los datos en la papelera aún ocupan espacio de uso de registros y uso de archivos adjuntos.",
     "publishedAppsOffline": "Aplicaciones publicadas que dejarán de estar en línea de inmediato: {{total}}. Tras restaurar desde la papelera, habrá que volver a publicarlas.",
+    "publicLinksOffFields": "Los enlaces públicos de {{names}} dejarán de funcionar de inmediato. Tras restaurarlos, habrá que volver a activarlos.",
+    "publicLinksOffAll": "Los campos de adjuntos con enlaces públicos los pierden de inmediato. Tras restaurarlos, habrá que volver a activarlos.",
     "spaceDescription": "Restaurar espacios eliminados en los últimos {{retentionDays}} días",
     "spaceInnerDescription": "Restaurar proyectos eliminados de este espacio en los últimos {{retentionDays}} días",
     "baseDescription": "Restaurar recursos eliminados de este proyecto en los últimos {{retentionDays}} días",
@@ -1689,6 +1692,30 @@
             "released": {
               "title": "Dominio personalizado del espacio {{spaceName}} desactivado",
               "message": "El plan Business del espacio {{spaceName}} no se renovó, por lo que el dominio personalizado {{domains}} se ha desactivado y desvinculado de tu aplicación. Actualiza a Business para volver a vincular un dominio personalizado."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "El plan del espacio {{spaceName}} ha caducado: los archivos públicos se eliminarán",
+              "message": "El plan del espacio {{spaceName}} ha caducado y ya no incluye enlaces públicos de archivos. Las copias publicadas de sus archivos se eliminarán el {{releaseDate}} (UTC) y sus enlaces públicos dejarán de funcionar. Renueva tu plan antes de esa fecha para conservarlas."
+            },
+            "withdrawn": {
+              "title": "Los enlaces públicos de archivos del espacio {{spaceName}} han dejado de funcionar",
+              "message": "El plan del espacio {{spaceName}} no se renovó, por lo que los enlaces públicos a sus archivos han dejado de funcionar y las copias publicadas se han eliminado."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "Dominio de archivos del espacio {{spaceName}} liberado",
+              "message": "El plan Business del espacio {{spaceName}} no se renovó, por lo que el dominio de archivos {{hostname}} se ha liberado. Los archivos públicos vuelven a servirse desde {{spaceSubdomain}} y los enlaces bajo {{hostname}} han dejado de funcionar. Actualiza a Business para volver a vincular un dominio de archivos."
+            },
+            "notVerified": {
+              "title": "El dominio de archivos {{hostname}} del espacio {{spaceName}} no se configuró",
+              "message": "El registro DNS de {{hostname}} no se verificó en 7 días, así que se canceló el cambio de dominio de archivos. Los archivos públicos se siguen sirviendo desde el dominio actual. Añade el registro CNAME y vuelve a solicitar el dominio en la configuración del espacio."
+            },
+            "failed": {
+              "title": "No se pudo configurar el dominio de archivos {{hostname}} del espacio {{spaceName}}",
+              "message": "No se pudo validar el nombre de host o el certificado de {{hostname}} ({{error}}), así que se canceló el cambio de dominio de archivos. Los archivos públicos se siguen sirviendo desde el dominio actual. Revisa los registros DNS y CAA del dominio y vuelve a solicitarlo en la configuración del espacio."
             }
           }
         },

@@ -782,7 +782,7 @@ export class RecordBulkUpdateService {
             const fillLinkTitleForeignTables = input.typecast
               ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
                   transactionContext,
-                  [specBuildResult.mutateSpec]
+                  [mutateSpec]
                 )
               : new Map();
             const mutationResult = yield* await service.tableRecordRepository.updateMany(
@@ -1195,7 +1195,7 @@ export class RecordBulkUpdateService {
                   )
               );
 
-              for (const updateResult of batchResult.value) {
+              for (const updateResult of resolvedBatch) {
                 fillLinkTitleSpecs.push(updateResult.mutateSpec);
               }
 

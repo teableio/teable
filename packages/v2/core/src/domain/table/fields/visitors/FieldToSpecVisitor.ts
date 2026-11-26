@@ -429,7 +429,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       // Standard format: [{ id: 'recXxx', title?: string }]
       // Pass foreignTableId so the resolver can look up missing titles
       // An empty list clears the cell (stored as null, matching v1)
-      const items = parsed.value as LinkItem[];
+      const items = parsed.value;
       return ok(
         new SetLinkValueSpec(
           field.id(),
@@ -447,9 +447,10 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
         SetLinkValueByTitleSpec.create(
           field.id(),
           field.foreignTableId(),
-          parsed.value as string[],
+          parsed.value,
           isMultiple,
-          field.lookupFieldId()
+          field.lookupFieldId(),
+          parsed.resolveRecordIds
         )
       );
     }
@@ -674,10 +675,11 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
     return normalized.length > 0 ? normalized : null;
   }
 
-  private parseLinkValue(value: unknown): {
-    type: 'ids' | 'titles';
-    value: LinkItem[] | string[];
-  } {
+  private parseLinkValue(
+    value: unknown
+  ):
+    | { type: 'ids'; value: LinkItem[] }
+    | { type: 'titles'; value: string[]; resolveRecordIds?: boolean } {
     let arr: unknown[];
     if (!Array.isArray(value)) {
       if (typeof value === 'string') {
@@ -700,7 +702,11 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       return { type: 'ids', value: arr as LinkItem[] };
     }
 
-    // Check if it's record ID string format (recXxx)
+    if (this.typecast && arr.every((item) => typeof item === 'string')) {
+      return { type: 'titles', value: arr, resolveRecordIds: true };
+    }
+
+    // Preserve the existing raw-id handling for strict writes.
     if (typeof first === 'string' && first.startsWith('rec')) {
       return {
         type: 'ids',

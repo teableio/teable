@@ -8,6 +8,7 @@ import { ViewId } from '../domain/table/views/ViewId';
 import type { RecordFilter } from '../queries/RecordFilterDto';
 import { RecordSearch } from '../queries/RecordSearch';
 import {
+  MAX_PASTE_CELLS,
   pasteCommandInputSchema,
   type PasteGroup,
   parseClipboardText,
@@ -48,13 +49,17 @@ export class PasteStreamCommand {
     readonly sort: ReadonlyArray<PasteSort> | undefined,
     readonly groupBy: ReadonlyArray<PasteGroup> | undefined,
     readonly ignoreViewQuery: boolean,
+    readonly maxPasteCells: number,
     readonly targetRecordIds?: ReadonlyArray<string>,
     readonly excludedTargetRecordIds?: ReadonlyArray<string>,
     readonly targetFieldIds?: ReadonlyArray<string>,
     readonly batchSize?: number
   ) {}
 
-  static create(raw: unknown): Result<PasteStreamCommand, DomainError> {
+  static create(
+    raw: unknown,
+    maxPasteCells = MAX_PASTE_CELLS
+  ): Result<PasteStreamCommand, DomainError> {
     const parsed = pasteStreamCommandInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -83,7 +88,7 @@ export class PasteStreamCommand {
       typeof parsed.data.content === 'string'
         ? parseClipboardText(parsed.data.content)
         : parsed.data.content;
-    const sizeResult = validatePasteInputSize(content, ranges, type);
+    const sizeResult = validatePasteInputSize(content, ranges, type, maxPasteCells);
     if (sizeResult.isErr()) return err(sizeResult.error);
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
@@ -104,6 +109,7 @@ export class PasteStreamCommand {
             parsed.data.sort,
             parsed.data.groupBy,
             parsed.data.ignoreViewQuery ?? false,
+            maxPasteCells,
             parsed.data.targetRecordIds,
             parsed.data.excludedTargetRecordIds,
             parsed.data.targetFieldIds,

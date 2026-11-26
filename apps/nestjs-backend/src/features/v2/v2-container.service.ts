@@ -79,6 +79,8 @@ import { classifyDatabaseError } from '../../observability/database-health/datab
 import { ShareDbService } from '../../share-db/share-db.service';
 import type { IClsStore } from '../../types/cls';
 import { AttachmentsStorageService } from '../attachments/attachments-storage.service';
+import { ATTACHMENT_PUBLIC_LINK_HOOK } from './attachment-public-link.hook';
+import type { IAttachmentPublicLinkHook } from './attachment-public-link.hook';
 import { ComputedOutboxClaimConcurrencyService } from './computed-outbox-trigger/computed-outbox-claim-concurrency.service';
 import {
   createComputedWriterHandle,
@@ -245,6 +247,14 @@ const parseAllowedRemediationKinds = (
     );
   return parsed.length > 0 ? parsed : undefined;
 };
+
+/** The public link hook a registrar put in the container, if any. */
+const resolvePublicLinkHook = (
+  container: DependencyContainer
+): IAttachmentPublicLinkHook | undefined =>
+  container.isRegistered(ATTACHMENT_PUBLIC_LINK_HOOK)
+    ? container.resolve<IAttachmentPublicLinkHook>(ATTACHMENT_PUBLIC_LINK_HOOK)
+    : undefined;
 
 @Injectable()
 export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestroy {
@@ -690,7 +700,8 @@ export class V2ContainerService implements OnApplicationBootstrap, OnModuleDestr
         new V2AttachmentUrlSignerService(
           this.attachmentsStorageService,
           attachmentLookupService,
-          this.cacheService
+          this.cacheService,
+          () => resolvePublicLinkHook(container)
         )
       );
       const attachmentValueDecoratorService = container.resolve<AttachmentValueDecoratorService>(

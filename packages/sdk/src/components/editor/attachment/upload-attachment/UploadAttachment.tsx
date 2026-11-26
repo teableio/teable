@@ -1,7 +1,8 @@
 import { forwardRef, useContext, useImperativeHandle, useRef } from 'react';
 import { usePendingUploadContext } from '../../../../context/pending-upload';
 import { ShareViewContext } from '../../../../context/table/ShareViewContext';
-import { useBaseId } from '../../../../hooks';
+import { useBaseId, useField } from '../../../../hooks';
+import { isPublicAttachmentField } from '../../../../utils/fieldType';
 import {
   useLocalAttachmentUpload,
   useCellAttachmentUpload,
@@ -156,6 +157,8 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
 
     const uploadingFiles = cellUpload.uploadingFiles;
 
+    const showPublicLinks = isPublicAttachmentField(useField(props.fieldId));
+
     const viewRef = useRef<UploadAttachmentViewRef>(null);
 
     useImperativeHandle(ref, () => ({
@@ -168,6 +171,7 @@ const CellUploadAttachment = forwardRef<IUploadAttachmentRef, UploadAttachmentCe
     return (
       <UploadAttachmentView
         {...props}
+        showPublicLinks={showPublicLinks}
         uploadingFiles={uploadingFiles}
         onUpload={cellUpload.onUpload}
         onCancelUpload={cellUpload.onCancelUpload}

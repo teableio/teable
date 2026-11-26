@@ -229,7 +229,8 @@ describe('OpenAPI SelectionController (e2e)', () => {
       type: RangeType;
       ranges: Array<[number, number]>;
     },
-    useV2: boolean
+    useV2: boolean,
+    windowId?: string
   ) => {
     const streamUrl = axios.getUri({
       baseURL: axios.defaults.baseURL,
@@ -249,6 +250,7 @@ describe('OpenAPI SelectionController (e2e)', () => {
         Accept: 'text/event-stream',
         Cookie: cookie,
         [X_CANARY_HEADER]: useV2 ? 'true' : 'false',
+        ...(windowId ? { 'X-Window-Id': windowId } : {}),
       },
     });
 
@@ -3957,42 +3959,63 @@ describe('OpenAPI SelectionController (e2e)', () => {
   });
 
   describe('api/table/:tableId/selection/delete-stream (SSE)', () => {
-    it('should stream v2 delete progress and return the deleted ids', async () => {
+    it('restores every record when undo immediately follows a multi-chunk delete stream', async () => {
+      const recordCount = 201;
       const streamTable = await createTable(baseId, {
         name: 'delete-stream',
         fields: [
           { name: 'name', type: FieldType.SingleLineText },
           { name: 'number', type: FieldType.Number },
         ],
-        records: [
-          { fields: { name: 'stream-1', number: 1 } },
-          { fields: { name: 'stream-2', number: 2 } },
-          { fields: { name: 'stream-3', number: 3 } },
-        ],
+        records: Array.from({ length: recordCount }, (_, i) => ({
+          fields: { name: `stream-${i}`, number: i },
+        })),
       });
 
       try {
+        const windowId = `win-${streamTable.id}`;
         const { progressEvents, doneEvent, errorEvents } = await deleteStreamWithCanary(
           streamTable.id,
           {
             viewId: streamTable.views[0].id,
             type: RangeType.Rows,
-            ranges: [[0, 2]],
+            ranges: [[0, recordCount - 1]],
           },
-          true
+          true,
+          windowId
         );
+        expect((await getRecords(streamTable.id)).data.records).toHaveLength(0);
+        const undoResponse = await axios.post<string>(
+          `/table/${streamTable.id}/undo-redo/undo-stream`,
+          undefined,
+          {
+            headers: { 'X-Window-Id': windowId, [X_CANARY_HEADER]: 'true' },
+            responseType: 'text',
+          }
+        );
+        const undoEvents = undoResponse.data
+          .split('\n')
+          .filter((line) => line.startsWith('data: {'))
+          .map((line) => JSON.parse(line.slice(6)));
 
         expect(errorEvents).toHaveLength(0);
         expect(doneEvent?.data.deletedRecordIds).toEqual(
           streamTable.records.map((record) => record.id)
         );
-        expect(progressEvents.some((event) => event.totalCount === 3)).toBe(true);
-        expect(progressEvents.some((event) => event.deletedCount > 0)).toBe(true);
-
-        const recordsAfter = await getRecords(streamTable.id, {
-          fieldKeyType: FieldKeyType.Id,
+        expect(progressEvents.some((event) => event.totalCount === recordCount)).toBe(true);
+        expect(progressEvents.some((event) => event.deletedCount === 200)).toBe(true);
+        expect(undoEvents.at(-1)).toMatchObject({
+          id: 'done',
+          status: 'fulfilled',
+          engine: 'v2',
         });
-        expect(recordsAfter.data.records).toHaveLength(0);
+        const restored = await getRecords(streamTable.id, {
+          fieldKeyType: FieldKeyType.Id,
+          take: recordCount,
+        });
+        expect(restored.data.records.map((record) => record.id).sort()).toEqual(
+          streamTable.records.map((record) => record.id).sort()
+        );
       } finally {
         await permanentDeleteTable(baseId, streamTable.id);
       }

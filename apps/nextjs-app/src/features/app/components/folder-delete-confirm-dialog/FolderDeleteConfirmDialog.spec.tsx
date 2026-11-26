@@ -15,6 +15,10 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getAxios: () => ({ post }),
 }));
 vi.mock('@teable/sdk/hooks', () => ({ useBaseId: () => 'bseSource' }));
+const publicFile = vi.hoisted(() => ({ enabled: false }));
+vi.mock('../../hooks/usePublicFileEnabled', () => ({
+  usePublicFileEnabled: () => publicFile.enabled,
+}));
 vi.mock('next-i18next', async () => {
   // Vitest hoists this factory before static imports; load the real translations inside it.
   const { createInstance } = await import('i18next');
@@ -87,9 +91,24 @@ const renderDialog = (client: QueryClient) =>
 afterEach(() => {
   cleanup();
   vi.resetAllMocks();
+  publicFile.enabled = false;
 });
 
 describe('FolderDeleteConfirmDialog', () => {
+  it('says public links go off where the deployment serves public files', async () => {
+    const offLine =
+      'Attachment fields with public links lose them right away. After a restore, they have to be turned on again.';
+    post.mockResolvedValue(answered(generatingFolder));
+    const first = renderDialog(newClient());
+    await screen.findByRole('button', { name: 'Close sandbox and delete' });
+    expect(screen.queryByText(offLine)).toBeNull();
+    first.unmount();
+
+    publicFile.enabled = true;
+    renderDialog(newClient());
+    expect(await screen.findByText(offLine)).toBeInTheDocument();
+  });
+
   it('names its button from this check, not from the answer of an earlier opening', async () => {
     const client = new QueryClient({
       defaultOptions: { queries: { retry: false, gcTime: 60_000 } },

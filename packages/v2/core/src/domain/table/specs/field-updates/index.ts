@@ -47,6 +47,9 @@ export { UpdateUserMultiplicitySpec } from './UpdateUserMultiplicitySpec';
 export { UpdateUserNotificationSpec } from './UpdateUserNotificationSpec';
 export { UpdateUserDefaultValueSpec } from './UpdateUserDefaultValueSpec';
 
+// ============ Attachment ============
+export { UpdateAttachmentPublicAccessSpec } from './UpdateAttachmentPublicAccessSpec';
+
 // ============ Button ============
 export { UpdateButtonLabelSpec } from './UpdateButtonLabelSpec';
 export { UpdateButtonColorSpec } from './UpdateButtonColorSpec';

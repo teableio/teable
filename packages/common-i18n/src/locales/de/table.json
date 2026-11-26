@@ -1,6 +1,10 @@
 {
   "searchAcceleration": {
     "title": "Suchbeschleunigung",
+    "configure": "Konfigurieren",
+    "stateUnknown": "Unbekannt",
+    "contactAdmin": "Wende dich an die Verwaltung des Arbeitsbereichs, um diese Einstellung zu ändern.",
+    "shareServing": "Die Beschleunigung ist für sichtbare Felder in dieser Ansicht verfügbar.",
     "stateLabel": "Einstellung",
     "state": {
       "disabled": "Aus",
@@ -18,6 +22,11 @@
     "readOnly": "Nur Eigentümer des Spaces und Ersteller mit Berechtigung zum Aktualisieren dieser Tabelle können diese Einstellung ändern.",
     "statusError": "Die Einstellung konnte nicht geladen werden. Sie können diese Tabelle weiterhin durchsuchen.",
     "changeError": "Die Einstellung konnte nicht geändert werden. Versuchen Sie es erneut.",
+    "quotaExceeded": "Um die Suchbeschleunigung zu aktivieren, reduzieren Sie die Zeilennutzung des Spaces oder erhöhen Sie das Zeilenlimit.",
+    "quotaLimit": "Zeilenlimit des Spaces",
+    "quotaCurrent": "Derzeit angerechnete Zeilen",
+    "quotaIncrement": "Zusätzliche Zeilen für die Beschleunigung",
+    "unavailable": "Die Suchbeschleunigung ist vorübergehend nicht verfügbar. Versuchen Sie es in Kürze erneut.",
     "confirmTitle": "Beschleunigung für diese große Tabelle einschalten?",
     "confirmDetail": "Diese Tabelle enthält mindestens 50.000 Datensätze. Die Vorbereitung kann einige Zeit dauern. Sie können währenddessen weiter suchen.",
     "confirm": "Bestätigen und einschalten"
@@ -397,6 +406,22 @@
       "removeDuplicateValues": "Doppelte Werte entfernen",
       "moreOptions": "Mehr Optionen",
       "allowNewOptionsWhenEditing": "Neue Optionen bei der Bearbeitung zulassen",
+      "publicLinks": {
+        "label": "Öffentliche Links",
+        "description": "Jeder mit dem Link kann Dateien in diesem Feld öffnen",
+        "enableDescription": "Jede Datei in diesem Feld, auch später hinzugefügte, erhält einen Link, den jeder ohne Anmeldung öffnen kann.",
+        "status": "Öffentlich",
+        "copying": "Dateien werden kopiert",
+        "failed": "{{count}} fehlgeschlagen",
+        "retry": "Erneut kopieren",
+        "paused": "Öffentliche Links sind pausiert, weil das Guthaben dieses Space aufgebraucht ist. Nach dem Aufladen funktionieren sie wieder.",
+        "planLapsed": "Der Plan dieses Space enthält keine öffentlichen Dateien mehr: Neue Dateien werden nicht öffentlich, und die veröffentlichten Kopien werden nach Ablauf der Kulanzfrist gelöscht. Eine Verlängerung stellt sie wieder her.",
+        "legacyEngine": "Dieses Projekt läuft noch nicht auf V2. Öffentliche Links benötigen V2 – bitte einen Administrator, es umzustellen.",
+        "enableBackground": "Die Dateien werden im Hintergrund kopiert und sind abrufbar, sobald sie kopiert sind",
+        "enableNoRecall": "Bereits heruntergeladene Inhalte lassen sich nicht zurückholen",
+        "enableTraffic": "Der Datenverkehr wird mit {{credit}} Credits pro GB von Ihrem Guthaben abgebucht",
+        "disableDescription": "Bestehende öffentliche Links zu Dateien in diesem Feld funktionieren dann nicht mehr."
+      },
       "deleteField": {
         "title": "Feld löschen",
         "simpleConfirm": "Sind Sie sicher, dass Sie das Feld <b>{{fieldName}}</b> löschen möchten?",

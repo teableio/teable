@@ -1,4 +1,5 @@
 import type {
+  Action,
   RoutineAction,
   AppAction,
   AutomationAction,
@@ -84,6 +85,10 @@ const NOT_FOR_CLI_ACTIONS: readonly UserAction[] = [
   'user|notifications_send',
 ];
 
+const sharedCliOAuthScopes = OAUTH_ACTIONS.filter(
+  (action) => !NOT_FOR_CLI_ACTIONS.includes(action as UserAction)
+);
+
 /**
  * First-party OAuth application for the Teable AI Tools CLI (`@teable/cli`).
  *
@@ -107,7 +112,7 @@ export const cliOAuthApp = {
    * OAuth PKCE loopback matching ignores the port, so one portless entry is enough.
    */
   redirectUris: ['http://127.0.0.1/callback'],
-  scopes: OAUTH_ACTIONS.filter((action) => !NOT_FOR_CLI_ACTIONS.includes(action as UserAction)),
+  scopes: [...sharedCliOAuthScopes, 'table_record_history|read'] satisfies Action[],
   /**
    * The device grant is per-app opt-in (its approval page is a phishing
    * surface); the CLI is why the flow exists, so it opts in.
@@ -120,12 +125,11 @@ export const cliOAuthApp = {
 const NOT_FOR_MCP_ACTIONS: readonly UserAction[] = ['user|integrations', 'user|email_read'];
 
 /**
- * Scopes an MCP client gets: the first-party CLI's set minus the account-level
- * ones above. Published as `scopes_supported` in the MCP resource metadata
- * (clients request exactly this set), the default and the ceiling for
- * dynamically registered OAuth clients. The token still acts with the user's
- * own permissions; this only caps what it may ask.
+ * The shared OAuth scope set without MCP's excluded account-level scopes. Published
+ * as `scopes_supported` in the MCP resource metadata, and used as both the default
+ * and ceiling for dynamically registered clients. The token still acts with the
+ * user's own permissions.
  */
-export const mcpOAuthScopes = cliOAuthApp.scopes.filter(
+export const mcpOAuthScopes = sharedCliOAuthScopes.filter(
   (action) => !NOT_FOR_MCP_ACTIONS.includes(action as UserAction)
 );

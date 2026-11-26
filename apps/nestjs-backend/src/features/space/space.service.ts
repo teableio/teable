@@ -689,7 +689,7 @@ export class SpaceService {
         });
     }
 
-    const coldHistoryCleanups: (() => Promise<void>)[] = [];
+    const postCommitCleanups: (() => Promise<void>)[] = [];
     await this.prismaService.$tx(
       async (prisma) => {
         if (options?.force) {
@@ -730,8 +730,8 @@ export class SpaceService {
 
         const purgeOptions = {
           skipExternalDataDbCleanup: options?.force,
-          deferColdHistoryCleanup: (cleanup: () => Promise<void>) =>
-            coldHistoryCleanups.push(cleanup),
+          deferPostCommitCleanup: (cleanup: () => Promise<void>) =>
+            postCommitCleanups.push(cleanup),
         };
         for (const { id } of bases) {
           await this.baseService.permanentDeleteBase(id, ignorePermissionCheck, purgeOptions);
@@ -743,7 +743,7 @@ export class SpaceService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
-    for (const cleanup of coldHistoryCleanups) {
+    for (const cleanup of postCommitCleanups) {
       await cleanup();
     }
   }

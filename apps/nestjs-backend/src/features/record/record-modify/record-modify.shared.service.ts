@@ -28,6 +28,7 @@ import { formatChangesToOps, mergeDuplicateChange } from '../../calculation/util
 import { CollaboratorService } from '../../collaborator/collaborator.service';
 import { DataLoaderService } from '../../data-loader/data-loader.service';
 import { FieldConvertingService } from '../../field/field-calculate/field-converting.service';
+import { RecordTitleReader } from '../../v2/record-title-reader';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';
 import { ViewService } from '../../view/view.service';
 import { CrossBaseLinkAccessService } from '../cross-base-link-access.service';
@@ -52,6 +53,7 @@ export class RecordModifySharedService {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly recordService: RecordService,
+    private readonly recordTitles: RecordTitleReader,
     private readonly fieldConvertingService: FieldConvertingService,
     private readonly viewOpenApiService: ViewOpenApiService,
     private readonly viewService: ViewService,
@@ -181,6 +183,7 @@ export class RecordModifySharedService {
           prismaService: this.prismaService,
           fieldConvertingService: this.fieldConvertingService,
           recordService: this.recordService,
+          recordTitles: this.recordTitles,
           attachmentsStorageService: this.attachmentsStorageService,
           collaboratorService: this.collaboratorService,
           dataLoaderService: this.dataLoaderService,

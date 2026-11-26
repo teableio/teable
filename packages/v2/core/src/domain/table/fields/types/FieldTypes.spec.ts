@@ -1,6 +1,7 @@
 import { ok } from 'neverthrow';
 import { describe, expect, it } from 'vitest';
 
+import { BaseId } from '../../../base/BaseId';
 import { TableId } from '../../TableId';
 import { ViewId } from '../../views/ViewId';
 import { FieldId } from '../FieldId';
@@ -8,6 +9,7 @@ import { FieldName } from '../FieldName';
 import type { IFieldVisitor } from '../visitors/IFieldVisitor';
 import { NoopFieldVisitor } from '../visitors/NoopFieldVisitor';
 import { AttachmentField } from './AttachmentField';
+import { AttachmentPublicAccess } from './AttachmentPublicAccess';
 import { AutoNumberField } from './AutoNumberField';
 import { ButtonField } from './ButtonField';
 import { ButtonLabel } from './ButtonLabel';
@@ -558,5 +560,29 @@ describe('Field types', () => {
 
     const noopVisitor = new NoopFieldVisitor();
     buttonField._unsafeUnwrap().accept(noopVisitor)._unsafeUnwrap();
+  });
+});
+
+describe('AttachmentField public access', () => {
+  const params = {
+    newId: createFieldId('n')._unsafeUnwrap(),
+    newName: FieldName.create('Files 2')._unsafeUnwrap(),
+    baseId: BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap(),
+    tableId: TableId.create(`tbl${'a'.repeat(16)}`)._unsafeUnwrap(),
+  };
+  const publicField = AttachmentField.create({
+    id: createFieldId('a')._unsafeUnwrap(),
+    name: FieldName.create('Files')._unsafeUnwrap(),
+    isPublic: AttachmentPublicAccess.enabled(),
+  })._unsafeUnwrap();
+
+  it('copies a public field private', () => {
+    const copy = publicField.duplicate(params)._unsafeUnwrap() as AttachmentField;
+    expect(copy.publicAccess().toBoolean()).toBe(false);
+  });
+
+  it('keeps a renamed field public', () => {
+    const renamed = publicField.withName(params)._unsafeUnwrap() as AttachmentField;
+    expect(renamed.publicAccess().toBoolean()).toBe(true);
   });
 });

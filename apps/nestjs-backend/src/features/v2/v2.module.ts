@@ -20,6 +20,7 @@ import { ComputedOutboxWakeupProducerModule } from './computed-outbox-trigger/co
 import { ComputedOutboxWorkerConcurrencyService } from './computed-outbox-trigger/computed-outbox-worker-concurrency.service';
 import { ComputedReliabilityReconciliationService } from './computed-outbox-trigger/computed-reliability-reconciliation.service';
 import { DomainEventWakeupProducerModule } from './domain-event-outbox-trigger/domain-event-wakeup-producer.module';
+import { RecordTitleReader } from './record-title-reader';
 import { TableQueryObservationRuntimeModule } from './table-query-observation-runtime.module';
 import { TableQuerySearchVectorRuntimeService } from './table-query-search-vector-runtime.service';
 import { V2ActionTriggerService } from './v2-action-trigger.service';
@@ -167,6 +168,7 @@ export const toV2HttpError = (
     DiscoveryService,
     V2ContainerService,
     V2ExecutionContextFactory,
+    RecordTitleReader,
     V2ActorColumnsService,
     NestVcsAccessPolicy,
     TableQuerySearchVectorRuntimeService,
@@ -200,6 +202,7 @@ export const toV2HttpError = (
     V2ContainerService,
     TableQueryObservationRuntimeModule,
     V2ExecutionContextFactory,
+    RecordTitleReader,
     V2ActorColumnsService,
     V2RecordQueryPlanService,
     TableQuerySearchVectorRuntimeService,

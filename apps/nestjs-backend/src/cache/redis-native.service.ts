@@ -119,8 +119,9 @@ export class RedisNativeService {
    * Delete a key.
    * @param key - Redis key to delete
    */
-  async del(key: string): Promise<void> {
-    await this.client.del(key);
+  /** Returns how many keys were deleted, so a caller can take a flag atomically. */
+  async del(key: string): Promise<number> {
+    return this.client.del(key);
   }
 
   /**

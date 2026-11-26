@@ -119,6 +119,7 @@ describe('DependencyChangeDetectorVisitor', () => {
       'visitUpdateUserMultiplicity',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
+      'visitUpdateAttachmentPublicAccess',
       'visitUpdateButtonLabel',
       'visitUpdateButtonColor',
       'visitUpdateButtonMaxCount',

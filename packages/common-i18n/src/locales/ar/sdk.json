@@ -75,7 +75,9 @@
       "downloadSuccess": "اكتمل التنزيل",
       "downloadFailed": "فشل التنزيل",
       "downloadCancelled": "تم إلغاء التنزيل",
-      "requireHttps": "يتطلب التنزيل الجماعي بروتوكول HTTPS. يُرجى الدخول عبر HTTPS أو localhost"
+      "requireHttps": "يتطلب التنزيل الجماعي بروتوكول HTTPS. يُرجى الدخول عبر HTTPS أو localhost",
+      "copyPublicLink": "نسخ الرابط العام",
+      "publicLinkCopied": "تم نسخ الرابط العام"
     },
     "date": {
       "placeholder": "اختر تاريخًا",
@@ -1855,6 +1857,10 @@
       "endpointChanged": "لا يمكن إرسال السر المحفوظ إلا إلى العنوان الذي حُفظ له. أدخل {{field}} مرة أخرى.",
       "reenterForNewAddress": "تغيّر العنوان. أعد إدخال {{fields}} أو امسحها أولاً.",
       "staleMask": "تغيّر {{field}} المحفوظ بعد تحميل الصفحة. أدخله مرة أخرى."
+    },
+    "publicFile": {
+      "fieldNotFound": "لم يتم العثور على الحقل",
+      "noPublicFields": "المساحة غير موجودة، أو لا تحتوي على حقول مرفقات مفعّل فيها الوصول العام"
     }
   },
   "usageLimitBanner": {

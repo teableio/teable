@@ -7,6 +7,7 @@
 > [upgrading](https://github.com/teableio/teable-deployment/blob/main/migration/2026-07-basic-to-full-featured.md).
 
 Look into the `.env` file and update the vaiables before executing `docker compose up -d`.
+Uncomment `SECRET_KEY` there and set it first (`openssl rand -base64 32`): a later version refuses to start without it.
 
 ## Teable
 

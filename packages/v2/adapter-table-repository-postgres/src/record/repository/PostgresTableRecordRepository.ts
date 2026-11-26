@@ -291,97 +291,64 @@ const asString = (value: unknown): string | undefined => {
 const cleanupRestoredRecordTrash = async (
   db: Kysely<DynamicDB> | Transaction<DynamicDB>,
   tableId: string,
-  recordIds: ReadonlyArray<string>
+  restoredRecordIds: ReadonlyArray<string>,
+  discardedTrashIndexRecordIds: ReadonlyArray<string> = []
 ): Promise<void> => {
-  if (recordIds.length === 0) {
+  if (restoredRecordIds.length === 0 && discardedTrashIndexRecordIds.length === 0) {
     return;
   }
 
-  const restoredRecordIds = Array.from(new Set(recordIds));
-  const deletedFromRecordTrashSet = new Set<string>();
+  const removedIndexIds = new Set([...restoredRecordIds, ...discardedTrashIndexRecordIds]);
   const trashChunkSize = 5_000;
+
+  const indexes = db
+    .selectFrom('table_trash')
+    .where('table_id', '=', tableId)
+    .where('resource_type', '=', RECORD_TRASH_RESOURCE_TYPE);
+  const candidates = (await indexes.select(['id', 'snapshot']).execute()).flatMap((item) => {
+    const id = asString(item.id);
+    return id && parseTrashedRecordIds(item.snapshot).some((recordId) => removedIndexIds.has(recordId))
+      ? [id]
+      : [];
+  });
+
+  // Serialize with projections on the overlapping indexes only. Re-read the
+  // snapshots under the lock because another restore may have shrunk them.
+  const tableTrashItems = candidates.length
+    ? await indexes
+        .select(['id', 'snapshot'])
+        .where(sql<boolean>`${sql.ref('id')} = ANY(${candidates}::text[])`)
+        .orderBy('id', 'asc')
+        .forUpdate()
+        .execute()
+    : [];
+
   for (let offset = 0; offset < restoredRecordIds.length; offset += trashChunkSize) {
     const chunk = restoredRecordIds.slice(offset, offset + trashChunkSize);
-    const deletedRows = await db
+    await db
       .deleteFrom('record_trash')
       .where('table_id', '=', tableId)
       .where('record_id', 'in', chunk)
-      .returning('record_id')
       .execute();
-    for (const row of deletedRows) {
-      const id = asString(row.record_id);
-      if (id) {
-        deletedFromRecordTrashSet.add(id);
-      }
-    }
-  }
-
-  const tableTrashItems = await db
-    .selectFrom('table_trash')
-    .select(['id', 'snapshot'])
-    .where('table_id', '=', tableId)
-    .where('resource_type', '=', RECORD_TRASH_RESOURCE_TYPE)
-    .execute();
-
-  const restoredRecordIdSet = new Set(restoredRecordIds);
-  const candidateTrashItems = tableTrashItems.flatMap((item) => {
-    const id = asString(item.id);
-    if (!id) {
-      return [];
-    }
-
-    const parsedRecordIds = parseTrashedRecordIds(item.snapshot);
-    if (
-      parsedRecordIds.length === 0 ||
-      !parsedRecordIds.some((recordId) => restoredRecordIdSet.has(recordId))
-    ) {
-      return [];
-    }
-
-    return [{ id, recordIds: parsedRecordIds }];
-  });
-
-  if (candidateTrashItems.length === 0) {
-    return;
-  }
-
-  const candidateRecordIds = Array.from(
-    new Set(candidateTrashItems.flatMap((item) => item.recordIds))
-  );
-  const remainingRecordIdSet = new Set<string>();
-  for (let offset = 0; offset < candidateRecordIds.length; offset += trashChunkSize) {
-    const chunk = candidateRecordIds.slice(offset, offset + trashChunkSize);
-    const remainingRecordTrashEntries = await db
-      .selectFrom('record_trash')
-      .select('record_id')
-      .where('table_id', '=', tableId)
-      .where('record_id', 'in', chunk)
-      .execute();
-    for (const entry of remainingRecordTrashEntries) {
-      const recordId = asString(entry.record_id);
-      if (recordId != null) {
-        remainingRecordIdSet.add(recordId);
-      }
-    }
   }
 
   const staleTrashIds: string[] = [];
   const shrunkTrashItems: Array<{ id: string; unrestoredIds: string[] }> = [];
-  for (const item of candidateTrashItems) {
-    if (item.recordIds.some((recordId) => remainingRecordIdSet.has(recordId))) {
+  for (const item of tableTrashItems) {
+    const id = asString(item.id);
+    if (!id) {
       continue;
     }
 
-    const hadRecordTrashSnapshots = item.recordIds.some((recordId) =>
-      deletedFromRecordTrashSet.has(recordId)
-    );
-    const unrestoredIds = item.recordIds.filter((recordId) => !restoredRecordIdSet.has(recordId));
-    if (hadRecordTrashSnapshots || unrestoredIds.length === 0) {
-      staleTrashIds.push(item.id);
+    const parsedRecordIds = parseTrashedRecordIds(item.snapshot);
+    const unrestoredIds = parsedRecordIds.filter((recordId) => !removedIndexIds.has(recordId));
+    if (unrestoredIds.length === parsedRecordIds.length) {
+      continue;
+    }
+    if (unrestoredIds.length === 0) {
+      staleTrashIds.push(id);
     } else {
-      // Async record_trash projection has not landed yet: retain unrestored sibling ids
-      // (such as Phase 2 deferred self-linked records) so listTrashedRecordIds stays sound on retry.
-      shrunkTrashItems.push({ id: item.id, unrestoredIds });
+      shrunkTrashItems.push({ id, unrestoredIds });
     }
   }
 
@@ -1926,14 +1893,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           // Execute additional statements (junction inserts, FK updates, user field updates, etc.)
           await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
 
-          if (options?.cleanupTrashRecordIds?.length) {
-            await cleanupRestoredRecordTrash(
-              db,
-              table.id().toString(),
-              options.cleanupTrashRecordIds
-            );
-          }
-
           // Run computed updates unless explicitly skipped (for deferred batch processing)
           let computedResult: ComputedUpdateResult | undefined;
           if (!options?.skipComputedUpdates) {
@@ -1977,6 +1936,16 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             );
           }
           await this.touchTableMeta(context, table.id().toString(), actorId);
+          if (
+            options?.cleanupTrashRecordIds?.length || options?.discardedTrashIndexRecordIds?.length
+          ) {
+            await cleanupRestoredRecordTrash(
+              db,
+              table.id().toString(),
+              options.cleanupTrashRecordIds ?? [],
+              options.discardedTrashIndexRecordIds
+            );
+          }
           return ok({
             recordActorsByRecord,
             changedFieldsByRecord:
@@ -2126,13 +2095,14 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         };
 
         if (dedupedRecords.length === 0 || selfLinkFields.length === 0) {
+          const computed = yield* await runAtomicInsertComputedFallback();
           if (cleanupTrashRecordIds.length > 0) {
             const uniqueCleanupIds = Array.from(new Set(cleanupTrashRecordIds));
             const { existingIdSet } = await queryExistingRecordVersions(uniqueCleanupIds);
             const liveCleanupIds = uniqueCleanupIds.filter((id) => existingIdSet.has(id));
             yield* await cleanupLiveTrashOnly(liveCleanupIds);
           }
-          return runAtomicInsertComputedFallback();
+          return ok(computed);
         }
 
         const selfLinkMetaByFieldId = new Map<
@@ -2289,8 +2259,9 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
         }
 
         if (partialRecords.length === 0) {
+          const computed = yield* await runAtomicInsertComputedFallback(versionByRecordId);
           yield* await cleanupLiveTrashOnly(liveCleanupTrashRecordIds);
-          return runAtomicInsertComputedFallback(versionByRecordId);
+          return ok(computed);
         }
 
         const allExtraSeedRecordGroups: ExtraSeedRecordGroup[] = [
@@ -2383,14 +2354,6 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             if (exclusivityValidResult.isErr()) return exclusivityValidResult;
 
             await RecordInsertBuilder.executeStatements(db, allAdditionalStatements);
-
-            if (liveCleanupTrashRecordIds.length > 0) {
-              await cleanupRestoredRecordTrash(
-                db,
-                table.id().toString(),
-                liveCleanupTrashRecordIds
-              );
-            }
             return ok(undefined);
           });
           if (linkWriteResult.isErr()) {
@@ -2472,6 +2435,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
             }
 
             await this.touchTableMeta(context, table.id().toString(), actorId);
+            yield* await cleanupLiveTrashOnly(liveCleanupTrashRecordIds);
             return ok(atomicResults);
           }
 
@@ -2527,6 +2491,7 @@ export class PostgresTableRecordRepository implements core.ITableRecordRepositor
           }
 
           await this.touchTableMeta(context, table.id().toString(), actorId);
+          yield* await cleanupLiveTrashOnly(liveCleanupTrashRecordIds);
           return ok(restoredRecords);
         } catch (error) {
           return err(wrapDatabaseError(error, 'insert', { tableName, fields: table.getFields() }));

@@ -25,7 +25,7 @@ import { ClsService } from 'nestjs-cls';
 import { CustomHttpException } from '../../custom.exception';
 import type { IClsStore } from '../../types/cls';
 import { AuditScope } from '../audit/audit-scope';
-import { BaseImportService } from '../base/base-import.service';
+import { BaseImportV2Service } from '../base/base-import-v2.service';
 import { CollaboratorService } from '../collaborator/collaborator.service';
 import { installablePluginWhere } from '../plugin/utils';
 
@@ -35,7 +35,7 @@ export class PluginPanelService {
     private readonly prismaService: PrismaService,
     private readonly cls: ClsService<IClsStore>,
     private readonly collaboratorService: CollaboratorService,
-    private readonly baseImportService: BaseImportService,
+    private readonly baseImportService: BaseImportV2Service,
     private readonly audit: AuditScope
   ) {}
 

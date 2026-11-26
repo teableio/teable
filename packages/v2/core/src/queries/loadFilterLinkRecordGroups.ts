@@ -2,7 +2,7 @@ import { err, ok, type Result } from 'neverthrow';
 
 import type { RecordQueryPluginRunner } from '../application/services/RecordQueryPluginRunner';
 import { andSpec } from '../domain/shared/specification/AndSpec';
-import type { DomainError } from '../domain/shared/DomainError';
+import { isForbiddenError, type DomainError } from '../domain/shared/DomainError';
 import type { ViewFilterLinkReference } from '../domain/table/methods/viewFilterLinkReferences';
 import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import { FieldId } from '../domain/table/fields/FieldId';
@@ -29,7 +29,8 @@ export const loadFilterLinkRecordGroups = async (
   tableRepository: ITableRepository,
   tableRecordQueryRepository: ITableRecordQueryRepository,
   references: ReadonlyArray<ViewFilterLinkReference>,
-  recordQueryPluginRunner: RecordQueryPluginRunner
+  recordQueryPluginRunner: RecordQueryPluginRunner,
+  options?: { readonly omitForbiddenGroups?: boolean }
 ): Promise<Result<ViewFilterLinkRecordGroup[], DomainError>> => {
   const groups: ViewFilterLinkRecordGroup[] = [];
   for (const reference of references) {
@@ -50,7 +51,10 @@ export const loadFilterLinkRecordGroups = async (
     });
     if (executionResult.isErr()) return err(executionResult.error);
     const guardResult = await executionResult.value.guard();
-    if (guardResult.isErr()) return err(guardResult.error);
+    if (guardResult.isErr()) {
+      if (options?.omitForbiddenGroups && isForbiddenError(guardResult.error)) continue;
+      return err(guardResult.error);
+    }
     const scopeResult = executionResult.value.getScope();
     if (scopeResult.isErr()) return err(scopeResult.error);
     const scope = scopeResult.value;

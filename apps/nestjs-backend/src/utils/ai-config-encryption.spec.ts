@@ -42,6 +42,53 @@ describe('AiConfigValueCodec', () => {
     expect(rotating.isCurrentValue(rotating.encryptValue('sk-rotated'))).toBe(true);
   });
 
+  it('writes under the stored credential root once set, and still opens what SECRET_KEY wrote', () => {
+    const underSecretKey = new AiConfigValueCodec({ SECRET_KEY: 'instance-root' }).encryptValue(
+      'sk-before'
+    );
+    const unified = new AiConfigValueCodec({
+      SECRET_KEY: 'instance-root',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'stored-root',
+    });
+    const written = unified.encryptValue('sk-after');
+
+    expect(unified.decryptValueStrict(underSecretKey)).toBe('sk-before');
+    expect(unified.isCurrentValue(underSecretKey)).toBe(false);
+    expect(unified.isCurrentValue(written)).toBe(true);
+    // SECRET_KEY alone no longer opens what the stored credential root wrote
+    expect(() =>
+      new AiConfigValueCodec({ SECRET_KEY: 'instance-root' }).decryptValueStrict(written)
+    ).toThrow('AI config secret decryption failed');
+  });
+
+  it("reads under the stored credential root's _OLD before anyone writes under that root", () => {
+    const env = { SECRET_KEY: 'instance-root' };
+    // step one: every reader gets the new root, nobody writes under it
+    const prepared = new AiConfigValueCodec({
+      ...env,
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD: 'stored-root',
+    });
+    // step two: the root is set
+    const switched = new AiConfigValueCodec({
+      ...env,
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'stored-root',
+    });
+
+    expect(prepared.decryptValueStrict(switched.encryptValue('sk-new'))).toBe('sk-new');
+    expect(switched.decryptValueStrict(prepared.encryptValue('sk-old'))).toBe('sk-old');
+    expect(switched.isCurrentValue(prepared.encryptValue('sk-old'))).toBe(false);
+  });
+
+  it('keeps its superseded dedicated var writing while that is set', () => {
+    const own = new AiConfigValueCodec({ BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'own-root' });
+    const both = new AiConfigValueCodec({
+      BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'own-root',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'stored-root',
+    });
+
+    expect(own.isCurrentValue(both.encryptValue('sk-live'))).toBe(true);
+  });
+
   it('throws on a ciphertext no configured root opens', () => {
     const foreign = new AiConfigValueCodec({
       BACKEND_AI_CONFIG_ENCRYPTION_SECRET: 'some-other-root',
@@ -58,6 +105,11 @@ describe('AiConfigValueCodec', () => {
     expect(new AiConfigValueCodec({ SECRET_KEY: 'instance-root' }).usesPublicDefaultRoot).toBe(
       false
     );
+    // the stored credential root pinned to the public default is still that default
+    expect(
+      new AiConfigValueCodec({ BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'defaultSecretKey' })
+        .usesPublicDefaultRoot
+    ).toBe(true);
   });
 });
 

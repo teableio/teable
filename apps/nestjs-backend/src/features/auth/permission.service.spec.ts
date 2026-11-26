@@ -419,6 +419,7 @@ describe('PermissionService', () => {
         scopes: ['table|read'],
         spaceIds,
         baseIds,
+        hasFullAccess: undefined,
       });
 
       const error = await getError(
@@ -449,6 +450,7 @@ describe('PermissionService', () => {
       // The token must not gain read access it was never approved for.
       expect(result.scopes).not.toContain('base|read_all');
       expect(result.scopes).toEqual(['table|read']);
+      expect(result.clientId).toBe('cltoauthclient00');
     });
 
     it('preserves base|read_all for an OAuth token that DID consent to it', async () => {

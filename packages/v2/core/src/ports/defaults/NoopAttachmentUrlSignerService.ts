@@ -3,13 +3,15 @@ import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
 import type {
+  AttachmentPublicLinkRequest,
+  AttachmentPublicLinks,
   AttachmentSignRequest,
   AttachmentSignedUrls,
   IAttachmentUrlSignerService,
 } from '../AttachmentUrlSignerService';
 
 /**
- * Default no-op URL signer. Returns empty signed URLs and never invalidates
+ * Default no-op URL signer. Returns empty signed URLs and no public links, and never invalidates
  * caches — used in contexts (tests, browser containers) where no real
  * storage/cache backend is configured.
  */
@@ -22,5 +24,11 @@ export class NoopAttachmentUrlSignerService implements IAttachmentUrlSignerServi
 
   async invalidatePreview(_tokens: ReadonlyArray<string>): Promise<Result<void, DomainError>> {
     return ok(undefined);
+  }
+
+  async publicLinks(
+    cells: ReadonlyArray<AttachmentPublicLinkRequest>
+  ): Promise<Result<ReadonlyArray<AttachmentPublicLinks | undefined>, DomainError>> {
+    return ok(cells.map(() => undefined));
   }
 }

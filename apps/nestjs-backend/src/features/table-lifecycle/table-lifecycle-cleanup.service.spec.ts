@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { TableLifecycleCleanupService } from './table-lifecycle-cleanup.service';
+import { TablePurgeHookRegistry } from './table-purge.hook';
 
 describe('TableLifecycleCleanupService', () => {
   const createService = () => {
@@ -13,6 +14,7 @@ describe('TableLifecycleCleanupService', () => {
     };
     const prismaService = {
       txClient: vi.fn().mockReturnValue(prismaClient),
+      base: { findUnique: vi.fn().mockResolvedValue({ spaceId: 'spc1' }) },
     };
     const databaseRouter = {
       isMetaFallbackForBase: vi.fn().mockResolvedValue(true),
@@ -23,20 +25,26 @@ describe('TableLifecycleCleanupService', () => {
     const recordHistoryColdStorage = {
       deleteTablePrefix: vi.fn().mockResolvedValue(undefined),
     };
+    const tablePurgeHook = { afterPurge: vi.fn().mockResolvedValue(undefined) };
+    const purgeHooks = new TablePurgeHookRegistry();
+    purgeHooks.register(tablePurgeHook);
 
     const service = new TableLifecycleCleanupService(
       prismaService as never,
       databaseRouter as never,
       {} as never,
       tableMutationCacheInvalidator as never,
-      recordHistoryColdStorage as never
+      recordHistoryColdStorage as never,
+      purgeHooks
     );
 
     return {
       service,
+      prismaService,
       prismaClient,
       tableMutationCacheInvalidator,
       recordHistoryColdStorage,
+      tablePurgeHook,
     };
   };
 
@@ -59,9 +67,14 @@ describe('TableLifecycleCleanupService', () => {
     });
   });
 
-  it('limits post-commit cleanupAfterNativePurge to cache invalidation and cold S3 prefixes', async () => {
-    const { service, prismaClient, tableMutationCacheInvalidator, recordHistoryColdStorage } =
-      createService();
+  it('limits post-commit cleanupAfterNativePurge to cache invalidation and storage', async () => {
+    const {
+      service,
+      prismaClient,
+      tableMutationCacheInvalidator,
+      recordHistoryColdStorage,
+      tablePurgeHook,
+    } = createService();
 
     await service.cleanupAfterNativePurge('bse1', 'tbl1', {
       dbTableName: 'bse1.tbl1',
@@ -70,6 +83,28 @@ describe('TableLifecycleCleanupService', () => {
 
     expect(tableMutationCacheInvalidator.invalidateDroppedTable).toHaveBeenCalledWith('bse1.tbl1');
     expect(recordHistoryColdStorage.deleteTablePrefix).toHaveBeenCalledWith('tbl1');
+    // the base outlives a table purge and tells the space
+    expect(tablePurgeHook.afterPurge).toHaveBeenCalledWith({ spaceId: 'spc1', tableIds: ['tbl1'] });
     expect(prismaClient.field.findMany).not.toHaveBeenCalled();
+  });
+
+  it('passes the space a base purge read, its base row being gone', async () => {
+    const { service, prismaService, tablePurgeHook } = createService();
+
+    await service.cleanupAfterPurge({ baseId: 'bse1', spaceId: 'spc9', tableIds: ['tbl1'] });
+
+    expect(prismaService.base.findUnique).not.toHaveBeenCalled();
+    expect(tablePurgeHook.afterPurge).toHaveBeenCalledWith({ spaceId: 'spc9', tableIds: ['tbl1'] });
+  });
+
+  it('does not fail a committed purge when the purge hook fails', async () => {
+    const { service, recordHistoryColdStorage, tablePurgeHook } = createService();
+    tablePurgeHook.afterPurge.mockRejectedValueOnce(new Error('queue down'));
+
+    await expect(
+      service.cleanupAfterPurge({ baseId: 'bse1', spaceId: 'spc1', tableIds: ['tbl1', 'tbl2'] })
+    ).resolves.toBeUndefined();
+
+    expect(recordHistoryColdStorage.deleteTablePrefix.mock.calls).toEqual([['tbl1'], ['tbl2']]);
   });
 });

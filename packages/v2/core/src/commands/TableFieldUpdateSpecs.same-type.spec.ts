@@ -589,6 +589,26 @@ const sameTypeCases: SameTypeCase[] = [
     },
   },
   {
+    name: 'attachment',
+    prepare: () => {
+      const { currentField } = buildHarness('n', 'n', (builder, fieldId) => {
+        builder
+          .field()
+          .attachment()
+          .withId(fieldId)
+          .withName(FieldName.create('Files')._unsafeUnwrap())
+          .done();
+      });
+      setStableDbFieldName(currentField, 'stable_attachment_column');
+
+      return {
+        currentField,
+        input: { name: 'Files 2', options: { isPublic: true } },
+        expectedSpecNames: ['TableUpdateFieldNameSpec', 'UpdateAttachmentPublicAccessSpec'],
+      };
+    },
+  },
+  {
     name: 'button',
     prepare: () => {
       const { currentField } = buildHarness('q', 'q', (builder, fieldId) => {

@@ -63,7 +63,8 @@ export class GetFilterLinkRecordsHandler implements IQueryHandler<
         handler.tableRepository,
         handler.tableRecordQueryRepository,
         references,
-        handler.recordQueryPluginRunner
+        handler.recordQueryPluginRunner,
+        query.options
       );
       return ok(GetFilterLinkRecordsResult.create(groups));
     });

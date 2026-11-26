@@ -6,6 +6,7 @@ import { DELETED_RECORD_TRASH_MARKER_SNAPSHOT, type IExecutionContext } from '@t
 import { sql, type RawBuilder } from 'kysely';
 import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
 import { V2ContainerService } from '../v2/v2-container.service';
+import { recordTrashResetLockKey } from './record-trash-row';
 
 interface ITableTrashInsert {
   id: string;
@@ -63,7 +64,11 @@ type TrashTableTrashQuery = {
 
 type TrashRecordTrashProbeQuery = {
   select(column: 'record_id'): TrashRecordTrashProbeQuery;
-  where(columnOrExpr: unknown, operator?: string, value?: string): TrashRecordTrashProbeQuery;
+  where(
+    columnOrExpr: unknown,
+    operator?: string,
+    value?: string | ReadonlyArray<string>
+  ): TrashRecordTrashProbeQuery;
   limit(limit: number): TrashRecordTrashProbeQuery;
   execute(): Promise<ReadonlyArray<{ record_id: string }>>;
 };
@@ -85,7 +90,7 @@ type TrashDbTransaction = {
   updateTable(table: 'table_trash'): TrashTableTrashUpdate;
   selectFrom(table: 'table_trash'): TrashTableTrashQuery;
   selectFrom(table: 'record_trash'): TrashRecordTrashProbeQuery;
-};
+} & Parameters<RawBuilder<unknown>['execute']>[0];
 
 type TrashDbClient = {
   transaction(): {
@@ -188,7 +193,7 @@ export class V2RecordTrashService {
   async persistDeletedRecords(
     payload: IDeleteRecordsPayload,
     context?: Pick<IExecutionContext, 'tracer'>,
-    options?: { fillExistingMarkers?: boolean }
+    options?: { fillExistingMarkers?: boolean; matchOperationIdOnly?: boolean }
   ): Promise<void> {
     const { operationId, tableId, userId, records } = payload;
     const uniqueRecords = deduplicateTrashRecordsById(records);
@@ -211,21 +216,23 @@ export class V2RecordTrashService {
       },
       async () =>
         db.transaction().execute(async (trx) => {
-          const batches = splitTrashRecordBatches(uniqueRecords);
+          let batchesToInsert = splitTrashRecordBatches(uniqueRecords);
           if (options?.fillExistingMarkers) {
-            const matchedCreatedTime = await this.handleFillExistingMarkers(trx, {
+            const matched = await this.handleFillExistingMarkers(trx, {
               tableId,
               operationId,
               userId,
               createdTime,
               uniqueRecords,
               recordIds,
-              batches,
+              batches: batchesToInsert,
+              matchOperationIdOnly: options?.matchOperationIdOnly,
             });
-            if (!matchedCreatedTime) {
+            if (!matched) {
               return;
             }
-            recordTrashCreatedTime = matchedCreatedTime;
+            recordTrashCreatedTime = matched.createdTime;
+            batchesToInsert = matched.batches;
           } else {
             await trx
               .insertInto('table_trash')
@@ -245,7 +252,7 @@ export class V2RecordTrashService {
             userId,
             operationId,
             createdTime: recordTrashCreatedTime,
-            batches,
+            batches: batchesToInsert,
           });
         })
     );
@@ -261,60 +268,16 @@ export class V2RecordTrashService {
       uniqueRecords: ReadonlyArray<IDeleteRecordsPayload['records'][number]>;
       recordIds: ReadonlyArray<string>;
       batches: ReadonlyArray<ReadonlyArray<IDeleteRecordsPayload['records'][number]>>;
+      matchOperationIdOnly?: boolean;
     }
-  ): Promise<string | undefined> {
-    const markerProbe = await trx
-      .selectFrom('record_trash')
-      .select('record_id')
-      .where('table_id', '=', params.tableId)
-      .where('reason', '=', 'deleted')
-      .where('snapshot', '=', DELETED_RECORD_TRASH_MARKER_SNAPSHOT)
-      .where(sql<boolean>`${sql.ref('record_trash.record_id')} = ANY(${params.recordIds}::text[])`)
-      .limit(1)
-      .execute();
-
-    const updatedRecordIds = new Set<string>();
-    if (markerProbe.length > 0) {
-      for (const batch of params.batches) {
-        const rows = batch.map((record) => ({
-          record_id: record.id,
-          snapshot: record,
-          record_created_time: toIsoTimestamp(record.createdTime) ?? null,
-          record_created_by: record.createdBy ?? null,
-          record_last_modified_time: toIsoTimestamp(record.lastModifiedTime) ?? null,
-          record_last_modified_by: record.lastModifiedBy ?? null,
-        }));
-        const serializedRows = stringifyTrashJsonForJsonb(rows);
-        const batchRecordIds = batch.map((record) => record.id);
-        // Bind serializedRows once via FROM jsonb_array_elements and join in
-        // WHERE; repeating the payload in 5 correlated subqueries causes
-        // PostgreSQL O(N^2) JSONB expansion and backend OOM on wide rows.
-        const updated = await trx
-          .updateTable('record_trash')
-          .from(sql`jsonb_array_elements(${serializedRows}::jsonb) as r`)
-          .set({
-            snapshot: sql`(r -> 'snapshot')::text`,
-            operation_id: params.operationId,
-            record_created_time: sql`(r ->> 'record_created_time')::timestamptz`,
-            record_created_by: sql`r ->> 'record_created_by'`,
-            record_last_modified_time: sql`(r ->> 'record_last_modified_time')::timestamptz`,
-            record_last_modified_by: sql`r ->> 'record_last_modified_by'`,
-          })
-          .where('table_id', '=', params.tableId)
-          .where('reason', '=', 'deleted')
-          .where('snapshot', '=', DELETED_RECORD_TRASH_MARKER_SNAPSHOT)
-          .where(
-            sql<boolean>`${sql.ref('record_trash.record_id')} = ANY(${batchRecordIds}::text[])`
-          )
-          .where(sql<boolean>`r ->> 'record_id' = ${sql.ref('record_trash.record_id')}`)
-          .returning('record_id')
-          .execute();
-        for (const row of updated) {
-          updatedRecordIds.add(row.record_id);
-        }
+  ): Promise<
+    | {
+        createdTime: string;
+        batches: ReadonlyArray<ReadonlyArray<IDeleteRecordsPayload['records'][number]>>;
       }
-    }
-
+    | undefined
+  > {
+    const updatedRecordIds = await this.fillPendingMarkerRows(trx, params);
     if (updatedRecordIds.size > 0) {
       await this.upsertTableTrashIndex(trx, params);
       if (updatedRecordIds.size < params.uniqueRecords.length) {
@@ -332,7 +295,134 @@ export class V2RecordTrashService {
       return undefined;
     }
 
-    const recordIdSet = new Set(params.recordIds);
+    const lockedIndex = await this.lockMatchingTableTrashIndex(trx, params);
+    if (!lockedIndex) {
+      return undefined;
+    }
+
+    const activeTrashIdSet = new Set(parseTableTrashRecordIds(lockedIndex.snapshot));
+    const survivingRecords = params.uniqueRecords.filter((record) =>
+      activeTrashIdSet.has(record.id)
+    );
+    if (survivingRecords.length === 0) {
+      return undefined;
+    }
+
+    return {
+      createdTime: toIsoTimestamp(lockedIndex.created_time) ?? params.createdTime,
+      batches:
+        survivingRecords.length === params.uniqueRecords.length
+          ? params.batches
+          : splitTrashRecordBatches(survivingRecords),
+    };
+  }
+
+  private async fillPendingMarkerRows(
+    trx: TrashDbTransaction,
+    params: {
+      tableId: string;
+      operationId: string;
+      recordIds: ReadonlyArray<string>;
+      batches: ReadonlyArray<ReadonlyArray<IDeleteRecordsPayload['records'][number]>>;
+      matchOperationIdOnly?: boolean;
+    }
+  ): Promise<Set<string>> {
+    const { operationId, matchOperationIdOnly } = params;
+    const legacyOperationId = operationId.startsWith('opr') ? operationId.slice(3) : operationId;
+    const markers = trx
+      .selectFrom('record_trash')
+      .select('record_id')
+      .where('table_id', '=', params.tableId)
+      .where('reason', '=', 'deleted')
+      .where('snapshot', '=', DELETED_RECORD_TRASH_MARKER_SNAPSHOT);
+    const markerProbe = await (matchOperationIdOnly
+      ? markers.where('operation_id', 'in', [operationId, legacyOperationId])
+      : markers
+    )
+      .where(sql<boolean>`${sql.ref('record_trash.record_id')} = ANY(${params.recordIds}::text[])`)
+      .limit(1)
+      .execute();
+
+    const updatedRecordIds = new Set<string>();
+    if (markerProbe.length === 0) {
+      return updatedRecordIds;
+    }
+
+    // Legacy markers can predate their operation index. Serialize this path
+    // with reset even when there is no index row to lock yet.
+    await sql`SELECT pg_advisory_xact_lock(hashtextextended(${recordTrashResetLockKey(params.tableId)}, 0))`.execute(
+      trx
+    );
+
+    // Legacy marker filling also writes the operation index. Acquire its lock
+    // before touching record_trash, just like the current projection path.
+    await this.lockTableTrashRowById(trx, params.tableId, params.operationId);
+
+    for (const batch of params.batches) {
+      const rows = batch.map((record) => ({
+        record_id: record.id,
+        snapshot: record,
+        record_created_time: toIsoTimestamp(record.createdTime) ?? null,
+        record_created_by: record.createdBy ?? null,
+        record_last_modified_time: toIsoTimestamp(record.lastModifiedTime) ?? null,
+        record_last_modified_by: record.lastModifiedBy ?? null,
+      }));
+      const serializedRows = stringifyTrashJsonForJsonb(rows);
+      const batchRecordIds = batch.map((record) => record.id);
+      // Bind serializedRows once via FROM jsonb_array_elements and join in
+      // WHERE; repeating the payload in 5 correlated subqueries causes
+      // PostgreSQL O(N^2) JSONB expansion and backend OOM on wide rows.
+      const updateMarkers = trx
+        .updateTable('record_trash')
+        .from(sql`jsonb_array_elements(${serializedRows}::jsonb) as r`)
+        .set({
+          snapshot: sql`(r -> 'snapshot')::text`,
+          operation_id: params.operationId,
+          record_created_time: sql`(r ->> 'record_created_time')::timestamptz`,
+          record_created_by: sql`r ->> 'record_created_by'`,
+          record_last_modified_time: sql`(r ->> 'record_last_modified_time')::timestamptz`,
+          record_last_modified_by: sql`r ->> 'record_last_modified_by'`,
+        })
+        .where('table_id', '=', params.tableId)
+        .where('reason', '=', 'deleted')
+        .where('snapshot', '=', DELETED_RECORD_TRASH_MARKER_SNAPSHOT);
+      const updated = await (matchOperationIdOnly
+        ? updateMarkers.where('operation_id', 'in', [operationId, legacyOperationId])
+        : updateMarkers
+      )
+        .where(sql<boolean>`${sql.ref('record_trash.record_id')} = ANY(${batchRecordIds}::text[])`)
+        .where(sql<boolean>`r ->> 'record_id' = ${sql.ref('record_trash.record_id')}`)
+        .returning('record_id')
+        .execute();
+      for (const row of updated) {
+        updatedRecordIds.add(row.record_id);
+      }
+    }
+
+    return updatedRecordIds;
+  }
+
+  private async lockTableTrashRowById(
+    trx: TrashDbTransaction,
+    tableId: string,
+    tableTrashId: string
+  ) {
+    return trx
+      .selectFrom('table_trash')
+      .select(['id', 'snapshot', 'created_time'])
+      .where('id', '=', tableTrashId)
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', RECORD_TRASH_RESOURCE_TYPE)
+      .forUpdate()
+      .executeTakeFirst();
+  }
+
+  private async findMatchingTableTrashId(
+    trx: TrashDbTransaction,
+    tableId: string,
+    recordIds: ReadonlyArray<string>
+  ): Promise<string | undefined> {
+    const recordIdSet = new Set(recordIds);
     for (
       let page = 0, offset = 0;
       page < MAX_TABLE_TRASH_FALLBACK_PAGES;
@@ -341,7 +431,7 @@ export class V2RecordTrashService {
       const indexRows = await trx
         .selectFrom('table_trash')
         .select(['id', 'snapshot', 'created_time'])
-        .where('table_id', '=', params.tableId)
+        .where('table_id', '=', tableId)
         .where('resource_type', '=', RECORD_TRASH_RESOURCE_TYPE)
         .orderBy('created_time', 'desc')
         .orderBy('id', 'desc')
@@ -351,14 +441,51 @@ export class V2RecordTrashService {
       const matchingIndex = indexRows.find((row) =>
         parseTableTrashRecordIds(row.snapshot).some((recordId) => recordIdSet.has(recordId))
       );
-      if (matchingIndex) {
-        return toIsoTimestamp(matchingIndex.created_time) ?? params.createdTime;
+      if (matchingIndex?.id) {
+        return matchingIndex.id;
       }
       if (indexRows.length < MAX_TABLE_TRASH_FALLBACK_PAGE_SIZE) {
-        break;
+        return undefined;
       }
     }
     return undefined;
+  }
+
+  private async lockMatchingTableTrashIndex(
+    trx: TrashDbTransaction,
+    params: {
+      tableId: string;
+      operationId: string;
+      recordIds: ReadonlyArray<string>;
+      matchOperationIdOnly?: boolean;
+    }
+  ) {
+    const tableTrashId = params.operationId
+      ? params.operationId.startsWith('opr')
+        ? params.operationId
+        : `opr${params.operationId}`
+      : undefined;
+
+    // Fast path: lock the delete operation's table_trash row FOR UPDATE so
+    // concurrent undo cleanup serializes with this projection and late events
+    // only write record_trash rows for records still present in table_trash.
+    if (tableTrashId) {
+      const directMatch = await this.lockTableTrashRowById(trx, params.tableId, tableTrashId);
+      if (directMatch) {
+        return directMatch;
+      }
+    }
+
+    if (params.matchOperationIdOnly) {
+      return undefined;
+    }
+
+    const matchedId = await this.findMatchingTableTrashId(trx, params.tableId, params.recordIds);
+    if (!matchedId) {
+      return undefined;
+    }
+
+    return this.lockTableTrashRowById(trx, params.tableId, matchedId);
   }
 
   private async upsertTableTrashIndex(

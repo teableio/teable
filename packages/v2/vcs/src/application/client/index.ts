@@ -24,3 +24,5 @@ export {
   type IResolveBaseVcsConflictsInput,
   type IResolveBaseVcsConflictsOutput,
 } from './ResolveBaseVcsConflictsService';
+export { advancePromotionWorkspace, promotionAdvanceSchema } from './advancePromotionWorkspace';
+export { alignPromotionWorkingSnapshot } from './workspaceHelpers';

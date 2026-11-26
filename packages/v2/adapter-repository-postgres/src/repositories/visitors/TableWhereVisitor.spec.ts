@@ -359,6 +359,10 @@ describe('TableWhereVisitor', () => {
         'UpdateUserNotificationSpec is not supported for table filters',
       ],
       [
+        'visitUpdateAttachmentPublicAccess',
+        'UpdateAttachmentPublicAccessSpec is not supported for table filters',
+      ],
+      [
         'visitUpdateUserDefaultValue',
         'UpdateUserDefaultValueSpec is not supported for table filters',
       ],

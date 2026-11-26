@@ -13,6 +13,7 @@ import React from 'react';
 import { spaceConfig } from '@/features/i18n/space.config';
 import { useIsCloud } from '../../hooks/useIsCloud';
 import { useIsCommunity } from '../../hooks/useIsCommunity';
+import { usePublicFileEnabled } from '../../hooks/usePublicFileEnabled';
 
 export interface IDeleteSpaceConfirmProps {
   open: boolean;
@@ -47,6 +48,8 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
     enabled: !isCommunity && !!spaceId && open,
   });
 
+  const publicFileEnabled = usePublicFileEnabled();
+
   const handleAddToTrash = () => {
     onConfirm?.();
     onOpenChange(false);
@@ -74,9 +77,11 @@ export const DeleteSpaceConfirm: React.FC<IDeleteSpaceConfirmProps> = (props) =>
         {isBlocked ? (
           <div className="text-sm">{t('space:deleteSpaceModal.blockedDesc')}</div>
         ) : (
-          <div className="py-1 text-sm">
-            {publishedAppCount > 0 &&
-              t('common:trash.publishedAppsOffline', { total: publishedAppCount })}
+          <div className="space-y-2 py-1 text-sm">
+            {publishedAppCount > 0 && (
+              <p>{t('common:trash.publishedAppsOffline', { total: publishedAppCount })}</p>
+            )}
+            {publicFileEnabled && <p>{t('common:trash.publicLinksOffAll')}</p>}
           </div>
         )}
         <DialogFooter>

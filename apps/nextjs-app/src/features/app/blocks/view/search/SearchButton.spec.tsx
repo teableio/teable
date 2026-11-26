@@ -25,6 +25,9 @@ vi.mock('@teable/sdk', () => ({
   useView: () => ({ id: useContext(TestViewContext), type: 'grid' }),
 }));
 vi.mock('@teable/sdk/hooks', () => ({
+  useBase: () => undefined,
+  useIsAnonymous: () => false,
+  useIsReadOnlyPreview: () => false,
   useBaseId: () => 'bse1',
   useFields: () => state.fields,
   useRowCount: () => 0,

@@ -2043,7 +2043,7 @@ export class PostgresTableRepository implements core.ITableRepository {
       searchIndex: decodeTableSearchIndex(row.search_index),
       actorStorageVersion: row.actor_storage_version ?? 0,
       primaryFieldId,
-      fields: fieldRows.map((f) => this.deserializeFieldDto(f)),
+      fields: fieldRows.map((f) => PostgresTableRepository.deserializeFieldDto(f)),
       views: [...viewsResult.value],
     };
 
@@ -2061,7 +2061,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     return 'id';
   }
 
-  private deserializeFieldDto(row: {
+  static deserializeFieldDto(row: {
     id: string;
     name: string;
     description: string | null;
@@ -2084,7 +2084,20 @@ export class PostgresTableRepository implements core.ITableRepository {
     version?: number | null;
     is_pending?: boolean | null;
   }): core.ITableFieldPersistenceDTO {
-    const parsed = this.parseOptions(row.options);
+    let parsed = this.parseOptions(row.options);
+    const formatting = parsed.formatting;
+    if (formatting && typeof formatting === 'object' && 'precision' in formatting) {
+      const { precision } = formatting;
+      if (
+        typeof precision === 'number' &&
+        precision > 0 &&
+        precision < 5 &&
+        !Number.isInteger(precision)
+      ) {
+        // V1 accepted fractional precision and truncated it to whole digits when formatting.
+        parsed = { ...parsed, formatting: { ...formatting, precision: Math.trunc(precision) } };
+      }
+    }
     const hasOptions = Object.keys(parsed).length > 0;
     const asOptions = <T>(): T | undefined => (hasOptions ? (parsed as T) : undefined);
     const lookupParsed = this.parseOptions(row.lookup_options);
@@ -2281,8 +2294,11 @@ export class PostgresTableRepository implements core.ITableRepository {
       };
     }
     if (row.type === 'attachment') {
-      const options = hasOptions ? {} : undefined;
-      return { ...base, type: 'attachment', options };
+      return {
+        ...base,
+        type: 'attachment',
+        options: asOptions<core.IAttachmentFieldOptionsDTO>(),
+      };
     }
     if (row.type === 'date') {
       return {
@@ -2425,7 +2441,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     };
   }
 
-  private parseOptions(raw: unknown): Record<string, unknown> {
+  private static parseOptions(raw: unknown): Record<string, unknown> {
     if (!raw) return {};
     if (typeof raw === 'object' && !Array.isArray(raw)) {
       return raw as Record<string, unknown>;
@@ -2442,7 +2458,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     return {};
   }
 
-  private parseJsonValue(raw: unknown): unknown {
+  private static parseJsonValue(raw: unknown): unknown {
     if (raw === null || raw === undefined) return raw;
     if (typeof raw === 'string') {
       try {
@@ -2456,7 +2472,7 @@ export class PostgresTableRepository implements core.ITableRepository {
 
   private parseViewFilter(raw: string | null): core.RecordFilter | null | undefined {
     if (raw === null || raw === undefined) return undefined;
-    const parsed = this.parseJsonValue(raw);
+    const parsed = PostgresTableRepository.parseJsonValue(raw);
     return this.mapV1FilterToV2(parsed);
   }
 
@@ -2489,7 +2505,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     manualSort?: boolean;
   } {
     if (!raw) return {};
-    const parsed = this.parseJsonValue(raw);
+    const parsed = PostgresTableRepository.parseJsonValue(raw);
     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
     const record = parsed as Record<string, unknown>;
     const sortObjs = Array.isArray(record.sortObjs) ? record.sortObjs : [];
@@ -2520,7 +2536,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     raw: string | null
   ): Array<{ fieldId: string; order: 'asc' | 'desc' }> | undefined {
     if (!raw) return undefined;
-    const parsed = this.parseJsonValue(raw);
+    const parsed = PostgresTableRepository.parseJsonValue(raw);
     if (!Array.isArray(parsed)) return undefined;
     const group = parsed
       .map((item) => item as Record<string, unknown>)
@@ -2768,7 +2784,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     return filter;
   }
 
-  private normalizeSelectOptions(raw: Record<string, unknown>): {
+  private static normalizeSelectOptions(raw: Record<string, unknown>): {
     choices: ReadonlyArray<SelectChoiceDto>;
     defaultValue?: string | ReadonlyArray<string>;
     preventAutoNewOptions?: boolean;
@@ -2849,7 +2865,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     created_by: string;
     last_modified_by: string | null;
   }): Result<core.ITableViewPersistenceDTO, DomainError> {
-    const columnMeta = this.parseOptions(
+    const columnMeta = PostgresTableRepository.parseOptions(
       row.column_meta
     ) as core.ITableViewPersistenceDTO['columnMeta'];
 
@@ -2857,7 +2873,7 @@ export class PostgresTableRepository implements core.ITableRepository {
     // Only a legacy-shaped filter (filterSet) needs source preservation; a v2
     // canonical filter round-trips through query.filter and must not be fed to
     // the legacy source-filter schema.
-    const rawFilter = row.filter == null ? undefined : this.parseJsonValue(row.filter);
+    const rawFilter = row.filter == null ? undefined : PostgresTableRepository.parseJsonValue(row.filter);
     const sourceFilter =
       rawFilter != null && typeof rawFilter === 'object' && 'filterSet' in rawFilter
         ? rawFilter
@@ -2870,8 +2886,8 @@ export class PostgresTableRepository implements core.ITableRepository {
       ...(group !== undefined ? { group } : {}),
       ...(sortResult.manualSort !== undefined ? { manualSort: sortResult.manualSort } : {}),
     };
-    const options = row.options === null ? undefined : this.parseJsonValue(row.options);
-    const shareMeta = row.share_meta === null ? undefined : this.parseJsonValue(row.share_meta);
+    const options = row.options === null ? undefined : PostgresTableRepository.parseJsonValue(row.options);
+    const shareMeta = row.share_meta === null ? undefined : PostgresTableRepository.parseJsonValue(row.share_meta);
     const base = {
       id: row.id,
       name: row.name,

@@ -156,6 +156,7 @@ const enterpriseBoundaries = [
   ['./features/observability/observability.module', 'ObservabilityModule'],
   ['./features/organization/open-api/organization-open-api.module', 'OrganizationOpenApiModule'],
   ['./features/override/override.module', 'OverrideModule'],
+  ['./features/public-file/public-file.module', 'PublicFileModule'],
   ['./features/push/push.module', 'PushModule'],
   ['./features/reward/reward.module', 'RewardModule'],
   ['./features/routine/routine.module', 'RoutineModule'],
@@ -186,9 +187,6 @@ for (const [path, name] of enterpriseBoundaries) {
 vi.doMock('@sentry/nestjs/setup', () => ({ SentryModule: BoundaryModule }));
 vi.doMock(new URL('./utils', enterpriseSource).pathname, () => ({
   checkIsCloudEdition: () => false,
-}));
-vi.doMock(new URL('./configs/secrets/secrets-policy', communitySource).pathname, () => ({
-  isSecretAdminToolsEnabled: () => false,
 }));
 vi.doMock(new URL('./features/v2/v2-container.service', communitySource).pathname, () => ({
   V2ContainerService: class {},

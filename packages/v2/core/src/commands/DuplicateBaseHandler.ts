@@ -15,6 +15,7 @@ import { domainError, isDomainError, type DomainError } from '../domain/shared/D
 import { TableCreated } from '../domain/table/events/TableCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
+import { withoutAttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
 import {
   FormulaExpression,
   type FormulaSourceBudget,
@@ -554,7 +555,7 @@ export class DuplicateBaseHandler implements ICommandHandler<
       name: params.tableName,
       dbTableName,
       searchIndex: undefined,
-      fields: remapped.fields,
+      fields: remapped.fields.map(withoutAttachmentPublicAccess),
       views: remapped.views.map(resetDuplicatedViewIdentity),
     };
     for (const field of dto.fields) {

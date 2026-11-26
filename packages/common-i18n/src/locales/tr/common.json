@@ -1263,6 +1263,7 @@
           "description": "Ayarlanmamış veya herkesçe bilinen varsayılan değeri kullanan gizli anahtarlar: {{total}}. Bu durum başkalarının oturum belirteçlerini taklit etmesine ya da depolanan verilerin şifresini çözmesine olanak verebilir. Bunları ortam değişkeni olarak ayarlayıp yeniden başlatın; başlangıç günlüğü her birini açıklar. Mevcut verisi olan bir örnekte önce mevcut değerleri sabitleyin, ardından döndürün: bir şifreleme anahtarını doğrudan değiştirmek, onunla şifrelenmiş verileri okunamaz hale getirir.",
           "missing": "Ayarlanmamış",
           "publicDefault": "Herkesçe bilinen varsayılan değer",
+          "secretKeyRequired": "Sonraki bir sürüm, SECRET_KEY ayarlanmamışken veya hâlâ herkesçe bilinen varsayılan değerindeyken başlamayı reddedecek. Yükseltmeden önce gizli bir değer ayarlayın.",
           "docsLink": "Ortam değişkenleri başvurusu",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1396,6 +1397,8 @@
     "addToTrash": "Çöp kutusuna taşı",
     "description": "Çöp kutusundaki veriler hala kayıt kullanımı ve ekli dosya kullanımı kaplar.",
     "publishedAppsOffline": "Hemen çevrimdışı olacak yayındaki uygulamalar: {{total}}. Çöp kutusundan geri yüklendikten sonra yeniden yayınlanmaları gerekir.",
+    "publicLinksOffFields": "{{names}} alanlarının herkese açık bağlantıları hemen çalışmayı durdurur. Geri yüklendikten sonra yeniden açılmaları gerekir.",
+    "publicLinksOffAll": "Herkese açık bağlantısı olan ek alanları bu bağlantıları hemen kaybeder. Geri yüklendikten sonra yeniden açılmaları gerekir.",
     "spaceDescription": "Son {{retentionDays}} gün içinde silinen alanları geri yükle",
     "spaceInnerDescription": "Son {{retentionDays}} gün içinde bu alandan silinen projeleri geri yükle",
     "baseDescription": "Son {{retentionDays}} gün içinde bu projeden silinen kaynakları geri yükle",
@@ -1678,6 +1681,30 @@
             "released": {
               "title": "{{spaceName}} alanının özel alan adı devre dışı bırakıldı",
               "message": "{{spaceName}} alanının İş planı yenilenmediği için {{domains}} özel alan adı devre dışı bırakıldı ve uygulamanızdan ayrıldı. Yeniden özel alan adı bağlamak için İş planına yükseltin."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "{{spaceName}} alanının planı sona erdi: herkese açık dosyalar silinecek",
+              "message": "{{spaceName}} alanının planı sona erdi ve artık herkese açık dosya bağlantılarını içermiyor. Dosyalarının yayımlanan kopyaları {{releaseDate}} (UTC) tarihinde silinecek ve herkese açık bağlantıları çalışmayı durduracak. Bunları korumak için planınızı bu tarihten önce yenileyin."
+            },
+            "withdrawn": {
+              "title": "{{spaceName}} alanının herkese açık dosya bağlantıları çalışmayı durdurdu",
+              "message": "{{spaceName}} alanının planı yenilenmedi; bu nedenle dosyalarının herkese açık bağlantıları çalışmayı durdurdu ve yayımlanan kopyalar silindi."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "{{spaceName}} alanının dosya alan adı serbest bırakıldı",
+              "message": "{{spaceName}} alanının İş planı yenilenmediği için {{hostname}} dosya alan adı serbest bırakıldı. Herkese açık dosyalar yeniden {{spaceSubdomain}} adresinden sunuluyor ve {{hostname}} altındaki bağlantılar artık çalışmıyor. Yeniden dosya alan adı bağlamak için İş planına yükseltin."
+            },
+            "notVerified": {
+              "title": "{{spaceName}} alanının {{hostname}} dosya alan adı kurulmadı",
+              "message": "{{hostname}} için DNS kaydı 7 gün içinde doğrulanmadığından dosya alan adı değişikliği iptal edildi. Herkese açık dosyalar mevcut alan adından sunulmaya devam ediyor. CNAME kaydını ekleyin ve ardından alan adını alan ayarlarından yeniden isteyin."
+            },
+            "failed": {
+              "title": "{{spaceName}} alanının {{hostname}} dosya alan adı kurulamadı",
+              "message": "{{hostname}} için ana bilgisayar adı veya sertifika doğrulanamadığından ({{error}}) dosya alan adı değişikliği iptal edildi. Herkese açık dosyalar mevcut alan adından sunulmaya devam ediyor. Alan adının DNS ve CAA kayıtlarını kontrol edin, ardından alan ayarlarından yeniden isteyin."
             }
           }
         },

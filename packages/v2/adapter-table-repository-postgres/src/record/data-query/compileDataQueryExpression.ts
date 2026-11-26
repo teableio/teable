@@ -8,10 +8,12 @@ import type {
   DataQuerySystemField,
 } from '@teable/v2-data-query';
 import {
+  FormulaCompileBudget,
   FormulaSqlPgTranslator,
   finalizeFormulaOutputSql,
   guardValueSql,
   type FormulaCompileBudgetConfig,
+  type FormulaExpressionNode,
   type FormulaSqlPgReference,
   type IPgTypeValidationStrategy,
 } from '@teable/v2-formula-sql-pg';
@@ -48,11 +50,63 @@ export interface DataQueryExpressionSqlContext {
   compileExistence?(relation: string): Result<RawBuilder<unknown>, DomainError>;
 }
 
-export const compileDataQueryFormulaExpression = (
+const nativeNumberStorageTypes: Record<string, true> = {
+  REAL: true,
+  FLOAT4: true,
+  FLOAT8: true,
+  'DOUBLE PRECISION': true,
+  NUMERIC: true,
+  DECIMAL: true,
+  SMALLINT: true,
+  INTEGER: true,
+  BIGINT: true,
+  INT2: true,
+  INT4: true,
+  INT8: true,
+};
+
+/** Lower only additive graphs over stored scalar Numbers. Other formulas use their usual evaluator. */
+const renderDecimalArithmetic = (
+  node: FormulaExpressionNode,
+  budget: FormulaCompileBudget
+): string | undefined => {
+  if (node.kind === 'leaf') {
+    const { field, valueSql, valueType, isArray, storageKind, errorConditionSql } = node.expression;
+    if (
+      field?.type().toString() !== 'number' ||
+      valueType !== 'number' ||
+      isArray ||
+      storageKind !== 'scalar' ||
+      errorConditionSql
+    ) {
+      return undefined;
+    }
+    const storageType = field
+      .dbFieldType()
+      .andThen((type) => type.value())
+      .unwrapOr('');
+    if (!Object.hasOwn(nativeNumberStorageTypes, storageType.trim().toUpperCase()))
+      return undefined;
+    // Float-to-text uses the read transaction's shortest round-trip representation.
+    return budget.sql`${valueSql}::text::numeric`;
+  }
+  if (node.kind === 'unary') {
+    const operand = renderDecimalArithmetic(node.operand, budget);
+    return operand === undefined ? undefined : budget.sql`(-${operand})`;
+  }
+  if (node.kind !== 'binary' || (node.operator !== '+' && node.operator !== '-')) return undefined;
+  const left = renderDecimalArithmetic(node.left, budget);
+  if (left === undefined) return undefined;
+  const right = renderDecimalArithmetic(node.right, budget);
+  if (right === undefined) return undefined;
+  // Formula addition and subtraction treat blank operands as zero, including masked cells.
+  return budget.sql`(coalesce(${left}, 0) ${node.operator} coalesce(${right}, 0))`;
+};
+
+const prepareFormulaExpression = (
   expression: BoundDataQueryFormulaExpression,
-  context: DataQueryExpressionSqlContext,
-  mode: 'value' | 'display' | 'predicate' = 'value'
-): Result<RawBuilder<unknown>, DomainError> =>
+  context: DataQueryExpressionSqlContext
+) =>
   safeTry(function* () {
     const columns: RawBuilder<unknown>[] = [];
     const references = new Map<string, FormulaSqlPgReference>();
@@ -85,23 +139,58 @@ export const compileDataQueryFormulaExpression = (
     }
     if (columns.length === 0) columns.push(sql`1 as ${sql.id('__unit')}`);
     const rowAlias = yield* context.resolveRowAlias(expression.recordSource);
-    const translator = new FormulaSqlPgTranslator({
-      references,
-      tableAlias: rowAlias,
-      typeValidationStrategy: context.typeValidationStrategy,
-      compileBudget: { ...context.formulaCompileBudget, mode: 'enforce' },
-      maxIntermediateTextBytes,
-      ...(expression.timeZone !== undefined ? { timeZone: expression.timeZone } : {}),
+    const compileBudget = { ...context.formulaCompileBudget, mode: 'enforce' as const };
+    return ok({
+      translatorOptions: {
+        references,
+        tableAlias: rowAlias,
+        typeValidationStrategy: context.typeValidationStrategy,
+        compileBudget,
+        maxIntermediateTextBytes,
+        ...(expression.timeZone !== undefined ? { timeZone: expression.timeZone } : {}),
+      },
+      project: (rendered: string) =>
+        sql`(select ${sql.raw(rendered)} from (select ${sql.join(columns)} offset 0) as ${sql.id(formulaInputAlias)})`,
     });
+  });
+
+export const compileDataQueryFormulaExpression = (
+  expression: BoundDataQueryFormulaExpression,
+  context: DataQueryExpressionSqlContext,
+  mode: 'value' | 'display' | 'predicate' = 'value'
+): Result<RawBuilder<unknown>, DomainError> =>
+  safeTry(function* () {
+    const { translatorOptions, project } = yield* prepareFormulaExpression(expression, context);
+    const translator = new FormulaSqlPgTranslator(translatorOptions);
     const translated = yield* translator.translateExpression(expression.formula);
     const rendered = yield* translator.renderExpression(translated, (value, budget) =>
       mode === 'predicate'
         ? guardValueSql(value.valueSql, value.errorConditionSql, budget)
         : finalizeFormulaOutputSql(value, expression, context.typeValidationStrategy, budget)
     );
-    return ok(
-      sql`(select ${sql.raw(rendered)} from (select ${sql.join(columns)} offset 0) as ${sql.id(formulaInputAlias)})`
-    );
+    return ok(project(rendered));
+  });
+
+/** A private aggregate input. The source's public formula keeps its original value. */
+export const compileDecimalMetricFormula = (
+  expression: BoundDataQueryFormulaExpression,
+  context: DataQueryExpressionSqlContext
+): Result<RawBuilder<unknown> | undefined, DomainError> =>
+  safeTry(function* () {
+    if (expression.valueType.toString() !== 'number' || expression.multiplicity.isMultiple()) {
+      return ok(undefined);
+    }
+    const { translatorOptions, project } = yield* prepareFormulaExpression(expression, context);
+    const budget = new FormulaCompileBudget(translatorOptions.compileBudget);
+    const translator = new FormulaSqlPgTranslator({ ...translatorOptions, budget });
+    const graph = yield* translator.buildExpressionGraph(expression.formula);
+    if (graph.kind === 'leaf') return ok(undefined);
+    return budget.boundary(() => {
+      const rendered = renderDecimalArithmetic(graph, budget);
+      if (rendered === undefined) return undefined;
+      budget.check('sqlBytes', budget.bytes(rendered));
+      return project(rendered);
+    });
   });
 
 /** Output-stage formulas have typed aliases, never a record or raw-field context. */

@@ -8,6 +8,7 @@ import type {
 import type { DomainError } from '../../shared/DomainError';
 import { TableCreated } from '../events/TableCreated';
 import { FieldId } from '../fields/FieldId';
+import { withoutAttachmentPublicAccess } from '../fields/types/AttachmentPublicAccess';
 import { LinkField } from '../fields/types/LinkField';
 import { LinkFieldConfig } from '../fields/types/LinkFieldConfig';
 import type { Table } from '../Table';
@@ -118,7 +119,7 @@ const sanitizeFieldPersistenceDto = (
     };
   }
 
-  return rest;
+  return withoutAttachmentPublicAccess(rest);
 };
 
 const normalizeDuplicatedLinkOptions = (

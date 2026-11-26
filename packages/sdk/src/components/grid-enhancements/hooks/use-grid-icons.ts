@@ -1,11 +1,22 @@
 /* eslint-disable @typescript-eslint/naming-convention */
 import type { RatingIcon } from '@teable/core';
-import { Check, DraggableHandle, Loader2, MagicAi, Maximize2 } from '@teable/icons';
-import { useMemo } from 'react';
+import { Check, DraggableHandle, Globe, Loader2, MagicAi, Maximize2 } from '@teable/icons';
+import { createElement, useMemo } from 'react';
 import { useFieldStaticGetter } from '../../../hooks/use-field-static-getter';
 import { FIELD_TYPE_ORDER, getSpriteMap } from '../../../utils';
 import { RATING_ICON_MAP } from '../../cell-value';
 import { RowControlType } from '../../grid/interface';
+
+/** Header icon of an attachment field with public links on, in place of its type icon. */
+export const PUBLIC_ATTACHMENT_ICON = 'attachment_public';
+/** The same field while its space's links do not open (paused, or the plan lapsed). */
+export const PUBLIC_ATTACHMENT_OFF_ICON = 'attachment_public_off';
+
+/** Amber in both themes, like the warnings in the field settings. */
+const PUBLIC_ATTACHMENT_OFF_COLOR = '#d97706';
+
+const OffGlobe = ({ style }: { style: React.CSSProperties }) =>
+  createElement(Globe, { style: { ...style, color: PUBLIC_ATTACHMENT_OFF_COLOR } });
 
 export const useGridIcons = () => {
   const getFieldStatic = useFieldStaticGetter();
@@ -75,12 +86,23 @@ export const useGridIcons = () => {
         IconComponent: Loader2,
       },
     ]);
+    const publicFileIcons = getSpriteMap([
+      {
+        type: PUBLIC_ATTACHMENT_ICON,
+        IconComponent: Globe,
+      },
+      {
+        type: PUBLIC_ATTACHMENT_OFF_ICON,
+        IconComponent: OffGlobe,
+      },
+    ]);
     return {
       ...columnHeaderIcons,
       ...rowHeaderIcons,
       ...ratingIcons,
       ...aiIcons,
       ...activityIcons,
+      ...publicFileIcons,
     };
   }, [getFieldStatic]);
 };

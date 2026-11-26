@@ -3,6 +3,7 @@ import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import { sql, type CompiledQuery, type Kysely, type RawBuilder } from 'kysely';
 
 type Row = Record<string, unknown>;
+type Metric = NonNullable<BoundDataQueryComposition['definition']['metrics']>[number];
 
 const defaultCompositionLimit = 100;
 
@@ -13,25 +14,98 @@ export const sharedMetricGroupLimit = (composition?: BoundDataQueryComposition) 
     : undefined;
 };
 
+const metricAggregate = (metric: Metric, input: RawBuilder<unknown> | undefined) => {
+  switch (metric.statistic) {
+    case 'count':
+      return input ? sql`count(${input})` : sql`count(*)`;
+    case 'sum':
+      return sql`sum(${input!})`;
+    case 'average':
+      return sql`avg(${input!})`;
+    case 'min':
+      return sql`min(${input!})`;
+    case 'max':
+      return sql`max(${input!})`;
+  }
+};
+
+const sourceColumn = (alias: string) => sql.id('source', alias);
+
+const aggregateInput = (metric: Metric, decimalAlias: string | undefined, shared: boolean) => {
+  if (decimalAlias !== undefined) return sourceColumn(decimalAlias);
+  if (metric.input === undefined) return undefined;
+  const input = sourceColumn(metric.input);
+  // Float-to-text preserves the shortest round-trip value before decimal accumulation.
+  return shared && (metric.statistic === 'sum' || metric.statistic === 'average')
+    ? sql`${input}::text::numeric`
+    : input;
+};
+
+function compileMonthComparison(
+  db: Kysely<V1TeableDatabase>,
+  source: RawBuilder<unknown>,
+  metric: Metric,
+  comparison: NonNullable<BoundDataQueryComposition['monthComparison']>,
+  predicates: RawBuilder<unknown>[],
+  decimalMetricAlias: string | undefined
+) {
+  const { dimension, currentMonth, previousMonth } = comparison;
+  const month = sourceColumn(dimension);
+  const currentBucket = `${currentMonth}-01`;
+  const previousBucket = `${previousMonth}-01`;
+  predicates.push(sql`${month} in (${currentBucket}, ${previousBucket})`);
+  const input = aggregateInput(metric, decimalMetricAlias, true);
+  const aggregate = metricAggregate(metric, input);
+  const valueFor = (bucket: string) => {
+    const filter = sql`filter (where ${month} = ${bucket})`;
+    const value = sql`${aggregate} ${filter}`;
+    if (metric.statistic !== 'count') return value;
+    // COUNT(input) is zero when rows exist but all inputs are null.
+    return input
+      ? sql`case when count(*) ${filter} > 0 then ${value} end`
+      : sql`nullif(${value}, 0)`;
+  };
+  // Text preserves all digits of numeric and floating-point aggregate results at the driver
+  // boundary. Convert the same values to numeric for subtraction and fractional division.
+  return sql<Row>`
+    select ${currentMonth}::text as "currentMonth", ${previousMonth}::text as "previousMonth",
+      "current"::text as "current", "previous"::text as "previous",
+      ("current"::text::numeric - "previous"::text::numeric)::text as "difference",
+      (("current"::text::numeric - "previous"::text::numeric)
+        / nullif("previous"::text::numeric, 0))::text as "changeRate"
+    from (
+      select ${valueFor(currentBucket)} as "current", ${valueFor(previousBucket)} as "previous"
+      from (${source}) as ${sql.id('source')}
+      where ${sql.join(predicates, sql` and `)}
+    ) as ${sql.id('periods')}
+  `.compile(db);
+}
+
 /** Compile over the already authorized and masked source projection, before its page. */
 export const compileDataQueryComposition = (
   db: Kysely<V1TeableDatabase>,
   source: RawBuilder<unknown>,
   rootIdAlias: string,
-  composition: BoundDataQueryComposition
+  composition: BoundDataQueryComposition,
+  decimalMetricAlias?: string
 ): { rows: CompiledQuery<Row>; count?: CompiledQuery<{ total: unknown }> } => {
-  const { definition, filters } = composition;
+  const { definition, filters, monthComparison } = composition;
   const metrics = definition.metrics ?? [];
   const grouped = metrics.length > 0;
   const groups = grouped ? (definition.groupBy ?? []) : [];
-  const column = (alias: string) => sql`${sql.id('source', alias)}`;
+  // In comparison mode the output aliases describe the comparison row, not the source filters.
   const metricOutputs = definition.metricDimensions
-    ? new Map(composition.outputs.map((output) => [output.alias, output]))
+    ? new Map(
+        (monthComparison ? composition.sourceOutputs : composition.outputs).map((output) => [
+          output.alias,
+          output,
+        ])
+      )
     : undefined;
   const dimension = (alias: string) =>
     metricOutputs?.get(alias)?.cellValueType === 'dateTime'
-      ? sql`date_trunc('milliseconds', ${column(alias)})`
-      : column(alias);
+      ? sql`date_trunc('milliseconds', ${sourceColumn(alias)})`
+      : sourceColumn(alias);
   const fixedFilterCount = definition.filter?.length ?? 0;
   const predicates = filters.map(({ alias, operator, value }, index) => {
     // Owner predicates retain their saved semantics. Caller predicates compare displayed groups.
@@ -45,7 +119,7 @@ export const compileDataQueryComposition = (
       }
       return sql`${key} = ${value}`;
     }
-    const expression = column(alias);
+    const expression = sourceColumn(alias);
     switch (operator) {
       case 'isNull':
         return sql`${expression} is null`;
@@ -65,6 +139,18 @@ export const compileDataQueryComposition = (
         return sql`${expression} <= ${value}`;
     }
   });
+  if (monthComparison) {
+    return {
+      rows: compileMonthComparison(
+        db,
+        source,
+        metrics[0],
+        monthComparison,
+        predicates,
+        decimalMetricAlias
+      ),
+    };
+  }
   const where = predicates.length ? sql`where ${sql.join(predicates, sql` and `)}` : sql``;
   const selections = grouped
     ? [
@@ -74,29 +160,14 @@ export const compileDataQueryComposition = (
           return sql`${value} as ${sql.id(alias)}`;
         }),
         ...metrics.map((metric) => {
-          const input = metric.input === undefined ? undefined : column(metric.input);
-          let expression: RawBuilder<unknown>;
-          switch (metric.statistic) {
-            case 'count':
-              expression = input ? sql`count(${input})` : sql`count(*)`;
-              break;
-            case 'sum':
-              expression = sql`sum(${input!})`;
-              break;
-            case 'average':
-              expression = sql`avg(${input!})`;
-              break;
-            case 'min':
-              expression = sql`min(${input!})`;
-              break;
-            case 'max':
-              expression = sql`max(${input!})`;
-              break;
-          }
-          return sql`${expression} as ${sql.id(metric.alias)}`;
+          const aggregate = metricAggregate(
+            metric,
+            aggregateInput(metric, decimalMetricAlias, definition.metricDimensions !== undefined)
+          );
+          return sql`${aggregate} as ${sql.id(metric.alias)}`;
         }),
       ]
-    : composition.outputs.map(({ alias }) => sql`${column(alias)} as ${sql.id(alias)}`);
+    : composition.outputs.map(({ alias }) => sql`${sourceColumn(alias)} as ${sql.id(alias)}`);
   const groupBy = groups.length ? sql`group by ${sql.join(groups.map(dimension))}` : sql``;
   const selected = sql`select ${sql.join(selections)} from (${source}) as ${sql.id('source')} ${where} ${groupBy}`;
   const orders = (definition.orderBy ?? []).map(({ alias, order }) =>
@@ -120,7 +191,7 @@ export const compileDataQueryComposition = (
   // Records need the hidden id in the intermediate select, but never in the returned rows.
   const intermediate = grouped
     ? selected
-    : sql`select ${sql.join([...selections, sql`${column(rootIdAlias)} as ${sql.id(rootIdAlias)}`])} from (${source}) as ${sql.id('source')} ${where}`;
+    : sql`select ${sql.join([...selections, sql`${sourceColumn(rootIdAlias)} as ${sql.id(rootIdAlias)}`])} from (${source}) as ${sql.id('source')} ${where}`;
   const publicColumns = composition.outputs.map(({ alias }) => sql`${sql.id('result', alias)}`);
   const rows =
     sql<Row>`select ${sql.join(publicColumns)} from (${intermediate}) as ${sql.id('result')} ${orderBy} limit ${limit} offset ${offset}`.compile(

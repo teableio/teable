@@ -78,6 +78,7 @@ interface IBaseImportCsvJob {
   structure: IBaseJson;
   importBaseRo: ImportBaseRo;
   hostResourceIdMaps?: Record<string, Record<string, string>>;
+  ignoredJunctionArchiveNames?: string[];
   logId: string;
 }
 
@@ -447,6 +448,7 @@ export class BaseImportCsvQueueProcessor extends WorkerHost {
           recordInitiator: job.data.recordInitiator,
           operationId: job.data.logId,
           hostResourceIdMaps: job.data.hostResourceIdMaps,
+          ignoredJunctionArchiveNames: job.data.ignoredJunctionArchiveNames,
         },
         { jobId: `import_base_junction_csv_${path}_${userId}` }
       );

@@ -1272,6 +1272,7 @@
           "description": "Secrets non définis ou utilisant une valeur par défaut publique : {{total}}. Ils pourraient permettre de falsifier des jetons de connexion ou de déchiffrer les données stockées. Définissez-les comme variables d'environnement puis redémarrez ; le journal de démarrage détaille chaque élément. Sur une instance qui contient déjà des données, figez d'abord les valeurs actuelles puis effectuez la rotation : remplacer directement une clé de chiffrement rend illisibles les données chiffrées avec elle.",
           "missing": "Non défini",
           "publicDefault": "Valeur par défaut publique",
+          "secretKeyRequired": "Une version ultérieure refusera de démarrer tant que SECRET_KEY n’est pas défini ou garde sa valeur par défaut publique. Définissez une valeur privée avant la mise à niveau.",
           "docsLink": "Référence des variables d’environnement",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1407,6 +1408,8 @@
     "addToTrash": "Déplacer dans la corbeille",
     "description": "Les données dans la corbeille occupent toujours un espace d'utilisation de records et d'utilisation de pièces jointes.",
     "publishedAppsOffline": "Applications publiées immédiatement mises hors ligne : {{total}}. Après une restauration depuis la corbeille, il faudra les republier.",
+    "publicLinksOffFields": "Les liens publics de {{names}} cessent immédiatement de fonctionner. Après une restauration, ils devront être réactivés.",
+    "publicLinksOffAll": "Les champs de pièces jointes avec des liens publics les perdent immédiatement. Après une restauration, ils devront être réactivés.",
     "spaceDescription": "Restaurer les espaces supprimés au cours des {{retentionDays}} derniers jours",
     "spaceInnerDescription": "Restaurer les projets supprimés de cet espace au cours des {{retentionDays}} derniers jours",
     "baseDescription": "Restaurer les ressources supprimées de ce projet au cours des {{retentionDays}} derniers jours",
@@ -1689,6 +1692,30 @@
             "released": {
               "title": "Domaine personnalisé de l'espace {{spaceName}} désactivé",
               "message": "Le plan Business de l'espace {{spaceName}} n'a pas été renouvelé, le domaine personnalisé {{domains}} a donc été désactivé et dissocié de votre application. Passez à Business pour lier à nouveau un domaine personnalisé."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "Plan de l'espace {{spaceName}} expiré : les fichiers publics vont être supprimés",
+              "message": "Le plan de l'espace {{spaceName}} a expiré et n'inclut plus les liens publics de fichiers. Les copies publiées de ses fichiers seront supprimées le {{releaseDate}} (UTC) et leurs liens publics cesseront de fonctionner. Renouvelez votre plan avant cette date pour les conserver."
+            },
+            "withdrawn": {
+              "title": "Les liens publics des fichiers de l'espace {{spaceName}} ne fonctionnent plus",
+              "message": "Le plan de l'espace {{spaceName}} n'a pas été renouvelé : les liens publics vers ses fichiers ne fonctionnent plus et les copies publiées ont été supprimées."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "Domaine des fichiers de l'espace {{spaceName}} libéré",
+              "message": "Le plan Business de l'espace {{spaceName}} n'a pas été renouvelé, le domaine des fichiers {{hostname}} a donc été libéré. Les fichiers publics sont de nouveau servis depuis {{spaceSubdomain}} et les liens sous {{hostname}} ne fonctionnent plus. Passez à Business pour lier à nouveau un domaine des fichiers."
+            },
+            "notVerified": {
+              "title": "Le domaine de fichiers {{hostname}} de l'espace {{spaceName}} n'a pas été configuré",
+              "message": "L'enregistrement DNS de {{hostname}} n'a pas été vérifié sous 7 jours, le changement de domaine de fichiers a donc été annulé. Les fichiers publics restent servis depuis le domaine actuel. Ajoutez l'enregistrement CNAME, puis demandez à nouveau le domaine dans les paramètres de l'espace."
+            },
+            "failed": {
+              "title": "Le domaine de fichiers {{hostname}} de l'espace {{spaceName}} n'a pas pu être configuré",
+              "message": "Le nom d'hôte ou le certificat de {{hostname}} n'a pas pu être validé ({{error}}), le changement de domaine de fichiers a donc été annulé. Les fichiers publics restent servis depuis le domaine actuel. Vérifiez les enregistrements DNS et CAA du domaine, puis demandez-le à nouveau dans les paramètres de l'espace."
             }
           }
         },

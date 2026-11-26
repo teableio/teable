@@ -3,7 +3,7 @@ import { PassThrough, Readable } from 'node:stream';
 import { Injectable, Logger } from '@nestjs/common';
 import * as Sentry from '@sentry/nestjs';
 import type { ILocalization } from '@teable/core';
-import { getRandomString } from '@teable/core';
+import { getRandomString, omitAttachmentPublic } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type { ExportBaseProgressCallback, IExportBaseVo } from '@teable/openapi';
 import { v2DataDbTokens, v2MetaDbTokens } from '@teable/v2-adapter-db-postgres-pg';
@@ -521,7 +521,7 @@ export class BaseExportV2Service {
         isMultipleCellValue: field.is_multiple_cell_value ?? undefined,
         createdTime: toIsoString(field.created_time),
       }))
-    );
+    ).map(omitAttachmentPublic);
   }
 
   private generateViewConfig(views: ViewRow[]) {

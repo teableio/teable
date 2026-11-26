@@ -32,6 +32,7 @@ export * from './usage';
 export * from './oauth';
 export * from './trash';
 export * from './archive';
+export * from './public-file';
 export * from './undo-redo';
 export * from './plugin';
 export * from './dashboard';

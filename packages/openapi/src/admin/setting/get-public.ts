@@ -77,6 +77,11 @@ export const publicSettingVoSchema = settingVoSchema
     // EE: whether the deployment can subscribe to and receive connector events (Composio key and
     // webhook secret both set), gating the connector event trigger entries.
     connectorEventEnabled: z.boolean().optional(),
+    // EE: whether the deployment publishes attachment files (PUBLIC_FILES_PROVIDER set and fully
+    // configured), gating the attachment field's public links switch.
+    publicFileEnabled: z.boolean().optional(),
+    // EE: credits charged per GB of public file traffic, quoted when links are turned on.
+    publicFileCreditPerGb: z.number().optional(),
     // What this server was built from, the way the Web's own settings page states it. A
     // client that is not served by this deployment (the mobile app) has no other way to
     // say which server it is talking to. Empty on a build that carries no version.

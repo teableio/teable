@@ -23,11 +23,14 @@ import {
   CreateTableCommand,
   FieldKeyType,
   RecordByIdsSpec,
+  RecordId,
   resolveScopedTableSchemaLease,
+  UpdateFieldCommand,
   UpdateRecordCommand,
   UpdateRecordsCommand,
   UpdateRecordsHandler,
   v2CoreTokens,
+  ViewId,
   withoutTransaction,
   type CreateBaseResult,
   type CreateRecordResult,
@@ -42,6 +45,8 @@ import {
 import { container as rootContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import {
+  diffSnapshots,
+  selectPromotionPatch,
   vcsDomainError,
   type DomainError,
   type IBaseVcsSnapshot,
@@ -354,6 +359,116 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
   afterAll(async () => {
     await testContainer?.dispose();
   }, 30_000);
+
+  it('rejects oversized new view orders while a PostgreSQL reader holds the table open', async () => {
+    const ctx = createContext();
+    const { base } = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'View order backfill budget' })._unsafeUnwrap()
+      )
+    );
+    const baseId = base.id().toString();
+    const { table } = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId,
+          name: 'Order target',
+          fields: [{ type: 'singleLineText', name: 'Name', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    );
+    const tableId = table.id().toString();
+    const fieldId = table.primaryFieldId().toString();
+    const dbTableName = unwrap(table.dbTableName().andThen((name) => name.value()));
+    const relation = sql.table(dbTableName);
+    const priorRecordId = 'rec00000000000000001';
+    await sql`
+      INSERT INTO ${relation} (__id, __version, __created_by)
+      SELECT 'rec' || lpad(n::text, 17, '0'), 1, ${ctx.actorId.toString()}
+      FROM generate_series(1, 1001) AS n
+    `.execute(dataDb);
+    const {
+      rows: [priorRecord],
+    } = await sql<{ order: number }>`
+      SELECT __auto_number::double precision AS "order" FROM ${relation}
+      WHERE __id = ${priorRecordId}
+    `.execute(dataDb);
+    unwrap(await enableService.execute(ctx, { baseId }));
+
+    const viewId = unwrap(ViewId.generate()).toString();
+    const recordId = unwrap(RecordId.generate()).toString();
+    const originPushId = 'vcsp_new_view_order_backfill_budget';
+    const request = {
+      baseId,
+      baseRevision: 0,
+      originPushId,
+      patch: {
+        tablesAdded: [],
+        tablesDeleted: [],
+        tablesUpdated: [
+          {
+            ...createEmptyTablePatch(tableId),
+            viewsAdded: [
+              { id: viewId, name: 'Manual order', type: 'grid', query: { manualSort: true } },
+            ],
+            recordsAdded: [
+              { id: recordId, fields: { [fieldId]: 'Inserted' }, orders: { [viewId]: -2 } },
+            ],
+            recordsUpdated: [
+              {
+                recordId: priorRecordId,
+                cellChanges: [],
+                orderChanges: [{ viewId, before: priorRecord.order, after: -1 }],
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    await dataDb.transaction().execute(async (reader) => {
+      const read = () =>
+        sql`SELECT __id FROM ${relation} WHERE __id = ${priorRecordId}`.execute(reader);
+      expect((await read()).rows).toHaveLength(1);
+      // This reader's ACCESS SHARE lock is held through the push. Attempting
+      // ACCESS EXCLUSIVE before admission would return contention or block.
+      const rejected = await pushService.execute(ctx, request);
+      expect(rejected._unsafeUnwrapErr()).toMatchObject({
+        code: 'vcs.new_view_order_backfill_too_large',
+        details: { maxRows: 1000, viewCount: 1 },
+      });
+      expect((await read()).rows).toHaveLength(1);
+    });
+
+    expect(unwrap(await getHeadService.execute(ctx, { baseId })).headRevision).toBe(0);
+    expect(
+      unwrap(await logRepository.findCommitByOriginPushId(ctx, base.id(), originPushId))
+    ).toBeNull();
+    const {
+      rows: [state],
+    } = await sql<{ viewExists: boolean; columnExists: boolean; recordExists: boolean }>`
+      SELECT EXISTS(SELECT 1 FROM ${sql.table('view')} WHERE id = ${viewId}) AS "viewExists",
+        EXISTS(SELECT 1 FROM pg_attribute
+          WHERE attrelid = (SELECT tableoid FROM ${relation} LIMIT 1)
+            AND attname = ${`__row_${viewId}`} AND NOT attisdropped) AS "columnExists",
+        EXISTS(SELECT 1 FROM ${relation} WHERE __id = ${recordId}) AS "recordExists"
+    `.execute(dataDb);
+    expect(state).toEqual({ viewExists: false, columnExists: false, recordExists: false });
+
+    // At the boundary the same push remains valid and preserves view-order semantics.
+    await sql`DELETE FROM ${relation} WHERE __id = 'rec00000000000001001'`.execute(dataDb);
+    expect(unwrap(await pushService.execute(ctx, request)).newRevision).toBe(1);
+    const col = sql.id(`__row_${viewId}`);
+    const { rows: orders } = await sql<{ id: string; order: number }>`
+      SELECT __id AS id, ${col} AS "order" FROM ${relation} ORDER BY ${col} LIMIT 2
+    `.execute(dataDb);
+    expect(orders).toEqual([
+      { id: recordId, order: -2 },
+      { id: priorRecordId, order: -1 },
+    ]);
+  });
 
   it('exhausts retries in the coordinated push owner and preserves a nested abort for the caller', async () => {
     const ctx = createContext();
@@ -737,6 +852,84 @@ describe('VCS server use-cases integration (real PostgreSQL)', () => {
     });
     expect(staleViewDeleteRes.isErr()).toBe(true);
     expect(staleViewDeleteRes._unsafeUnwrapErr().code).toBe('vcs.cas_conflict');
+  });
+
+  it('rejects a reviewed field edit after a live field edit at the same VCS revision', async () => {
+    const ctx = createContext();
+    const base = unwrap(
+      await commandBus.execute<CreateBaseCommand, CreateBaseResult>(
+        ctx,
+        CreateBaseCommand.create({ name: 'Promotion field CAS' })._unsafeUnwrap()
+      )
+    ).base;
+    const baseId = base.id().toString();
+    const { table } = unwrap(
+      await commandBus.execute<CreateTableCommand, CreateTableResult>(
+        ctx,
+        CreateTableCommand.create({
+          baseId,
+          name: 'Orders',
+          fields: [{ type: 'singleLineText', name: 'Title', isPrimary: true }],
+        })._unsafeUnwrap()
+      )
+    );
+    const tableId = table.id().toString();
+    const fieldId = table.primaryFieldId().toString();
+    unwrap(await enableService.execute(ctx, { baseId }));
+    const { snapshot: baseline } = unwrap(await cloneService.execute(ctx, { baseId }));
+    const working = {
+      ...baseline,
+      tables: baseline.tables.map((item) => ({
+        ...item,
+        fields: item.fields.map((field) =>
+          field.id === fieldId ? { ...field, name: 'Reviewed title' } : field
+        ),
+      })),
+    };
+    const patch = selectPromotionPatch(diffSnapshots(baseline, working), [], baseline);
+
+    unwrap(
+      await commandBus.execute(
+        ctx,
+        UpdateFieldCommand.create({
+          tableId,
+          fieldId,
+          field: { name: 'Live title' },
+        })._unsafeUnwrap()
+      )
+    );
+    const { headRevision } = unwrap(await getHeadService.execute(ctx, { baseId }));
+    expect(headRevision).toBe(baseline.revision);
+
+    const result = await pushService.execute(ctx, {
+      baseId,
+      baseRevision: baseline.revision,
+      patch,
+    });
+    const key = `${tableId}:field:${fieldId}`;
+    expect(result._unsafeUnwrapErr()).toMatchObject({
+      code: 'vcs.cas_conflict',
+      details: {
+        baseRevision: baseline.revision,
+        headRevision,
+        overlappingKeys: [key],
+        conflicts: [
+          {
+            key,
+            tableId,
+            entityType: 'field',
+            entityId: fieldId,
+            before: { name: 'Title' },
+            current: { name: 'Live title' },
+          },
+        ],
+      },
+    });
+    const { snapshot: live } = unwrap(await cloneService.execute(ctx, { baseId }));
+    expect(live.tables.find((item) => item.id === tableId)?.fields).toContainEqual(
+      expect.objectContaining({ id: fieldId, name: 'Live title' })
+    );
+    expect(live.revision).toBe(baseline.revision);
   });
 
   it('(c) rolls back ALL data, change logs, and commit rows when a mid-push operation fails', async () => {

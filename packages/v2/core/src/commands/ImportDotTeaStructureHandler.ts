@@ -20,6 +20,7 @@ import type { BaseId } from '../domain/base/BaseId';
 import type { DomainError } from '../domain/shared/DomainError';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { validateForeignTablesForFields } from '../domain/table/fields/ForeignTableRelatedField';
+import { LookupField } from '../domain/table/fields/types/LookupField';
 import type { LinkForeignTableReference } from '../domain/table/fields/visitors/LinkForeignTableReferenceVisitor';
 import type { Table } from '../domain/table/Table';
 import { TableId } from '../domain/table/TableId';
@@ -322,6 +323,7 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
                 config: field.config,
                 cellValueType: field.cellValueType,
                 isMultipleCellValue: field.isMultipleCellValue,
+                ...(field.type === 'lookup' ? { legacyMultiplicityDerivation: true } : {}),
               })) as ITableFieldInput[],
               views: table.views?.map((view) => ({
                 id: view.id,
@@ -394,6 +396,21 @@ export class ImportDotTeaStructureHandler implements ICommandHandler<
           hostTable: table,
           foreignTables,
         });
+      }
+      const lookupEntries = tablesForValidation.flatMap((table) =>
+        table
+          .getFields()
+          .filter((field): field is LookupField => field instanceof LookupField)
+          .map((field) => ({ table, field }))
+      );
+      for (let pass = 0; pass < lookupEntries.length; pass++) {
+        let changed = false;
+        for (const { table, field } of lookupEntries) {
+          if (field.recomputeLegacyMultiplicity({ hostTable: table, foreignTables })) {
+            changed = true;
+          }
+        }
+        if (!changed) break;
       }
 
       // `provisionData` creates the reciprocal field of every two-way Link on the

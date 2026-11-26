@@ -1,6 +1,11 @@
 import { createCipheriv, createDecipheriv, createHmac, hkdfSync, randomBytes } from 'node:crypto';
 import { resolveSecret } from '../configs/secrets/resolve-secret';
 import type { ISecretSpec } from '../configs/secrets/secret-specs';
+import type { ISecretRoots, IStoredSecretPurpose } from '../configs/secrets/stored-secret-roots';
+import {
+  isPublicDefaultStoredRoot,
+  resolveStoredSecretRoots,
+} from '../configs/secrets/stored-secret-roots';
 
 type IEnv = Record<string, string | undefined>;
 
@@ -26,11 +31,20 @@ export type ISecretMapper = (value: string) => string;
 /** Applies an ISecretMapper to every secret slot of a parsed blob (mapAiConfigSecrets and friends). */
 export type ISecretSlotMapper = <T>(config: T, fn: ISecretMapper) => T;
 
-export interface ISecretValueCodecConfig {
+/** A root with a var of its own, such as the JWT secret. */
+interface IDedicatedRootSource {
   /** Resolves the encrypting HKDF root (dedicated var → fallbacks → legacy default). */
   spec: ISecretSpec;
   /** Decrypt-only root during a planned rotation. */
   oldEnvKey: string;
+}
+
+/** One purpose of the stored credential root (resolveStoredSecretRoots). */
+interface IStoredRootSource {
+  purpose: IStoredSecretPurpose;
+}
+
+export type ISecretValueCodecConfig = (IDedicatedRootSource | IStoredRootSource) & {
   /** HKDF info: keeps key material apart when two purposes resolve the same root. */
   hkdfInfo: string;
   /** Names the purpose in the decryption error. */
@@ -42,13 +56,30 @@ export interface ISecretValueCodecConfig {
    * so use it only for values that are unique anyway, such as tokens.
    */
   syntheticIv?: boolean;
-}
+};
+
+const resolveRoots = (
+  config: ISecretValueCodecConfig,
+  env: IEnv
+): { roots: ISecretRoots; usesPublicDefaultRoot: boolean } => {
+  if ('purpose' in config) {
+    const roots = resolveStoredSecretRoots(config.purpose, env);
+    return { roots, usesPublicDefaultRoot: isPublicDefaultStoredRoot(roots.primary) };
+  }
+  const primary = resolveSecret(config.spec, env);
+  const old = env[config.oldEnvKey];
+  return {
+    roots: { primary, decryptOnly: old ? [old] : [] },
+    usesPublicDefaultRoot: primary === config.spec.legacyDefault,
+  };
+};
 
 /**
  * AES-256-GCM value codec for secrets stored inside DB rows. Mirrors the EE
  * EnvVariableEncryptor: keys[0] (HKDF of the resolved root) encrypts, every
- * key decrypts in order, and the `_OLD` root is a decrypt-only tail during a
- * planned rotation. The GCM auth tag makes "wrong key" a reliable signal.
+ * key decrypts in order, and the roots after the first are a decrypt-only tail
+ * (an `_OLD` var during a planned rotation, a root the purpose ran on before).
+ * The GCM auth tag makes "wrong key" a reliable signal.
  *
  * Threat model: someone who can READ the database (read-only accounts,
  * backups, restore drills). No AAD binds a ciphertext to its row or column,
@@ -66,10 +97,8 @@ export class SecretValueCodec {
   private readonly label: string;
 
   constructor(config: ISecretValueCodecConfig, env: IEnv = process.env) {
-    const primaryRoot = resolveSecret(config.spec, env);
-    const roots = [...new Set([primaryRoot, env[config.oldEnvKey]])].filter(
-      (root): root is string => Boolean(root)
-    );
+    const resolved = resolveRoots(config, env);
+    const roots = [...new Set([resolved.roots.primary, ...resolved.roots.decryptOnly])];
     this.keys = roots.map((root) =>
       Buffer.from(hkdfSync('sha256', root, '', config.hkdfInfo, KEY_BYTES))
     );
@@ -78,7 +107,7 @@ export class SecretValueCodec {
         Buffer.from(hkdfSync('sha256', root, '', `${config.hkdfInfo}:iv`, KEY_BYTES))
       );
     }
-    this.usesPublicDefaultRoot = primaryRoot === config.spec.legacyDefault;
+    this.usesPublicDefaultRoot = resolved.usesPublicDefaultRoot;
     this.label = config.label;
   }
 

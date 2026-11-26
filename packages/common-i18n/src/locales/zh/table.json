@@ -1,6 +1,10 @@
 {
   "searchAcceleration": {
     "title": "搜索加速",
+    "configure": "配置",
+    "stateUnknown": "未知",
+    "contactAdmin": "如需更改此设置，请联系空间管理员。",
+    "shareServing": "此视图中的可见字段支持搜索加速。",
     "stateLabel": "设置状态",
     "state": {
       "disabled": "已关闭",
@@ -18,6 +22,11 @@
     "readOnly": "只有拥有此表更新权限的空间所有者或创建者才能更改设置。",
     "statusError": "无法获取设置，仍可继续搜索此表。",
     "changeError": "未能更改设置，请重试。",
+    "quotaExceeded": "要开启搜索加速，请减少此空间的行数用量或提高行数上限。",
+    "quotaLimit": "空间行数上限",
+    "quotaCurrent": "当前已用行数",
+    "quotaIncrement": "开启加速需额外计入的行数",
+    "unavailable": "搜索加速暂时不可用，请稍后重试。",
     "confirmTitle": "为这张大表开启搜索加速？",
     "confirmDetail": "此表至少有 50,000 条记录，准备可能需要一些时间。准备期间可以继续搜索。",
     "confirm": "确认开启"
@@ -392,6 +401,22 @@
       "removeDuplicateValues": "去除重复值",
       "moreOptions": "更多配置",
       "allowNewOptionsWhenEditing": "允许填写时添加选项",
+      "publicLinks": {
+        "label": "公开链接",
+        "description": "拿到链接的任何人都能打开本字段的文件",
+        "enableDescription": "本字段的所有文件（包括之后添加的）都会生成公开链接，任何人无需登录即可打开。",
+        "status": "已公开",
+        "copying": "正在复制文件",
+        "failed": "{{count}} 个失败",
+        "retry": "重新复制",
+        "paused": "空间算力不足，公开链接已暂停，充值后恢复访问。",
+        "planLapsed": "空间当前套餐不包含公开文件：新文件不会公开，公开的副本在宽限期结束后删除，续费后恢复。",
+        "legacyEngine": "本项目还没有切换到 V2，公开链接需要 V2，请联系管理员切换。",
+        "enableBackground": "文件在后台复制，复制完成的文件即可访问",
+        "enableNoRecall": "已经被下载的内容无法收回",
+        "enableTraffic": "访问产生的流量按每 GB {{credit}} 算力扣除",
+        "disableDescription": "本字段文件已有的公开链接将失效。"
+      },
       "deleteField": {
         "title": "删除字段",
         "simpleConfirm": "确定要删除字段 <b>{{fieldName}}</b> 吗？",

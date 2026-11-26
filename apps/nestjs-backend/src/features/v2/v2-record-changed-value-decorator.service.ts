@@ -21,11 +21,13 @@ export class V2RecordChangedValueDecoratorService implements IRecordChangedValue
 
   decorateChangedFields(
     table: Table,
+    recordId: string,
     changedFields?: ReadonlyMap<string, unknown>,
     previousFields?: Record<string, unknown>
   ): Promise<Result<ReadonlyMap<string, unknown> | undefined, DomainError>> {
     return this.attachmentValueDecorator.decorateChangedFields(
       table,
+      recordId,
       changedFields,
       previousFields
     );

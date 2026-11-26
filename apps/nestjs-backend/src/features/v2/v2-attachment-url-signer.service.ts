@@ -1,9 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { isImage } from '@teable/core';
 import { UploadType } from '@teable/openapi';
 import type {
+  AttachmentPublicLinkRequest,
+  AttachmentPublicLinks,
   AttachmentSignRequest,
   AttachmentSignedUrls,
+  AttachmentStoredFile,
   IAttachmentUrlSignerService,
   Result,
   DomainError,
@@ -17,6 +20,7 @@ import { isBackendOnlyObjectKey, servableThumbnailPaths } from '../attachments/b
 import StorageAdapter from '../attachments/plugins/adapter';
 import { getPreviewCacheKey } from '../attachments/plugins/utils';
 import { resolveThumbnailMimetype } from '../attachments/utils';
+import type { IAttachmentPublicLinkHook } from './attachment-public-link.hook';
 
 const ATTACHMENT_DECORATION_CONCURRENCY = 4;
 
@@ -31,10 +35,15 @@ const ATTACHMENT_DECORATION_CONCURRENCY = 4;
  */
 @Injectable()
 export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService {
+  private readonly logger = new Logger(V2AttachmentUrlSignerService.name);
+
   constructor(
     private readonly attachmentsStorageService: AttachmentsStorageService,
     private readonly attachmentLookupService: IAttachmentLookupService,
-    private readonly cacheService: CacheService
+    private readonly cacheService: CacheService,
+    /** Called on each use: registrars add the hook after the signer is built. */
+    private readonly resolvePublicLinkHook: () => IAttachmentPublicLinkHook | undefined = () =>
+      undefined
   ) {}
 
   async signItems(
@@ -44,11 +53,18 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
 
     const tokens = items.map((i) => i.token);
     const thumbnailPathMap = new Map<string, { sm?: string; lg?: string }>();
+    // the live rows, for the public links of the same items; unset when the lookup failed
+    let files: Map<string, AttachmentStoredFile> | undefined;
     const lookupResult = await this.attachmentLookupService.listAttachmentsByTokens(tokens);
     if (lookupResult.isOk()) {
+      files = new Map();
       for (const record of lookupResult.value) {
         if (record.thumbnailPath) {
           thumbnailPathMap.set(record.token, record.thumbnailPath);
+        }
+        if (!record.deleted) {
+          const { size, mimetype, thumbnailPath } = record;
+          files.set(record.token, { size, mimetype, ...(thumbnailPath && { thumbnailPath }) });
         }
       }
     }
@@ -56,10 +72,32 @@ export class V2AttachmentUrlSignerService implements IAttachmentUrlSignerService
     const limit = pLimit(ATTACHMENT_DECORATION_CONCURRENCY);
     const entries = await Promise.all(
       items.map((item) =>
-        limit(async () => [item.token, await this.signOne(item, thumbnailPathMap)] as const)
+        limit(async () => {
+          const urls = await this.signOne(item, thumbnailPathMap);
+          return [
+            item.token,
+            files ? { ...urls, file: files.get(item.token) ?? null } : urls,
+          ] as const;
+        })
       )
     );
     return ok(new Map(entries));
+  }
+
+  async publicLinks(
+    cells: ReadonlyArray<AttachmentPublicLinkRequest>
+  ): Promise<Result<ReadonlyArray<AttachmentPublicLinks | undefined>, DomainError>> {
+    const hook = this.resolvePublicLinkHook();
+    if (!hook || cells.length === 0) return ok(cells.map(() => undefined));
+    try {
+      return ok(await hook.publicLinks(cells));
+    } catch (error) {
+      // the links are extra: a failed lookup leaves them out rather than failing a read or a write
+      this.logger.warn(
+        `Public links left out: ${error instanceof Error ? error.message : String(error)}`
+      );
+      return ok(cells.map(() => undefined));
+    }
   }
 
   async invalidatePreview(tokens: ReadonlyArray<string>): Promise<Result<void, DomainError>> {

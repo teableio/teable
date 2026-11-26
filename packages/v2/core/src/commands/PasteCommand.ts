@@ -162,22 +162,34 @@ export function parseClipboardText(content: string): string[][] {
 
 export const MAX_PASTE_CELLS = 50_000;
 
-const maxPasteCellsError = () =>
+const maxPasteCellsError = (maxPasteCells: number) =>
   domainError.validation({
     code: 'validation.paste.max_cells_exceeded',
-    message: `Exceed max paste cells ${MAX_PASTE_CELLS}`,
-    details: { max: MAX_PASTE_CELLS },
+    message: `Exceed max paste cells ${maxPasteCells}`,
+    details: { max: maxPasteCells },
+    localization: { i18nKey: 'httpErrors.selection.exceedMaxPasteCells' },
   });
 
 /**
  * Validate both submitted and selected cell counts without multiplying untrusted dimensions.
  * Every caller must invoke this before allocating an expanded paste grid.
+ * The optional budget is supplied by trusted callers, outside the paste payload.
  */
 export const validatePasteExpansion = (
   content: ReadonlyArray<ReadonlyArray<unknown>>,
   targetRows: number,
-  targetCols: number
+  targetCols: number,
+  maxPasteCells: number = MAX_PASTE_CELLS
 ): Result<void, DomainError> => {
+  if (!Number.isSafeInteger(maxPasteCells) || maxPasteCells <= 0) {
+    return err(
+      domainError.validation({
+        code: 'validation.paste.invalid_max_cells',
+        message: 'Paste cell limit must be a positive safe integer',
+      })
+    );
+  }
+
   if (!Number.isSafeInteger(targetRows) || !Number.isSafeInteger(targetCols)) {
     return err(
       domainError.validation({
@@ -190,15 +202,15 @@ export const validatePasteExpansion = (
   if (
     targetRows > 0 &&
     targetCols > 0 &&
-    (targetRows > MAX_PASTE_CELLS || targetCols > Math.floor(MAX_PASTE_CELLS / targetRows))
+    (targetRows > maxPasteCells || targetCols > Math.floor(maxPasteCells / targetRows))
   ) {
-    return err(maxPasteCellsError());
+    return err(maxPasteCellsError(maxPasteCells));
   }
 
   let submittedCells = 0;
   for (const row of content) {
-    if (row.length > MAX_PASTE_CELLS - submittedCells) {
-      return err(maxPasteCellsError());
+    if (row.length > maxPasteCells - submittedCells) {
+      return err(maxPasteCellsError(maxPasteCells));
     }
     submittedCells += row.length;
   }
@@ -208,19 +220,20 @@ export const validatePasteExpansion = (
 export const validatePasteInputSize = (
   content: ReadonlyArray<ReadonlyArray<unknown>>,
   ranges: ReadonlyArray<readonly [number, number]>,
-  rangeType: RangeType
+  rangeType: RangeType,
+  maxPasteCells?: number
 ): Result<void, DomainError> => {
   if (rangeType === 'columns') {
     const [startCol, endCol] = ranges[0]!;
-    return validatePasteExpansion(content, 1, endCol - startCol + 1);
+    return validatePasteExpansion(content, 1, endCol - startCol + 1, maxPasteCells);
   }
   if (rangeType === 'rows') {
     const [startRow, endRow] = ranges[0]!;
-    return validatePasteExpansion(content, endRow - startRow + 1, 1);
+    return validatePasteExpansion(content, endRow - startRow + 1, 1, maxPasteCells);
   }
   const [startCol, startRow] = ranges[0]!;
   const [endCol, endRow] = ranges[1]!;
-  return validatePasteExpansion(content, endRow - startRow + 1, endCol - startCol + 1);
+  return validatePasteExpansion(content, endRow - startRow + 1, endCol - startCol + 1, maxPasteCells);
 };
 
 export const pasteCommandInputSchema = z.object({
@@ -314,10 +327,11 @@ export class PasteCommand {
     readonly projection: ReadonlyArray<string> | undefined,
     readonly sort: ReadonlyArray<PasteSort> | undefined,
     readonly groupBy: ReadonlyArray<PasteGroup> | undefined,
-    readonly ignoreViewQuery: boolean
+    readonly ignoreViewQuery: boolean,
+    readonly maxPasteCells: number
   ) {}
 
-  static create(raw: unknown): Result<PasteCommand, DomainError> {
+  static create(raw: unknown, maxPasteCells = MAX_PASTE_CELLS): Result<PasteCommand, DomainError> {
     const parsed = pasteCommandInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -346,7 +360,7 @@ export class PasteCommand {
       typeof parsed.data.content === 'string'
         ? parseClipboardText(parsed.data.content)
         : parsed.data.content;
-    const sizeResult = validatePasteInputSize(content, ranges, type);
+    const sizeResult = validatePasteInputSize(content, ranges, type, maxPasteCells);
     if (sizeResult.isErr()) return err(sizeResult.error);
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
@@ -366,7 +380,8 @@ export class PasteCommand {
             parsed.data.projection,
             parsed.data.sort,
             parsed.data.groupBy,
-            parsed.data.ignoreViewQuery ?? false
+            parsed.data.ignoreViewQuery ?? false,
+            maxPasteCells
           )
       )
     );

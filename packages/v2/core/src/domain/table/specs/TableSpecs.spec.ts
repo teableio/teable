@@ -49,6 +49,7 @@ import type {
   UpdateUserDefaultValueSpec,
   UpdateUserMultiplicitySpec,
   UpdateUserNotificationSpec,
+  UpdateAttachmentPublicAccessSpec,
 } from './field-updates';
 import type { ITableSpecVisitor } from './ITableSpecVisitor';
 import type { TableAddFieldSpec } from './TableAddFieldSpec';
@@ -448,6 +449,13 @@ class SpyVisitor implements ITableSpecVisitor {
     _: UpdateUserNotificationSpec
   ): ReturnType<ITableSpecVisitor['visitUpdateUserNotification']> {
     this.calls.push('UpdateUserNotificationSpec');
+    return ok(undefined);
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _: UpdateAttachmentPublicAccessSpec
+  ): ReturnType<ITableSpecVisitor['visitUpdateAttachmentPublicAccess']> {
+    this.calls.push('UpdateAttachmentPublicAccessSpec');
     return ok(undefined);
   }
 

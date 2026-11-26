@@ -6,8 +6,10 @@ import type { DomainError } from '../../domain/shared/DomainError';
 import type { Table } from '../../domain/table/Table';
 
 export interface IRecordChangedValueDecoratorService {
+  /** The changed fields of one record. */
   decorateChangedFields(
     table: Table,
+    recordId: string,
     changedFields?: ReadonlyMap<string, unknown>,
     previousFields?: Record<string, unknown>
   ): Promise<Result<ReadonlyMap<string, unknown> | undefined, DomainError>>;
@@ -23,6 +25,7 @@ export interface IRecordChangedValueDecoratorService {
 export class NullRecordChangedValueDecoratorService implements IRecordChangedValueDecoratorService {
   async decorateChangedFields(
     _table: Table,
+    _recordId: string,
     changedFields?: ReadonlyMap<string, unknown>,
     _previousFields?: Record<string, unknown>
   ): Promise<Result<ReadonlyMap<string, unknown> | undefined, DomainError>> {

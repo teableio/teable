@@ -29,7 +29,6 @@ import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { FieldKeyMapping } from '../domain/table/records/RecordCreateResult';
-import { materializeRecordSpec } from '../domain/table/records/RecordSpecMaterializer';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { Table } from '../domain/table/Table';
 import { NoopRecordOrderColumnPreparer } from '../ports/defaults/NoopRecordOrderColumnPreparer';
@@ -228,30 +227,12 @@ export class CreateRecordsHandler implements ICommandHandler<
       });
 
       // 3. Resolve values that require external lookups (user/link)
-      const records: TableRecord[] = [];
-      for (let i = 0; i < createdRecords.length; i++) {
-        let record = createdRecords[i]!;
-        const mutateSpec = mutateSpecs[i];
-        if (mutateSpec) {
-          const needsResolution =
-            yield* handler.recordMutationSpecResolver.needsResolution(mutateSpec);
-          if (needsResolution) {
-            const resolvedSpec = yield* await handler.recordMutationSpecResolver.resolveAndReplace(
-              context,
-              tableForCreate.id(),
-              mutateSpec
-            );
-            // Re-apply the resolved spec to get the correct record values
-            record = yield* materializeRecordSpec({
-              id: record.id(),
-              tableId: record.tableId(),
-              spec: resolvedSpec,
-              baseFields: record.fields().entries(),
-            });
-          }
-        }
-        records.push(record);
-      }
+      const { records, mutateSpecs: resolvedMutateSpecs } =
+        yield* await handler.recordMutationSpecResolver.resolveCreatedRecords(
+          context,
+          tableForCreate.id(),
+          { records: createdRecords, mutateSpecs }
+        );
 
       // Build extended field key mapping that includes all fields (including computed fields)
       // This ensures computed field values can be keyed by field name when fieldKeyType is 'name'
@@ -305,7 +286,7 @@ export class CreateRecordsHandler implements ICommandHandler<
             const fillLinkTitleForeignTables = command.typecast
               ? yield* await handler.foreignTableLoaderService.loadForLinkTitleFill(
                   transactionContext,
-                  mutateSpecs
+                  resolvedMutateSpecs
                 )
               : new Map();
             const mutation = yield* await handler.tableRecordRepository.insertMany(

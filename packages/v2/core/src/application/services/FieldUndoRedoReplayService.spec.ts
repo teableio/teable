@@ -434,6 +434,95 @@ describe('FieldUndoRedoReplayService', () => {
     expect(replayedMeta?.[table.primaryFieldId().toString()]?.order).toBe(1);
   });
 
+  it('restores an attachment field saved private as private, though its snapshot omits isPublic', async () => {
+    const { table, restoredFieldId } = buildTable(true);
+    const commandBus = new FakeCommandBus();
+    const service = new FieldUndoRedoReplayService(
+      new FakeTableRepository([table, table]),
+      commandBus,
+      new FakeTableRecordQueryRepository(),
+      new FakeTableRecordRepository(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      asTableUpdateFlow(new FakeTableUpdateFlow())
+    );
+
+    await service.replay(buildContext(), {
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      snapshot: {
+        field: { id: restoredFieldId.toString(), name: 'Files', type: 'attachment', options: {} },
+        views: [],
+      },
+    });
+
+    // undoing "turn public links on" turns them off again
+    const command = commandBus.commands[0] as UpdateFieldCommand;
+    expect(command.fieldUpdate).toMatchObject({ options: { isPublic: false } });
+  });
+
+  it('leaves the public links as they are when a snapshot saved them on', async () => {
+    const { table, restoredFieldId } = buildTable(true);
+    const commandBus = new FakeCommandBus();
+    const service = new FieldUndoRedoReplayService(
+      new FakeTableRepository([table, table]),
+      commandBus,
+      new FakeTableRecordQueryRepository(),
+      new FakeTableRecordRepository(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      asTableUpdateFlow(new FakeTableUpdateFlow())
+    );
+
+    await service.replay(buildContext(), {
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      snapshot: {
+        field: {
+          id: restoredFieldId.toString(),
+          name: 'Files',
+          type: 'attachment',
+          options: { isPublic: true },
+        },
+        views: [],
+      },
+    });
+
+    // undoing "turn public links off" (or redoing "on") does not publish: the user switches it
+    const command = commandBus.commands[0] as UpdateFieldCommand;
+    expect(command.fieldUpdate.options).not.toHaveProperty('isPublic');
+  });
+
+  it('brings a deleted attachment field back private', async () => {
+    const initial = buildTable(false);
+    const commandBus = new FakeCommandBus();
+    const service = new FieldUndoRedoReplayService(
+      new FakeTableRepository([initial.table, initial.table, initial.table]),
+      commandBus,
+      new FakeTableRecordQueryRepository(),
+      new FakeTableRecordRepository(),
+      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus()),
+      asTableUpdateFlow(new FakeTableUpdateFlow())
+    );
+
+    await service.replay(buildContext(), {
+      baseId: initial.table.baseId().toString(),
+      tableId: initial.table.id().toString(),
+      snapshot: {
+        field: {
+          id: initial.restoredFieldId.toString(),
+          name: 'Files',
+          type: 'attachment',
+          options: { isPublic: true },
+        },
+        views: [],
+      },
+    });
+
+    const command = commandBus.commands[0] as CreateFieldCommand;
+    expect(command).toBeInstanceOf(CreateFieldCommand);
+    expect(command.field).toMatchObject({ type: 'attachment', options: {} });
+    expect(command.field.options).not.toHaveProperty('isPublic');
+  });
+
   it('creates a missing field, replays stored values, and defers constraint restoration until after data is restored', async () => {
     const initial = buildTable(false);
     const restored = buildTable(true);

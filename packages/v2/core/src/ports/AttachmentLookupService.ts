@@ -16,6 +16,8 @@ export interface AttachmentLookupRecord {
     sm?: string;
     lg?: string;
   };
+  /** Set when the file row is soft-deleted; read by the token lookup. */
+  deleted?: boolean;
 }
 
 export interface IAttachmentLookupService {

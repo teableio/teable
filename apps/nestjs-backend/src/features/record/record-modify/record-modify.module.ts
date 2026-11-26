@@ -8,6 +8,7 @@ import { FieldReferenceAdmissionModule } from '../../field-reference-admission/f
 import { RecordMutationPolicyModule } from '../../record-mutation-policy/record-mutation-policy.module';
 import { SpaceDataDbMigrationGuardModule } from '../../space/space-data-db-migration-guard.module';
 import { TableDomainQueryModule } from '../../table-domain';
+import { V2Module } from '../../v2/v2.module';
 import { ViewOpenApiModule } from '../../view/open-api/view-open-api.module';
 import { ViewModule } from '../../view/view.module';
 import { ComputedModule } from '../computed/computed.module';
@@ -22,6 +23,7 @@ import { RecordUpdateService } from './record-update.service';
 @Module({
   imports: [
     RecordModule,
+    V2Module,
     CalculationModule,
     FieldCalculateModule,
     FieldReferenceAdmissionModule,

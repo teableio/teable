@@ -519,6 +519,17 @@ export class PullBaseVcsService {
   }
 
   async execute(input?: IPullBaseVcsInput): Promise<Result<IPullBaseVcsOutput, DomainError>> {
+    const configured = await this.stateRepository.readConfig();
+    if (configured.isErr()) return err(configured.error);
+    if (configured.value?.promotionBaselineRevision !== undefined) {
+      return err(
+        vcsDomainError.conflict({
+          code: 'vcs.promotion_pull_required',
+          message:
+            'Builder checkpoints advance from applied Data PR receipts. Open Data PRs in Builder to synchronize this working copy.',
+        })
+      );
+    }
     const stateRes = await loadRemoteAndLocalDiffState(
       this.remoteGateway,
       this.stateRepository,

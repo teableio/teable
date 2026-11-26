@@ -24,7 +24,13 @@ export class AttachmentFieldDto extends AttachmentFieldCore implements FieldBase
       value &&
       JSON.stringify(
         (value as IAttachmentCellValue).map((item) =>
-          omit(item, ['presignedUrl', 'smThumbnailUrl', 'lgThumbnailUrl'])
+          omit(item, [
+            'presignedUrl',
+            'smThumbnailUrl',
+            'lgThumbnailUrl',
+            'publicUrl',
+            'publicThumbnailUrl',
+          ])
         )
       )
     );

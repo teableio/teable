@@ -4,6 +4,8 @@ import type { IRecordRemovalReason } from '@teable/v2-core';
 
 type ISnapshotRecord = IRecord & { version?: number; order?: Record<string, number> };
 
+export const recordTrashResetLockKey = (tableId: string) => `teable.record-trash-reset:${tableId}`;
+
 // Projects record snapshots into record_trash rows: the JSON snapshot plus the extracted
 // metadata columns the trash/archive UIs filter and sort by. Omitting `reason` leaves the
 // column to its DB default ('deleted').

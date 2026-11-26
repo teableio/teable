@@ -43,6 +43,7 @@ import { match } from 'ts-pattern';
 import type { ConditionalQueryRuntimeConfig } from '../../../config/runtimeConfig';
 
 import { isPersistedAsGeneratedColumn } from '../../computed/isPersistedAsGeneratedColumn';
+import { currencyLinkTitle } from '../../currencyLinkTitle';
 import { TableRecordConditionWhereVisitor } from '../../visitors';
 import {
   applyPinyinCollation,
@@ -2747,19 +2748,21 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
               .dbFieldName()
               .andThen((dbFieldName) => dbFieldName.value())
               .map((columnName) => {
-                const columnRef = sql.ref(`${F}.${columnName}`);
+                const columnRef = sql.id(F, columnName);
                 const qualifiedRef = this.buildQualifiedRef(F, columnName);
                 const isMultiValueResult = titleField
                   .isMultipleCellValue()
                   .map((multiplicity) => multiplicity.isMultiple());
                 const isMultiValueField = isMultiValueResult.isOk() && isMultiValueResult.value;
-                const formattedSql = !isMultiValueField
-                  ? formatFieldValueAsStringSql(titleField, qualifiedRef, undefined, undefined, {
-                      normalizeJsonScalar:
-                        titleField.type().equals(FieldType.formula()) ||
-                        titleField.type().equals(FieldType.conditionalRollup()),
-                    })
-                  : undefined;
+                const currencyTitle = currencyLinkTitle(titleField, columnRef);
+                const formattedSql =
+                  !isMultiValueField && !currencyTitle
+                    ? formatFieldValueAsStringSql(titleField, qualifiedRef, undefined, undefined, {
+                        normalizeJsonScalar:
+                          titleField.type().equals(FieldType.formula()) ||
+                          titleField.type().equals(FieldType.conditionalRollup()),
+                      })
+                    : undefined;
 
                 // For JSON-stored fields (User, Attachment, etc.), extract the 'title' property
                 // Check if field is stored as JSON by checking dbFieldType
@@ -2798,6 +2801,8 @@ export class ComputedTableRecordQueryBuilder implements ITableRecordQueryBuilder
                       )
                       FROM jsonb_array_elements(${normalizedColumnJson}) WITH ORDINALITY AS t(elem, ord)
                     )`;
+                } else if (currencyTitle) {
+                  titleTextRef = currencyTitle;
                 } else if (formattedSql) {
                   // Use formatted SQL if available (for Number/DateTime formatting)
                   titleTextRef = sql.raw(formattedSql);

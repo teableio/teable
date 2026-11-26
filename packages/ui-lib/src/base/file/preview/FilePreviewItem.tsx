@@ -12,29 +12,38 @@ interface IFilePreviewItem extends IFileItem {
 }
 
 export const FilePreviewItem = (props: IFilePreviewItem) => {
-  const { children, className, style, onBeforeOpen, onDelete, ...fileItem } = props;
+  const { children, className, style, onBeforeOpen, onDelete, onCopyLink, ...fileItem } = props;
   const { openPreview, mergeFiles, removeFile } = useContext(FilePreviewContext);
 
   const fileIdRef = useRef<number>(genFileId());
   const oldFileItemRef = useRef<IFileItem>(undefined);
   const onDeleteRef = useRef(onDelete);
   const hasDelete = Boolean(onDelete);
+  const onCopyLinkRef = useRef(onCopyLink);
+  const hasCopyLink = Boolean(onCopyLink);
 
   useEffect(() => {
     onDeleteRef.current = onDelete;
-  }, [onDelete]);
+    onCopyLinkRef.current = onCopyLink;
+  }, [onDelete, onCopyLink]);
 
-  // Stable wrapper: the registered item must not churn when the host re-creates its callback.
+  // Stable wrappers: the registered item must not churn when the host re-creates its callbacks.
   const deleteFile = useCallback(() => onDeleteRef.current?.(), []);
+  const copyLink = useCallback(() => onCopyLinkRef.current?.(), []);
 
   useEffect(() => {
     const fileId = fileIdRef.current;
     const isItemChange = fileItem !== oldFileItemRef.current;
     if (isItemChange) {
       oldFileItemRef.current = fileItem;
-      mergeFiles({ ...fileItem, fileId, onDelete: hasDelete ? deleteFile : undefined });
+      mergeFiles({
+        ...fileItem,
+        fileId,
+        onDelete: hasDelete ? deleteFile : undefined,
+        onCopyLink: hasCopyLink ? copyLink : undefined,
+      });
     }
-  }, [fileItem, mergeFiles, hasDelete, deleteFile]);
+  }, [fileItem, mergeFiles, hasDelete, deleteFile, hasCopyLink, copyLink]);
 
   useEffect(() => {
     const fileId = fileIdRef.current;

@@ -14,6 +14,7 @@ import type {
 } from '../domain/table/events/RecordFieldValuesDTO';
 import { RecordsBatchCreated } from '../domain/table/events/RecordsBatchCreated';
 import { RecordsBatchUpdated } from '../domain/table/events/RecordsBatchUpdated';
+import { RECORD_REMOVAL_REASON } from '../domain/table/events/RecordsDeleted';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { LinkField } from '../domain/table/fields/types/LinkField';
 import { RecordId } from '../domain/table/records/RecordId';
@@ -125,6 +126,7 @@ export class RestoreRecordsHandler implements ICommandHandler<
     // set is a successful no-op. Without the optional port method the check is
     // skipped and the replay behaves as before.
     let records = command.records;
+    let discardedTrashIndexRecordIds: string[] | undefined;
     if (command.requireTrashRowReason && this.tableRecordRepository.listTrashedRecordIds) {
       const surviving = await this.tableRecordRepository.listTrashedRecordIds(
         context,
@@ -138,6 +140,14 @@ export class RestoreRecordsHandler implements ICommandHandler<
       records = records.filter((record) => surviving.value.has(record.recordId));
       if (records.length === 0) {
         return ok(RestoreRecordsResult.create(0, []));
+      }
+      if (
+        command.requireTrashRowReason === RECORD_REMOVAL_REASON.Deleted &&
+        records.length < command.records.length
+      ) {
+        discardedTrashIndexRecordIds = command.records
+          .map((record) => record.recordId)
+          .filter((id) => !surviving.value.has(id));
       }
     }
 
@@ -255,6 +265,7 @@ export class RestoreRecordsHandler implements ICommandHandler<
             {
               restoreRecordsById,
               ...(cleanupTrashRecordIds.length > 0 ? { cleanupTrashRecordIds } : {}),
+              ...(discardedTrashIndexRecordIds ? { discardedTrashIndexRecordIds } : {}),
               ...(command.cleanupAttachmentRefs
                 ? { cleanupAttachmentRefRecordIds: batch.map((record) => record.recordId) }
                 : {}),
@@ -304,6 +315,7 @@ export class RestoreRecordsHandler implements ICommandHandler<
       if (committed.isErr()) {
         return err(committed.error);
       }
+      discardedTrashIndexRecordIds = undefined;
 
       restoredCount += builtRecords.value.length;
       events.push(...committed.value.events);

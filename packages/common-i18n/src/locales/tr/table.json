@@ -1,6 +1,10 @@
 {
   "searchAcceleration": {
     "title": "Arama hızlandırma",
+    "configure": "Yapılandır",
+    "stateUnknown": "Bilinmiyor",
+    "contactAdmin": "Bu ayarı değiştirmek için bir alan yöneticisine başvurun.",
+    "shareServing": "Bu görünümdeki görünür alanlar için hızlandırma kullanılabilir.",
     "stateLabel": "Ayar",
     "state": {
       "disabled": "Kapalı",
@@ -18,6 +22,11 @@
     "readOnly": "Bu ayarı yalnızca alan sahipleri ve bu tabloyu güncelleme iznine sahip oluşturucular değiştirebilir.",
     "statusError": "Ayar yüklenemedi. Bu tabloda aramaya devam edebilirsiniz.",
     "changeError": "Ayar değiştirilemedi. Tekrar deneyin.",
+    "quotaExceeded": "Arama hızlandırmayı açmak için alanın satır kullanımını azaltın veya satır sınırını yükseltin.",
+    "quotaLimit": "Alanın satır sınırı",
+    "quotaCurrent": "Kullanılan satır sayısı",
+    "quotaIncrement": "Hızlandırma için ek satır sayısı",
+    "unavailable": "Arama hızlandırma geçici olarak kullanılamıyor. Biraz sonra tekrar deneyin.",
     "confirmTitle": "Bu büyük tablo için hızlandırma açılsın mı?",
     "confirmDetail": "Bu tabloda en az 50.000 kayıt var. Hazırlık zaman alabilir. Hazırlık sürerken aramaya devam edebilirsiniz.",
     "confirm": "Onayla ve aç"
@@ -397,6 +406,22 @@
       "removeDuplicateValues": "Yinelenen değerleri kaldır",
       "moreOptions": "Daha fazla seçenek",
       "allowNewOptionsWhenEditing": "Düzenlerken yeni seçeneklere izin ver",
+      "publicLinks": {
+        "label": "Herkese açık bağlantılar",
+        "description": "Bağlantıya sahip olan herkes bu alandaki dosyaları açabilir",
+        "enableDescription": "Bu alandaki her dosya, sonradan eklenenler dahil, oturum açmadan herkesin açabileceği bir bağlantı alır.",
+        "status": "Herkese açık",
+        "copying": "Dosyalar kopyalanıyor",
+        "failed": "{{count}} başarısız",
+        "retry": "Yeniden kopyala",
+        "paused": "Bu alanın kredisi bittiği için herkese açık bağlantılar duraklatıldı. Kredi yüklendikten sonra tekrar çalışır.",
+        "planLapsed": "Bu alanın planı artık herkese açık dosyaları içermiyor: yeni dosyalar herkese açık olmaz ve yayımlanan kopyalar ek süre bitince silinir. Yenileme onları geri getirir.",
+        "legacyEngine": "Bu proje henüz V2 kullanmıyor. Herkese açık bağlantılar V2 gerektirir; bir yöneticiden geçiş yapmasını isteyin.",
+        "enableBackground": "Dosyalar arka planda kopyalanır ve kopyalandıkça açılabilir",
+        "enableNoRecall": "İndirilmiş içerik geri alınamaz",
+        "enableTraffic": "Trafik, GB başına {{credit}} kredi olarak kredinizden düşülür",
+        "disableDescription": "Bu alandaki dosyalara ait mevcut herkese açık bağlantılar artık çalışmayacak."
+      },
       "deleteField": {
         "title": "Alanı Sil",
         "simpleConfirm": "<b>{{fieldName}}</b> alanını silmek istediğinizden emin misiniz?",

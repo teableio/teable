@@ -886,6 +886,7 @@ describe('TableMetaUpdateVisitor', () => {
       'visitUpdateRatingColor',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
+      'visitUpdateAttachmentPublicAccess',
       'visitUpdateButtonLabel',
       'visitUpdateButtonColor',
       'visitUpdateButtonMaxCount',

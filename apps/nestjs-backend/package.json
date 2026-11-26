@@ -193,6 +193,7 @@
     "@teable/openapi": "workspace:^",
     "@teable/v2-adapter-db-postgres-pg": "workspace:*",
     "@teable/v2-adapter-realtime-sharedb": "workspace:*",
+    "@teable/v2-adapter-repository-postgres": "workspace:*",
     "@teable/v2-adapter-table-query-ops-postgres": "workspace:^",
     "@teable/v2-adapter-table-repository-postgres": "workspace:^",
     "@teable/v2-adapter-undo-redo-keyv": "workspace:*",

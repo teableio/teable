@@ -62,6 +62,21 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
     return result.data.records;
   };
 
+  const loadLinkStorage = async (tableId: string, fieldId: string) => {
+    const table = await ctx.testContainer.db
+      .selectFrom('table_meta')
+      .select('db_table_name')
+      .where('id', '=', tableId)
+      .executeTakeFirstOrThrow();
+    const field = await ctx.testContainer.db
+      .selectFrom('field')
+      .select('db_field_name')
+      .where('id', '=', fieldId)
+      .executeTakeFirstOrThrow();
+    if (!field.db_field_name) throw new Error('Missing link storage column');
+    return { tableName: table.db_table_name, columnName: field.db_field_name };
+  };
+
   const installLinkWriteAudit = async (
     sourceDbTableName: string,
     linkDbFieldName: string
@@ -126,6 +141,66 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
     };
   };
 
+  it('preserves large amounts and literal currency symbols on batch link writes', async () => {
+    const amountId = `fld${getRandomString(16)}`;
+    const linkId = `fld${getRandomString(16)}`;
+    const foreign = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Currency targets',
+      fields: [
+        {
+          id: amountId,
+          name: 'Amount',
+          type: 'number',
+          isPrimary: true,
+          options: { formatting: { type: 'currency', symbol: '$1', precision: 2 } },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const target = await ctx.createRecord(foreign.id, { [amountId]: 1000000000.5 });
+    const source = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Currency sources',
+      fields: [
+        { name: 'Name', type: 'singleLineText', isPrimary: true },
+        {
+          id: linkId,
+          name: 'Amount',
+          type: 'link',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: foreign.id,
+            lookupFieldId: amountId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const sources = await ctx.createRecords(source.id, [{ fields: {} }, { fields: {} }]);
+    await ctx.drainOutbox();
+    const { tableName, columnName } = await loadLinkStorage(source.id, linkId);
+    const audit = await installLinkWriteAudit(tableName, columnName);
+    try {
+      const updated = await postWrite('updateRecords', {
+        tableId: source.id,
+        records: sources.map(({ id }) => ({ id, fields: { [linkId]: [{ id: target.id }] } })),
+      });
+      const expected = [{ id: target.id, title: '$11000000000.50' }];
+      const writes = await audit.read();
+      for (const { id } of sources) {
+        expect(writes.find(({ record_id }) => record_id === id)?.link_value).toEqual(expected);
+      }
+      expect(updated.map(({ fields }) => fields[linkId])).toEqual([expected, expected]);
+      await ctx.drainOutbox();
+      const stored = await ctx.listRecordsWithoutDrain(source.id);
+      expect(stored.map(({ fields }) => fields[linkId])).toEqual([expected, expected]);
+    } finally {
+      await audit.dispose();
+    }
+  });
+
   it.each<WritePath>(['createRecord', 'createRecords', 'updateRecord', 'updateRecords'])(
     '%s fills missing titles at write time and converges to authoritative titles',
     async (path) => {
@@ -171,17 +246,7 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
         ],
         views: [{ type: 'grid' }],
       });
-      const sourceMeta = await ctx.testContainer.db
-        .selectFrom('table_meta')
-        .select('db_table_name')
-        .where('id', '=', source.id)
-        .executeTakeFirstOrThrow();
-      const linkMeta = await ctx.testContainer.db
-        .selectFrom('field')
-        .select('db_field_name')
-        .where('id', '=', linkFieldId)
-        .executeTakeFirstOrThrow();
-      if (!linkMeta.db_field_name) throw new Error('Missing link storage column');
+      const { tableName, columnName } = await loadLinkStorage(source.id, linkFieldId);
 
       const explicitTitle = 'Explicit "override", {json} \\ 雪\nline\tend';
       // normalizeLinkItems keeps the FIRST occurrence, then SQL COALESCE fills
@@ -227,7 +292,7 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
       // trigger captures the value produced by the user-write SQL before a
       // synchronous or outbox computed refresh can replace cached link titles.
       await ctx.drainOutbox();
-      const audit = await installLinkWriteAudit(sourceMeta.db_table_name, linkMeta.db_field_name);
+      const audit = await installLinkWriteAudit(tableName, columnName);
       try {
         let written: ReadonlyArray<RecordValue>;
         if (path === 'updateRecord' || path === 'updateRecords') {
@@ -281,8 +346,8 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
         // honored by write-time COALESCE, but is not the final product value.
         await ctx.drainOutbox();
         const stored = await sql<{ id: string; link_value: unknown }>`
-          SELECT __id AS id, ${sql.id(linkMeta.db_field_name)} AS link_value
-          FROM ${sql.table(sourceMeta.db_table_name)}
+          SELECT __id AS id, ${sql.id(columnName)} AS link_value
+          FROM ${sql.table(tableName)}
           WHERE __id IN (${sql.join(written.map((record) => record.id))})
         `.execute(ctx.testContainer.db);
         const listed = await ctx.listRecordsWithoutDrain(source.id);
@@ -309,4 +374,69 @@ describe('v2 http multi-value link title fill on PostgreSQL (e2e)', () => {
       }
     }
   );
+
+  it('writes formatted currency titles on the first INSERT for typecast ID strings and arrays', async () => {
+    const amountId = `fld${getRandomString(16)}`;
+    const linkId = `fld${getRandomString(16)}`;
+    const targets = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Typecast currency targets',
+      fields: [
+        {
+          id: amountId,
+          type: 'number',
+          name: 'Amount',
+          isPrimary: true,
+          options: { formatting: { type: 'currency', symbol: '$', precision: 2 } },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const [first, second] = await ctx.createRecords(targets.id, [
+      { fields: { [amountId]: 1000.5 } },
+      { fields: { [amountId]: 2 } },
+    ]);
+    if (!first || !second) throw new Error('Missing currency targets');
+    const source = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Typecast currency sources',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          id: linkId,
+          type: 'link',
+          name: 'Amounts',
+          options: {
+            relationship: 'manyMany',
+            foreignTableId: targets.id,
+            lookupFieldId: amountId,
+            isOneWay: true,
+          },
+        },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const { tableName, columnName } = await loadLinkStorage(source.id, linkId);
+    const audit = await installLinkWriteAudit(tableName, columnName);
+    try {
+      const ids = [first.id, second.id];
+      const inputs = [first.id, ids, { id: first.id }, ids.map((id) => ({ id }))];
+      const records = await postWrite('createRecords', {
+        tableId: source.id,
+        records: inputs.map((value) => ({ fields: { [linkId]: value } })),
+      });
+      const writes = await audit.read();
+      const firstLink = { id: first.id, title: '$1000.50' };
+      const bothLinks = [firstLink, { id: second.id, title: '$2.00' }];
+      const firstWrites = records.map(({ id }) => writes.find((row) => row.record_id === id));
+      expect(firstWrites.map((row) => row?.link_value)).toEqual([
+        [firstLink],
+        bothLinks,
+        [firstLink],
+        bothLinks,
+      ]);
+    } finally {
+      await audit.dispose();
+    }
+  });
 });

@@ -30,6 +30,7 @@ import { viewGroupDtoFromQueryDefaults } from '../../views/ViewGroup';
 import { viewSortDtoFromQueryDefaults } from '../../views/ViewSort';
 import type {
   RemoveSymmetricLinkFieldSpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
@@ -729,6 +730,13 @@ export class TableSpecEventVisitor implements ITableSpecVisitor<void> {
 
   // User
   visitUpdateUserMultiplicity(spec: UpdateUserMultiplicitySpec): Result<void, DomainError> {
+    this.pushFieldUpdated(spec, spec.fieldId());
+    return ok(undefined);
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    spec: UpdateAttachmentPublicAccessSpec
+  ): Result<void, DomainError> {
     this.pushFieldUpdated(spec, spec.fieldId());
     return ok(undefined);
   }

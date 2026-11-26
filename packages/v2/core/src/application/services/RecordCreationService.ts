@@ -132,20 +132,19 @@ export class RecordCreationService {
       });
 
       let record = createResult.record;
-      if (createResult.mutateSpec) {
-        const needsResolution = yield* service.recordMutationSpecResolver.needsResolution(
-          createResult.mutateSpec
-        );
+      let mutateSpec = createResult.mutateSpec;
+      if (mutateSpec) {
+        const needsResolution = yield* service.recordMutationSpecResolver.needsResolution(mutateSpec);
         if (needsResolution) {
-          const resolvedSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
+          mutateSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
             context,
             tableForCreate.id(),
-            createResult.mutateSpec
+            mutateSpec
           );
           record = yield* materializeRecordSpec({
             id: record.id(),
             tableId: record.tableId(),
-            spec: resolvedSpec,
+            spec: mutateSpec,
             baseFields: record.fields().entries(),
           });
         }
@@ -176,7 +175,7 @@ export class RecordCreationService {
           const fillLinkTitleForeignTables = input.typecast
             ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
                 transactionContext,
-                [createResult.mutateSpec ?? null]
+                [mutateSpec ?? null]
               )
             : new Map();
           const mutation = yield* await service.tableRecordRepository.insert(
@@ -192,6 +191,7 @@ export class RecordCreationService {
           const decoratedChangedFields =
             yield* await service.recordChangedValueDecoratorService.decorateChangedFields(
               tableForCreate,
+              record.id().toString(),
               mutation?.changedFields
             );
           const createdEventFieldChanges = new Map<string, unknown>();

@@ -2226,7 +2226,7 @@ export class BaseImportV2Service {
       pairedUsersById
     );
     if (canonical.length !== references.length) warnings.skippedUserCells += 1;
-    if (canonical.length === 0) {
+    if (references.length > 0 && canonical.length === 0) {
       if (field.notNull) affectedRequiredFields.add(field.id);
       return null;
     }
@@ -2330,9 +2330,15 @@ export class BaseImportV2Service {
         this.throwInvalidImportedUserValue();
       }
     }
-    if (value == null || (isMultiple && Array.isArray(value) && value.length === 0)) return null;
-    const values = isMultiple ? value : [value];
-    if (!Array.isArray(values) || values.length === 0) this.throwInvalidImportedUserValue();
+    if (value == null) return null;
+    let values: ReadonlyArray<unknown>;
+    if (isMultiple) {
+      if (!Array.isArray(value)) this.throwInvalidImportedUserValue();
+      values = value;
+    } else {
+      if (Array.isArray(value)) this.throwInvalidImportedUserValue();
+      values = [value];
+    }
     return values.map((item) => {
       if (!item || typeof item !== 'object' || Array.isArray(item)) {
         this.throwInvalidImportedUserValue();

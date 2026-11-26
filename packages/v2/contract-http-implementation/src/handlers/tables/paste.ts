@@ -10,9 +10,10 @@ import type { ICommandBus, IExecutionContext, PasteResult } from '@teable/v2-cor
 export const executePasteEndpoint = async (
   context: IExecutionContext,
   rawBody: unknown,
-  commandBus: ICommandBus
+  commandBus: ICommandBus,
+  maxPasteCells?: number
 ): Promise<IPasteEndpointResult> => {
-  const commandResult = PasteCommand.create(rawBody);
+  const commandResult = PasteCommand.create(rawBody, maxPasteCells);
   if (commandResult.isErr()) {
     const error = commandResult.error;
     return {

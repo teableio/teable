@@ -244,6 +244,7 @@ export class TemporaryPasteHandler implements ICommandHandler<
                 foreignTableId: field.foreignTableId(),
                 lookupFieldId: field.lookupFieldId(),
                 titles: spec.titles,
+                resolveRecordIds: spec.resolveRecordIds,
               },
             });
           } else if (spec instanceof SetLinkValueSpec) {
@@ -271,7 +272,8 @@ export class TemporaryPasteHandler implements ICommandHandler<
       const titles = yield* await handler.linkTitleResolver.resolve(
         context,
         titleEntries.map((entry) => entry.request),
-        (ctx, foreign, titleField, spec) => handler.readLinkRecords(ctx, foreign, titleField, spec)
+        (ctx, foreign, titleField, spec, recordIds) =>
+          handler.readLinkRecords(ctx, foreign, titleField, spec, recordIds)
       );
       for (let index = 0; index < titles.length; index++)
         titleEntries[index]!.cell.items = titles[index]!.resolvedIds;
@@ -283,7 +285,7 @@ export class TemporaryPasteHandler implements ICommandHandler<
         const ids = new Map<string, RecordId>();
         for (const cell of fieldCells) {
           for (const item of cell.items) {
-            const id = yield* RecordId.create(item.id);
+            const id = yield* RecordId.forLookup(item.id);
             ids.set(id.toString(), id);
           }
         }
@@ -344,7 +346,11 @@ export class TemporaryPasteHandler implements ICommandHandler<
   ): Promise<Result<TableRecordQueryRepositoryPort.ITableRecordQueryResult, DomainError>> {
     const handler = this;
     return safeTry(async function* () {
-      const projection = [titleField.id().toString()];
+      const projectionField =
+        recordIds && titleField.type().toString() === 'checkbox'
+          ? yield* table.getField((candidate) => candidate.id().equals(table.primaryFieldId()))
+          : titleField;
+      const projection = [projectionField.id().toString()];
       const execution = yield* await handler.recordQueryPluginRunner.prepare(
         recordIds
           ? {

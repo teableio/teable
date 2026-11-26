@@ -56,6 +56,7 @@ import type {
   UpdateRatingIconSpec,
   UpdateRatingColorSpec,
   UpdateUserMultiplicitySpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateUserNotificationSpec,
   UpdateUserDefaultValueSpec,
   UpdateButtonLabelSpec,
@@ -473,6 +474,12 @@ export class FieldValueChangeCollectorVisitor implements ITableSpecVisitor<void>
 
   visitUpdateUserMultiplicity(spec: UpdateUserMultiplicitySpec): Result<void, DomainError> {
     this.addValueChanged(spec.fieldId());
+    return ok(undefined);
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): Result<void, DomainError> {
     return ok(undefined);
   }
 

@@ -32,7 +32,9 @@ export class AttachmentCellValueService {
       return null;
     }
     return await Promise.all(
-      normalizedCellValue.map(async (item) => {
+      normalizedCellValue.map(async (cellItem) => {
+        // Public links belong to the cell, which these reads do not name: a stored one is dropped.
+        const { publicUrl: _url, publicThumbnailUrl: _thumbnail, ...item } = cellItem;
         const { path, mimetype, token } = item;
         // A cell that names a backend-only object gets no url, cached or fresh. The
         // record around it still reads.

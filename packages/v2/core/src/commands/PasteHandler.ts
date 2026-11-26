@@ -116,7 +116,10 @@ import {
   resolveGroupByToOrderBy,
   resolveOrderBy,
 } from './shared/orderBy';
-import { resolveSelectionStreamBatchSize } from './shared/streamBatchSize';
+import {
+  DEFAULT_SELECTION_STREAM_BATCH_SIZE,
+  resolveSelectionStreamBatchSize,
+} from './shared/streamBatchSize';
 import { toTableRecord } from './shared/toTableRecord';
 
 export interface PasteResult {
@@ -238,6 +241,7 @@ type PasteStreamCommandLike = {
   readonly sort: ReadonlyArray<PasteSort> | undefined;
   readonly groupBy: ReadonlyArray<PasteGroup> | undefined;
   readonly ignoreViewQuery: boolean;
+  readonly maxPasteCells: number;
   readonly targetRecordIds?: ReadonlyArray<string>;
   readonly excludedTargetRecordIds?: ReadonlyArray<string>;
   readonly targetFieldIds?: ReadonlyArray<string>;
@@ -771,12 +775,12 @@ export class PasteHandler implements ICommandHandler<PasteCommand, PasteResult> 
 
     // Stream through existing records - generate update operations
     for await (const recordResult of existingRecordsStream) {
-      if (rowIndex >= content.length) break;
-
       if (recordResult.isErr()) {
         yield err(recordResult.error);
         return;
       }
+
+      if (rowIndex >= content.length) break;
 
       const readModel = recordResult.value;
 
@@ -2441,7 +2445,8 @@ export class PasteStreamApplicationService extends PasteHandler {
     const expansionValidation = validatePasteExpansion(
       command.content,
       effectiveTargetRangeRows,
-      targetRangeCols
+      targetRangeCols,
+      command.maxPasteCells
     );
     if (expansionValidation.isErr()) return err(expansionValidation.error);
     const expandedContent = expandPasteContent(
@@ -2644,32 +2649,42 @@ export class PasteStreamApplicationService extends PasteHandler {
     recordIds: ReadonlyArray<string>
   ): AsyncIterable<Result<TableRecordReadModel, DomainError>> {
     const parsedRecordIds: RecordId[] = [];
+    // SQL IN returns each matching row once, ordered by its first requested position.
+    // Deduplicate before slicing so a repeated ID cannot consume a second paste row.
+    const seenRecordIds = new Set<string>();
     for (const rawId of recordIds) {
       const recordIdResult = RecordId.create(rawId);
       if (recordIdResult.isErr()) {
         yield err(recordIdResult.error);
         return;
       }
-      parsedRecordIds.push(recordIdResult.value);
+      const recordId = recordIdResult.value;
+      const key = recordId.toString();
+      if (seenRecordIds.has(key)) continue;
+      seenRecordIds.add(key);
+      parsedRecordIds.push(recordId);
     }
 
-    if (!parsedRecordIds.length) {
-      return;
-    }
+    for (
+      let offset = 0;
+      offset < parsedRecordIds.length;
+      offset += DEFAULT_SELECTION_STREAM_BATCH_SIZE
+    ) {
+      const batchIds = parsedRecordIds.slice(offset, offset + DEFAULT_SELECTION_STREAM_BATCH_SIZE);
+      const recordsResult = await this.tableRecordQueryRepository.find(
+        context,
+        table,
+        RecordByIdsSpec.create(batchIds),
+        { mode: 'stored', recordIdsOrder: batchIds, includeTotal: false }
+      );
+      if (recordsResult.isErr()) {
+        yield err(recordsResult.error);
+        return;
+      }
 
-    const recordsResult = await this.tableRecordQueryRepository.find(
-      context,
-      table,
-      RecordByIdsSpec.create(parsedRecordIds),
-      { mode: 'stored', recordIdsOrder: parsedRecordIds, includeTotal: false }
-    );
-    if (recordsResult.isErr()) {
-      yield err(recordsResult.error);
-      return;
-    }
-
-    for (const record of recordsResult.value.records) {
-      yield ok(record);
+      for (const record of recordsResult.value.records) {
+        yield ok(record);
+      }
     }
   }
 

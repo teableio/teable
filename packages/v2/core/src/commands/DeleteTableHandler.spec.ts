@@ -15,10 +15,13 @@ import { ActorId } from '../domain/shared/ActorId';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { FieldUpdated } from '../domain/table/events/FieldUpdated';
 import { TableActionTriggerRequested } from '../domain/table/events/TableActionTriggerRequested';
 import { TableDeleted } from '../domain/table/events/TableDeleted';
 import { TableTrashed } from '../domain/table/events/TableTrashed';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
+import { AttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
 import { Table as TableAggregate } from '../domain/table/Table';
@@ -64,6 +67,35 @@ const buildTable = (baseIdSeed: string): Table => {
   builder.view().defaultGrid().done();
   return builder.build()._unsafeUnwrap();
 };
+
+/** A table with two public attachment fields and a private one. */
+const buildPublicFileTable = (baseIdSeed: string): Table => {
+  const baseId = BaseId.create(`bse${baseIdSeed.repeat(16)}`)._unsafeUnwrap();
+  const builder = TableAggregate.builder()
+    .withBaseId(baseId)
+    .withName(TableName.create('Files')._unsafeUnwrap());
+  builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+  for (const [name, publicAccess] of [
+    ['Cover', AttachmentPublicAccess.enabled()],
+    ['Photos', AttachmentPublicAccess.enabled()],
+    ['Contracts', AttachmentPublicAccess.disabled()],
+  ] as const) {
+    builder
+      .field()
+      .attachment()
+      .withName(FieldName.create(name)._unsafeUnwrap())
+      .withPublicAccess(publicAccess)
+      .done();
+  }
+  builder.view().defaultGrid().done();
+  return builder.build()._unsafeUnwrap();
+};
+
+const publicFieldNames = (table: Table) =>
+  table
+    .getFields()
+    .filter((field) => field instanceof AttachmentField && field.publicAccess().toBoolean())
+    .map((field) => field.name().toString());
 
 class TestTableSchemaCoordination implements ITableSchemaCoordination {
   readonly requests: Array<{ tableIds: ReadonlyArray<string>; mode: TableSchemaCoordinationMode }> =
@@ -123,6 +155,10 @@ class FakeTableRepository implements ITableRepository {
   provisionStateChanges: Array<{ tableId: string; state: TableProvisionState }> = [];
   findStates: Array<TableFindOptions['state'] | undefined> = [];
   failDelete: DomainError | undefined;
+  failUpdate: DomainError | undefined;
+  updates: Array<{ context: IExecutionContext; table: Table }> = [];
+  /** The writes in the order they were made. */
+  writes: Array<'update' | 'delete'> = [];
 
   async insert(_: IExecutionContext, table: Table): Promise<Result<Table, DomainError>> {
     this.tables.push(table);
@@ -163,11 +199,14 @@ class FakeTableRepository implements ITableRepository {
   }
 
   async updateOne(
-    _: IExecutionContext,
-    __: Table,
-    ___: ISpecification<Table, ITableSpecVisitor>
+    context: IExecutionContext,
+    table: Table,
+    _: ISpecification<Table, ITableSpecVisitor>
   ): Promise<Result<void, DomainError>> {
-    return err(domainError.notImplemented({ message: 'Not implemented' }));
+    if (this.failUpdate) return err(this.failUpdate);
+    this.updates.push({ context, table });
+    this.writes.push('update');
+    return ok(undefined);
   }
 
   async delete(
@@ -176,6 +215,7 @@ class FakeTableRepository implements ITableRepository {
     options?: TableDeleteOptions
   ): Promise<Result<void, DomainError>> {
     if (this.failDelete) return err(this.failDelete);
+    this.writes.push('delete');
     this.deleted.push(table);
     this.deleteModes.push(options?.mode ?? 'soft');
     this.deletedTableIds.add(table.id().toString());
@@ -852,6 +892,84 @@ describe('DeleteTableHandler', () => {
     ]);
     expect(sideEffectService.contexts[0]?.transactions?.meta?.scope).toBe('meta');
     expect(sideEffectService.contexts[0]?.transactions?.data?.scope).toBe('data');
+  });
+
+  it('turns public links off before a table goes to the trash, in its transaction', async () => {
+    const table = buildPublicFileTable('f');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    const eventBus = new FakeEventBus();
+    const handler = createHandler(
+      repo,
+      new FakeTableSchemaRepository(),
+      new FakeTableDeletionSideEffectService(),
+      eventBus,
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+    })._unsafeUnwrap();
+
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    // one write for every public field, before the delete, in the deletion's meta transaction
+    expect(repo.writes).toEqual(['update', 'delete']);
+    expect(repo.updates[0]?.context.transaction?.scope).toBe('meta');
+    expect(publicFieldNames(repo.updates[0]!.table)).toEqual([]);
+    // the trashed table is on no page, so TableTrashed is the only notice
+    expect(eventBus.published.some((event) => event instanceof FieldUpdated)).toBe(false);
+    expect(eventBus.published.some((event) => event instanceof TableTrashed)).toBe(true);
+  });
+
+  it('leaves public links alone when a table is deleted for good', async () => {
+    const table = buildPublicFileTable('g');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    const handler = createHandler(
+      repo,
+      new FakeTableSchemaRepository(),
+      new FakeTableDeletionSideEffectService(),
+      new FakeEventBus(),
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+      mode: 'permanent',
+    })._unsafeUnwrap();
+
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(repo.writes).toEqual(['delete']);
+  });
+
+  it('does not trash a table whose public links could not be turned off', async () => {
+    const table = buildPublicFileTable('h');
+    const repo = new FakeTableRepository();
+    repo.tables.push(table);
+    repo.failUpdate = domainError.infrastructure({ message: 'field write failed' });
+    const eventBus = new FakeEventBus();
+    const handler = createHandler(
+      repo,
+      new FakeTableSchemaRepository(),
+      new FakeTableDeletionSideEffectService(),
+      eventBus,
+      new FakeLogger(),
+      new FakeUnitOfWork()
+    );
+    const command = DeleteTableCommand.create({
+      baseId: table.baseId().toString(),
+      tableId: table.id().toString(),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+
+    expect(result._unsafeUnwrapErr().message).toBe('field write failed');
+    expect(repo.deleted).toHaveLength(0);
+    expect(eventBus.published.some((event) => event instanceof TableTrashed)).toBe(false);
   });
 
   it('stops on prepared blockers before schema lifecycle or persistence', async () => {

@@ -105,6 +105,10 @@ export const lastModifiedByOptionsSchema = z.object({
 
 export const autoNumberOptionsSchema = z.object({});
 
+export const attachmentOptionsSchema = z.object({
+  isPublic: z.boolean().optional(),
+});
+
 export const userOptionsSchema = z.object({
   isMultiple: z.boolean().optional(),
   shouldNotify: z.boolean().optional(),
@@ -312,6 +316,7 @@ export const tableFieldInputSchema = z.discriminatedUnion('type', [
   }),
   tableFieldSchema({
     type: z.literal('attachment'),
+    options: attachmentOptionsSchema.optional(),
   }),
   tableFieldSchema({
     type: z.literal('date'),

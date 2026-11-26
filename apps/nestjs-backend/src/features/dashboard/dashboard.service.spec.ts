@@ -6,7 +6,7 @@ import type { ClsService } from 'nestjs-cls';
 import { GlobalModule } from '../../global/global.module';
 import type { IClsStore } from '../../types/cls';
 import type { AuditScope } from '../audit/audit-scope';
-import type { BaseImportService } from '../base/base-import.service';
+import type { BaseImportV2Service } from '../base/base-import-v2.service';
 import type { CollaboratorService } from '../collaborator/collaborator.service';
 import { DashboardModule } from './dashboard.module';
 import { DashboardService } from './dashboard.service';
@@ -58,7 +58,7 @@ describe('DashboardService audit', () => {
       prismaService,
       cls,
       {} as CollaboratorService,
-      {} as BaseImportService,
+      {} as BaseImportV2Service,
       { emitAtomic } as unknown as AuditScope
     );
   });

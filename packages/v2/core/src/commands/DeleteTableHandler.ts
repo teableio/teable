@@ -2,6 +2,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { isPublicAttachment } from '../application/services/applyAttachmentPublicLinks';
 import {
   dispatchSameTxEvents,
   publishEventsWithBatchDeferral,
@@ -23,6 +24,9 @@ import {
 } from '../application/services/TableSchemaOperationLifecycleService';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
+import { composeAndSpecs } from '../domain/shared/specification/composeAndSpecs';
+import { AttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
+import { UpdateAttachmentPublicAccessSpec } from '../domain/table/specs/field-updates/UpdateAttachmentPublicAccessSpec';
 import type { Table } from '../domain/table/Table';
 import * as EventBusPort from '../ports/EventBus';
 import * as ExecutionContextPort from '../ports/ExecutionContext';
@@ -41,6 +45,37 @@ import { CommandHandler, type ICommandHandler } from './CommandHandler';
 import { DeleteTableCommand } from './DeleteTableCommand';
 
 const TABLE_DELETION_LEASE_WAIT_MS = 5_000;
+
+/**
+ * A table moved to the trash keeps no public links: its attachment fields lose the switch before
+ * it goes, in the same transaction, so it comes back private for the user to publish again. The
+ * field versions move on, but no FieldUpdated goes out: once committed the table is in the trash,
+ * where no page shows it and the realtime projection cannot load it; TableTrashed tells them. It
+ * cannot run through the table update flow either, whose schema operation would replace the
+ * deletion's.
+ */
+const turnOffPublicAccess = async (
+  context: ExecutionContextPort.IExecutionContext,
+  tableRepository: TableRepositoryPort.ITableRepository,
+  table: Table
+): Promise<Result<void, DomainError>> =>
+  safeTry(async function* () {
+    const specs = table
+      .getFields()
+      .filter(isPublicAttachment)
+      .map((field) =>
+        UpdateAttachmentPublicAccessSpec.create(
+          field.id(),
+          field.publicAccess(),
+          AttachmentPublicAccess.disabled()
+        )
+      );
+    if (!specs.length) return ok(undefined);
+    const spec = yield* composeAndSpecs(specs);
+    const updated = yield* spec.mutate(table);
+    yield* await tableRepository.updateOne(context, updated, spec);
+    return ok(undefined);
+  });
 
 export class DeleteTableResult {
   private constructor(
@@ -221,6 +256,13 @@ export class DeleteTableHandler implements ICommandHandler<DeleteTableCommand, D
                     );
                   sideEffectEvents.push(...sideEffectResult.events);
                   sideEffectPostPersistEvents.push(...sideEffectResult.postPersistEvents);
+                  if (preparation.mode === 'soft') {
+                    yield* await turnOffPublicAccess(
+                      metaTransactionContext,
+                      tableRepository,
+                      table
+                    );
+                  }
                   yield* await tableSchemaRepository.delete(dataTransactionContext, table, {
                     mode: preparation.mode,
                   });

@@ -84,6 +84,8 @@ export interface IVcsPushPhysicalTableLockTarget {
   readonly dbTableName: string;
   readonly recordIds?: readonly string[];
   readonly keyColumn?: string;
+  /** After CAS, admit this many new order columns and acquire the DDL lock without waiting. */
+  readonly newViewOrderColumnCount?: number;
 }
 
 export interface IVcsPushMetadataLockTargets {
@@ -97,6 +99,11 @@ export type SelectCheckpointRecords = (
   table: Omit<ITableVcsSnapshot, 'records'>,
   fieldColumns: Readonly<Record<string, string>>
 ) => Promise<readonly string[] | undefined>;
+
+/** Select exact record IDs using the trusted checkpoint's schema and table membership. */
+export type SelectHistoricalCheckpointRecords = (
+  schema: IBaseVcsSnapshot
+) => Result<ReadonlyMap<string, ReadonlySet<string>>, DomainError>;
 
 /** Internal, unrestricted storage read in the transaction publishing this revision. */
 export interface VcsCheckpointCapture {
@@ -148,6 +155,13 @@ export interface IBaseVcsLogRepository {
     ctx: IExecutionContext,
     baseId: BaseId,
     revision: number
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>>;
+  /** Internal read retaining all table schemas and only the requested historical records. */
+  readHistoricalSelection?(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number,
+    selectRecords?: SelectHistoricalCheckpointRecords
   ): Promise<Result<IBaseVcsSnapshot, DomainError>>;
   /** Table membership from the checkpoint root without reading record objects. */
   readHistoricalTableIds(

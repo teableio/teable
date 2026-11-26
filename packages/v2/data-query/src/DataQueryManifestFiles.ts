@@ -26,6 +26,7 @@ export type AppQueryDescriptions = Readonly<
       composition?: DataQueryComposition;
       parameters?: Record<string, DataQueryParameterDefinition>;
       optionalParameters?: readonly string[];
+      monthDimensions?: Readonly<Record<string, string>>;
     }
   >
 >;
@@ -233,6 +234,8 @@ export function generateAppQueryArtifacts(
   const rows: string[] = [];
   const parameters: string[] = [];
   const functions: string[] = [];
+  const monthComparisons: string[] = [];
+  const monthComparisonCalls: string[] = [];
   const resolvedDefinition = (id: string) =>
     manifest.queries[id].definition ?? descriptions?.[id]?.definition;
   const usesCursor = ids.some((id) => resolvedDefinition(id)?.version === 7);
@@ -246,6 +249,10 @@ export function generateAppQueryArtifacts(
     const query = manifest.queries[id];
     const definition = resolvedDefinition(id);
     const composition = descriptions?.[id]?.composition;
+    const monthDimensions =
+      query.library && composition?.metricDimensions
+        ? Object.keys(descriptions?.[id]?.monthDimensions ?? {}).sort()
+        : [];
     if (composition && query.result === 'one') {
       return err(
         queryError(
@@ -316,9 +323,12 @@ export function generateAppQueryArtifacts(
       descriptions?.[id]?.parameters ??
       query.fallback?.parameters ??
       {}) as Record<string, DataQueryParameterDefinition>;
-    const parameterEntries = Object.entries(parameterDefinitions).sort(([a], [b]) =>
-      a.localeCompare(b, 'en')
-    );
+    const parameterEntries = Object.entries(parameterDefinitions)
+      .filter(
+        ([name]) =>
+          !monthDimensions.length || (name !== 'compareMonth' && name !== 'compareDimension')
+      )
+      .sort(([a], [b]) => a.localeCompare(b, 'en'));
     const optionalParameters = definition
       ? dataQueryOptionalParameters(definition)
       : new Set(descriptions?.[id]?.optionalParameters ?? []);
@@ -336,6 +346,17 @@ export function generateAppQueryArtifacts(
         )
         .join('\n')}\n  };`
     );
+    if (monthDimensions.length) {
+      const key = JSON.stringify(id);
+      const variants = monthDimensions.map((dimension) => {
+        const filter = JSON.stringify(`where_${dimension}`);
+        return `    | (Omit<QueryParameters[${key}], 'groupBy' | ${filter}> & { compareMonth: string; compareDimension: ${JSON.stringify(dimension)}; groupBy?: []; ${filter}?: never })`;
+      });
+      monthComparisons.push(`  ${key}:\n${variants.join('\n')};`);
+      monthComparisonCalls.push(
+        `  ${key}: (parameters: MetricMonthComparisonParameters[${key}]) => executeMonthComparison(${key}, parameters),`
+      );
+    }
     const optional = parameterEntries.every(([name, parameter]) =>
       isOptionalParameter(name, parameter)
     );
@@ -421,6 +442,14 @@ export function generateAppQueryArtifacts(
       query.fallback &&
       Object.values(query.fallback.parameters ?? {}).some((parameter) => parameter.type === 'date')
   );
+  const libraryRunPath =
+    '/base/${encodeURIComponent(baseId!)}/query-library/${encodeURIComponent(library.id)}/revisions/${library.revision}/run';
+  const ordinaryMonthGuard = monthComparisons.length
+    ? `  if (Object.hasOwn(compareMetricMonth, queryId) && parameters &&
+      (Object.hasOwn(parameters, 'compareMonth') || Object.hasOwn(parameters, 'compareDimension')))
+    throw new QueryError('data_query.unknown_parameter', queryId);
+`
+    : '';
   const body = `${DATA_QUERY_ARTIFACT_GENERATOR_COMMENT}
 import 'server-only';
 import { getConfig, request } from './request';
@@ -476,7 +505,7 @@ export class QueryError extends Error {
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
 function assertQueryResponse(queryId: QueryId, response: unknown): asserts response is {
-  data: { rows: Record<string, unknown>[]; page?: unknown };
+  data: { rows: Record<string, unknown>[]; page?: unknown${monthComparisons.length ? '; source?: unknown' : ''} };
 } {
   if (!isObject(response)) throw new QueryError('data_query.invalid_response', queryId);
   if (libraries[queryId] && 'code' in response) {
@@ -623,7 +652,7 @@ ${
     ? `async function execute<K extends QueryId>(
   queryId: K, parameters: QueryParameters[K], one: boolean, withPage = false
 ): Promise<QueryRows[K] | Array<QueryRows[K]> | QueryPageResult<QueryRows[K]> | null> {
-  if (definitions[queryId] === null && libraries[queryId] === null) {
+${ordinaryMonthGuard}  if (definitions[queryId] === null && libraries[queryId] === null) {
     // The SQL fallback cannot produce a same-scope total, so never fake one.
     if (withPage) throw new QueryError('data_query.unsupported_include_total', queryId);
     return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
@@ -633,7 +662,7 @@ ${
     const library = libraries[queryId] as { id: string; revision: number } | null;
     const { baseId } = getConfig();
     if (library && !baseId) throw new Error('TEABLE_BASE_ID is not configured');
-    response = await request<unknown>(library ? \`/base/\${encodeURIComponent(baseId!)}/query-library/\${encodeURIComponent(library.id)}/revisions/\${library.revision}/run\` : '/v2/queries/execute', {
+    response = await request<unknown>(library ? \`${libraryRunPath}\` : '/v2/queries/execute', {
       method: 'POST', acceptErrorResponse: true,
       body: library ? { parameters } : { queryId, definition: definitions[queryId], parameters },
     });
@@ -661,14 +690,14 @@ ${
     : `async function execute<K extends QueryId, One extends boolean>(
   queryId: K, parameters: QueryParameters[K], one: One
 ): Promise<One extends true ? QueryRows[K] | null : Array<QueryRows[K]>> {
-  if (definitions[queryId] === null && libraries[queryId] === null)
+${ordinaryMonthGuard}  if (definitions[queryId] === null && libraries[queryId] === null)
     return executeLegacy(queryId, parameters, one, 'sql_query_by_design');
   let response: unknown;
   try {
     const library = libraries[queryId] as { id: string; revision: number } | null;
     const { baseId } = getConfig();
     if (library && !baseId) throw new Error('TEABLE_BASE_ID is not configured');
-    response = await request<unknown>(library ? \`/base/\${encodeURIComponent(baseId!)}/query-library/\${encodeURIComponent(library.id)}/revisions/\${library.revision}/run\` : '/v2/queries/execute', {
+    response = await request<unknown>(library ? \`${libraryRunPath}\` : '/v2/queries/execute', {
       method: 'POST', acceptErrorResponse: true,
       body: library ? { parameters } : { queryId, definition: definitions[queryId], parameters },
     });
@@ -685,7 +714,84 @@ ${
 export const queries = {
 ${functions.join('\n')}
 };
-`;
+${
+  monthComparisons.length
+    ? `
+export type MetricMonthComparisonParameters = {
+${monthComparisons.join('\n')}
+};
+export type MetricMonthComparisonRow = {
+  currentMonth: string;
+  previousMonth: string;
+  current: number | string | null;
+  previous: number | string | null;
+  difference: number | string | null;
+  changeRate: number | string | null;
+};
+export type MetricMonthComparisonSource = {
+  kind: 'library';
+  baseId: string;
+  id: string;
+  revision: number;
+  name: string;
+  monthComparison: { dimension: string; currentMonth: string; previousMonth: string };
+};
+export type MetricMonthComparisonResult = MetricMonthComparisonRow & { source: MetricMonthComparisonSource };
+
+const isMetricValue = (value: unknown): value is number | string | null =>
+  value === null || typeof value === 'number' || typeof value === 'string';
+function isMonthComparisonRow(row: Record<string, unknown>): row is MetricMonthComparisonRow {
+  return typeof row.currentMonth === 'string' && typeof row.previousMonth === 'string' &&
+    isMetricValue(row.current) && isMetricValue(row.previous) &&
+    isMetricValue(row.difference) && isMetricValue(row.changeRate);
+}
+
+function isPreviousCalendarMonth(currentMonth: string, previousMonth: string): boolean {
+  if (currentMonth.length !== 7 || !/^\\d{4}-(?:0[1-9]|1[0-2])$/.test(currentMonth) || currentMonth < '0001-02') return false;
+  const year = currentMonth.slice(0, 4);
+  const month = Number(currentMonth.slice(5));
+  return previousMonth === (month === 1
+    ? String(Number(year) - 1).padStart(4, '0') + '-12'
+    : year + '-' + String(month - 1).padStart(2, '0'));
+}
+
+async function executeMonthComparison(
+  queryId: keyof MetricMonthComparisonParameters,
+  parameters: MetricMonthComparisonParameters[keyof MetricMonthComparisonParameters]
+): Promise<MetricMonthComparisonResult> {
+  const library = libraries[queryId];
+  let baseId: string;
+  let response: unknown;
+  try {
+    ({ baseId } = getConfig());
+    if (!baseId) throw new Error('TEABLE_BASE_ID is not configured');
+    response = await request<unknown>(\`${libraryRunPath}\`, {
+      method: 'POST', acceptErrorResponse: true, body: { parameters },
+    });
+  } catch {
+    throw new QueryError('data_query.transport_failed', queryId);
+  }
+  assertQueryResponse(queryId, response);
+  const [row] = response.data.rows;
+  if (response.data.rows.length !== 1) throw new QueryError('data_query.cardinality', queryId);
+  const { source } = response.data;
+  if (!row || !isMonthComparisonRow(row) || row.currentMonth !== parameters.compareMonth ||
+      !isPreviousCalendarMonth(row.currentMonth, row.previousMonth) ||
+      !isObject(source) || source.kind !== 'library' || source.baseId !== baseId ||
+      source.id !== library.id || source.revision !== library.revision || typeof source.name !== 'string' ||
+      !isObject(source.monthComparison) || source.monthComparison.dimension !== parameters.compareDimension ||
+      source.monthComparison.currentMonth !== row.currentMonth || source.monthComparison.previousMonth !== row.previousMonth) {
+    throw new QueryError('data_query.invalid_response', queryId);
+  }
+  return { ...row, source: source as MetricMonthComparisonSource };
+}
+
+export const compareMetricMonth = {
+${monthComparisonCalls.join('\n')}
+};
+`
+    : ''
+}`;
   const digest = createHash('sha256').update(body).digest('hex');
   const module = `${DATA_QUERY_GENERATED_CLIENT_HEADER}\n${GENERATED_CLIENT_DIGEST_PREFIX}${digest}\n${body}`;
   return ok({ module, schema: `${json(dataQueryManifestJsonSchema())}\n` });
@@ -699,6 +805,7 @@ export function compareAppQueryContracts(
         composition: DataQueryComposition;
         parameters: Record<string, DataQueryParameterDefinition>;
         optionalParameters?: readonly string[];
+        monthDimensions?: Readonly<Record<string, string>>;
       }
   ) & { outputs: readonly DataQueryOutput[]; result: 'one' | 'many' },
   next: (
@@ -707,10 +814,12 @@ export function compareAppQueryContracts(
         composition: DataQueryComposition;
         parameters: Record<string, DataQueryParameterDefinition>;
         optionalParameters?: readonly string[];
+        monthDimensions?: Readonly<Record<string, string>>;
       }
   ) & { outputs: readonly DataQueryOutput[]; result: 'one' | 'many' }
 ): Array<{ path: string; change: string }> {
   const changes = compareContractParameters(previous, next);
+  compareMonthDimensions(previous, next, changes);
   for (const output of previous.outputs) {
     const updated = next.outputs.find((candidate) => candidate.alias === output.alias);
     if (!updated) changes.push({ path: `outputs.${output.alias}`, change: 'removed' });
@@ -731,6 +840,20 @@ export function compareAppQueryContracts(
 }
 
 type AppQueryContract = Parameters<typeof compareAppQueryContracts>[0];
+
+function compareMonthDimensions(
+  previous: AppQueryContract,
+  next: AppQueryContract,
+  changes: Array<{ path: string; change: string }>
+) {
+  if (!('composition' in previous) || !previous.monthDimensions) return;
+  const nextMonths = 'composition' in next ? next.monthDimensions : undefined;
+  for (const [alias, timeZone] of Object.entries(previous.monthDimensions)) {
+    const path = `monthDimensions.${alias}`;
+    if (!nextMonths || !Object.hasOwn(nextMonths, alias)) changes.push({ path, change: 'removed' });
+    else if (nextMonths[alias] !== timeZone) changes.push({ path, change: 'changed' });
+  }
+}
 
 function contractParameters(contract: AppQueryContract) {
   return 'definition' in contract

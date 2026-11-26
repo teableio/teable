@@ -73,6 +73,7 @@ describe('TableAddFieldCollectorVisitor', () => {
       'visitUpdateUserMultiplicity',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
+      'visitUpdateAttachmentPublicAccess',
       'visitUpdateButtonLabel',
       'visitUpdateButtonColor',
       'visitUpdateButtonMaxCount',

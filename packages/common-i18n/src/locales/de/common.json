@@ -1263,6 +1263,7 @@
           "description": "Nicht gesetzte oder öffentlich bekannte Secrets: {{total}}. Dadurch könnten Dritte Anmelde-Tokens fälschen oder gespeicherte Daten entschlüsseln. Setzen Sie sie als Umgebungsvariablen und starten Sie neu; das Startprotokoll erklärt jeden Eintrag. Bei einer Instanz mit vorhandenen Daten legen Sie zuerst die aktuellen Werte fest und rotieren danach: Wird ein Verschlüsselungsschlüssel direkt ersetzt, lassen sich die damit gespeicherten Daten nicht mehr entschlüsseln.",
           "missing": "Nicht gesetzt",
           "publicDefault": "Öffentlicher Standardwert",
+          "secretKeyRequired": "Eine spätere Version startet nicht mehr, solange SECRET_KEY nicht gesetzt ist oder noch auf dem öffentlichen Standardwert steht. Setzen Sie vor dem Upgrade einen privaten Wert.",
           "docsLink": "Referenz der Umgebungsvariablen",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1396,6 +1397,8 @@
     "addToTrash": "Zum Papierkorb verschieben",
     "description": "Daten im Papierkorb belegen immer noch Speicherplatz für Datensätze und Anhänge.",
     "publishedAppsOffline": "Veröffentlichte Apps, die sofort offline gehen: {{total}}. Nach dem Wiederherstellen aus dem Papierkorb müssen sie erneut veröffentlicht werden.",
+    "publicLinksOffFields": "Öffentliche Links von {{names}} funktionieren sofort nicht mehr. Nach dem Wiederherstellen müssen sie erneut aktiviert werden.",
+    "publicLinksOffAll": "Anhangsfelder mit öffentlichen Links verlieren diese sofort. Nach dem Wiederherstellen müssen sie erneut aktiviert werden.",
     "spaceDescription": "Stellen Sie Spaces wieder her, die in den letzten {{retentionDays}} Tagen gelöscht wurden",
     "spaceInnerDescription": "Stellen Sie Projekte wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Space gelöscht wurden",
     "baseDescription": "Stellen Sie Ressourcen wieder her, die in den letzten {{retentionDays}} Tagen aus diesem Projekt gelöscht wurden",
@@ -1678,6 +1681,30 @@
             "released": {
               "title": "Benutzerdefinierte Domain für Space {{spaceName}} deaktiviert",
               "message": "Der Business-Plan für Space {{spaceName}} wurde nicht verlängert, daher wurde die benutzerdefinierte Domain {{domains}} deaktiviert und von Ihrer App getrennt. Führen Sie ein Upgrade auf Business durch, um erneut eine benutzerdefinierte Domain zu verbinden."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "Plan für Space {{spaceName}} abgelaufen: öffentliche Dateien werden gelöscht",
+              "message": "Der Plan für Space {{spaceName}} ist abgelaufen, öffentliche Dateilinks sind nicht mehr enthalten. Die veröffentlichten Kopien seiner Dateien werden am {{releaseDate}} (UTC) gelöscht, danach funktionieren ihre öffentlichen Links nicht mehr. Verlängern Sie Ihren Plan vorher, um sie zu behalten."
+            },
+            "withdrawn": {
+              "title": "Öffentliche Dateilinks von Space {{spaceName}} funktionieren nicht mehr",
+              "message": "Der Plan für Space {{spaceName}} wurde nicht verlängert. Die öffentlichen Links zu den Dateien funktionieren nicht mehr und die veröffentlichten Kopien wurden gelöscht."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "Datei-Domain für Space {{spaceName}} freigegeben",
+              "message": "Der Business-Plan für Space {{spaceName}} wurde nicht verlängert, daher wurde die Datei-Domain {{hostname}} freigegeben. Öffentliche Dateien werden wieder über {{spaceSubdomain}} ausgeliefert, und Links unter {{hostname}} funktionieren nicht mehr. Führen Sie ein Upgrade auf Business durch, um erneut eine Datei-Domain zu verbinden."
+            },
+            "notVerified": {
+              "title": "Dateidomain {{hostname}} von Space {{spaceName}} wurde nicht eingerichtet",
+              "message": "Der DNS-Eintrag von {{hostname}} wurde nicht innerhalb von 7 Tagen bestätigt, daher wurde der Wechsel der Dateidomain abgebrochen. Öffentliche Dateien werden weiterhin über die aktuelle Domain ausgeliefert. Füge den CNAME-Eintrag hinzu und beantrage die Domain dann erneut in den Space-Einstellungen."
+            },
+            "failed": {
+              "title": "Dateidomain {{hostname}} von Space {{spaceName}} konnte nicht eingerichtet werden",
+              "message": "Hostname oder Zertifikat von {{hostname}} konnten nicht validiert werden ({{error}}), daher wurde der Wechsel der Dateidomain abgebrochen. Öffentliche Dateien werden weiterhin über die aktuelle Domain ausgeliefert. Prüfe die DNS- und CAA-Einträge der Domain und beantrage sie dann erneut in den Space-Einstellungen."
             }
           }
         },

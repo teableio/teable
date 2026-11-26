@@ -568,4 +568,39 @@ describe('lookup unique values imports', () => {
       }
     }
   );
+
+  it('preserves explicit isMultipleCellValue on lookup fields and leaves omitted multiplicity undefined', () => {
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const foreignTableId = `tbl${'f'.repeat(16)}`;
+    const lookupFieldId = `fld${'v'.repeat(16)}`;
+    const baseLookup = {
+      id: `fld${'k'.repeat(16)}`,
+      name: 'Single Lookup',
+      type: 'singleLineText',
+      isLookup: true,
+      lookupOptions: {
+        foreignTableId,
+        linkFieldId,
+        lookupFieldId,
+      },
+    };
+
+    const explicitFalse = normalizeField(
+      { ...baseLookup, isMultipleCellValue: false },
+      new Map([[linkFieldId, 'link']])
+    );
+    expect(explicitFalse.type).toBe('lookup');
+    expect(explicitFalse.isMultipleCellValue).toBe(false);
+
+    const explicitTrue = normalizeField(
+      { ...baseLookup, isMultipleCellValue: true },
+      new Map([[linkFieldId, 'link']])
+    );
+    expect(explicitTrue.type).toBe('lookup');
+    expect(explicitTrue.isMultipleCellValue).toBe(true);
+
+    const omitted = normalizeField(baseLookup, new Map([[linkFieldId, 'link']]));
+    expect(omitted.type).toBe('lookup');
+    expect(omitted.isMultipleCellValue).toBeUndefined();
+  });
 });

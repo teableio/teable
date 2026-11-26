@@ -1,6 +1,7 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events, jsx-a11y/no-static-element-interactions */
 import { MagicAi, Square } from '@teable/icons';
 import { useMemo } from 'react';
+import type { IGridTheme } from '../configs';
 import type { ICellItem, IColumnLoading, IScrollState } from '../interface';
 import type { CoordinateManager } from '../managers';
 
@@ -8,12 +9,13 @@ export interface ILoadingIndicatorProps {
   cellLoadings: ICellItem[];
   columnLoadings: IColumnLoading[];
   coordInstance: CoordinateManager;
+  theme: IGridTheme;
   scrollState: IScrollState;
   real2RowIndex: (index: number) => number;
 }
 
 export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
-  const { cellLoadings, columnLoadings, coordInstance, scrollState, real2RowIndex } = props;
+  const { cellLoadings, columnLoadings, coordInstance, theme, scrollState, real2RowIndex } = props;
 
   // Deduplicate cellLoadings to prevent duplicate React keys
   // This can happen when backend returns duplicate {recordId, fieldId} entries
@@ -57,22 +59,40 @@ export const LoadingIndicator = (props: ILoadingIndicatorProps) => {
               height: 24,
             }}
           >
-            <div
-              className="pointer-events-auto absolute end-1 top-1 cursor-pointer rounded-full bg-background"
-              onClick={onCancel}
-            >
+            {onCancel ? (
               <div
-                className="absolute end-0 top-0 flex size-6 items-center justify-center rounded-full"
-                style={{
-                  background: `conic-gradient(currentColor ${progress * 360}deg, rgba(0,0,0,0.1) 0deg)`,
-                }}
+                className="pointer-events-auto absolute end-1 top-1 cursor-pointer rounded-full bg-background"
+                onClick={onCancel}
               >
-                <div className="absolute inset-1 animate-ping rounded-full bg-foreground/15" />
-                <div className="flex size-5 items-center justify-center rounded-full bg-background">
-                  <Square className="size-3" />
+                <div
+                  className="absolute end-0 top-0 flex size-6 items-center justify-center rounded-full"
+                  style={{
+                    background: `conic-gradient(currentColor ${progress * 360}deg, rgba(0,0,0,0.1) 0deg)`,
+                  }}
+                >
+                  <div className="absolute inset-1 animate-ping rounded-full bg-foreground/15" />
+                  <div className="flex size-5 items-center justify-center rounded-full bg-background">
+                    <Square className="size-3" />
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              // nothing to stop: drawn like the field icon, over the menu arrow
+              <svg viewBox="0 0 16 16" className="absolute end-1.5 top-2 size-4">
+                <circle cx="8" cy="8" r="7" fill={theme.columnHeaderBg} />
+                <g fill="none" stroke={theme.iconFgCommon} strokeWidth="1.5">
+                  <circle cx="8" cy="8" r="6.25" opacity="0.3" />
+                  <circle
+                    cx="8"
+                    cy="8"
+                    r="6.25"
+                    pathLength="1"
+                    strokeDasharray={`${progress} 1`}
+                    transform="rotate(-90 8 8)"
+                  />
+                </g>
+              </svg>
+            )}
           </div>
         );
       })}

@@ -5,6 +5,7 @@ import { FieldId } from '../../../domain/table/fields/FieldId';
 import { FieldName } from '../../../domain/table/fields/FieldName';
 import { FieldVersion } from '../../../domain/table/fields/FieldVersion';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
+import { AttachmentPublicAccess } from '../../../domain/table/fields/types/AttachmentPublicAccess';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
 import { ButtonLabel } from '../../../domain/table/fields/types/ButtonLabel';
@@ -211,7 +212,11 @@ const buildTable = () => {
       preventAutoNewOptions: selectPrevent,
     })._unsafeUnwrap(),
     CheckboxField.create({ id: doneId, name: doneName })._unsafeUnwrap(),
-    AttachmentField.create({ id: filesId, name: filesName })._unsafeUnwrap(),
+    AttachmentField.create({
+      id: filesId,
+      name: filesName,
+      isPublic: AttachmentPublicAccess.enabled(),
+    })._unsafeUnwrap(),
 
     DateField.create({
       id: dueId,
@@ -483,6 +488,18 @@ describe('DefaultTableMapper', () => {
       .getFields()
       .find((field) => field.name().toString() === 'Action') as ButtonField | undefined;
     expect(mappedButton?.confirm()?.toDto()).toEqual(originalButton?.confirm()?.toDto());
+    const filesFieldId = table
+      .getFields()
+      .find((field) => field instanceof AttachmentField)
+      ?.id()
+      .toString();
+    expect(dto.fields.find((field) => field.id === filesFieldId)?.options).toEqual({
+      isPublic: true,
+    });
+    const mappedFiles = mapped
+      .getFields()
+      .find((field): field is AttachmentField => field instanceof AttachmentField);
+    expect(mappedFiles?.publicAccess().toBoolean()).toBe(true);
     mapped.dbTableName()._unsafeUnwrap();
 
     const fieldDbNameResult = mapped.getFields()[0]?.dbFieldName();
@@ -1978,5 +1995,104 @@ describe('DefaultTableMapper', () => {
       .find((candidate) => candidate.id().equals(FieldId.create(rollupId)._unsafeUnwrap()));
     expect(field).toBeDefined();
     expect(field?.hasError().isError()).toBe(true);
+  });
+
+  it('loads a conditionalLookup targeting a formula as pending when persisted innerOptions is undefined', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const conditionalLookupId = `fld${'y'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalLookupId,
+          name: 'Conditional Formula Lookup',
+          type: 'conditionalLookup' as const,
+          isLookup: true,
+          isConditionalLookup: true,
+          isComputed: true,
+          options: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          innerType: 'formula',
+          innerOptions: undefined,
+          cellValueType: 'string',
+          isMultipleCellValue: true,
+        },
+      ],
+    } as unknown as ITablePersistenceDTO);
+
+    expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
+    const mapped = result._unsafeUnwrap();
+    const field = mapped
+      .getFields()
+      .find((candidate) =>
+        candidate.id().equals(FieldId.create(conditionalLookupId)._unsafeUnwrap())
+      );
+    expect(field).toBeInstanceOf(ConditionalLookupField);
+    expect((field as ConditionalLookupField).isPending()).toBe(true);
+  });
+
+  it('preserves valid formula expression and timeZone on conditionalLookup innerOptions', () => {
+    const table = buildTable();
+    const mapper = new DefaultTableMapper();
+    const dto = mapper.toDTO(table)._unsafeUnwrap();
+    const conditionalLookupId = `fld${'q'.repeat(16)}`;
+
+    const result = mapper.toDomain({
+      ...dto,
+      fields: [
+        ...dto.fields,
+        {
+          id: conditionalLookupId,
+          name: 'Conditional Formula Lookup With Options',
+          type: 'conditionalLookup' as const,
+          isLookup: true,
+          isConditionalLookup: true,
+          isComputed: true,
+          options: {
+            foreignTableId: `tbl${'b'.repeat(16)}`,
+            lookupFieldId: `fld${'c'.repeat(16)}`,
+            condition: {
+              filter: {
+                conjunction: 'and',
+                filterSet: [{ fieldId: `fld${'d'.repeat(16)}`, operator: 'is', value: 'open' }],
+              },
+            },
+          },
+          innerType: 'formula',
+          innerOptions: {
+            expression: `{fld${'c'.repeat(16)}}`,
+            timeZone: 'Asia/Shanghai',
+          },
+          cellValueType: 'string',
+          isMultipleCellValue: true,
+        },
+      ],
+    } as unknown as ITablePersistenceDTO);
+
+    expect(result.isOk(), result.isErr() ? result.error.message : undefined).toBe(true);
+    const mapped = result._unsafeUnwrap();
+    const field = mapped
+      .getFields()
+      .find((candidate) =>
+        candidate.id().equals(FieldId.create(conditionalLookupId)._unsafeUnwrap())
+      );
+    expect(field).toBeInstanceOf(ConditionalLookupField);
+    expect((field as ConditionalLookupField).isPending()).toBe(false);
+    const inner = (field as ConditionalLookupField).innerField()._unsafeUnwrap();
+    expect(inner).toBeInstanceOf(FormulaField);
+    expect((inner as FormulaField).expression().toString()).toBe(`{fld${'c'.repeat(16)}}`);
+    expect((inner as FormulaField).timeZone()?.toString()).toBe('Asia/Shanghai');
   });
 });

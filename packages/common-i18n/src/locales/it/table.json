@@ -1,6 +1,10 @@
 {
   "searchAcceleration": {
     "title": "Accelerazione della ricerca",
+    "configure": "Configura",
+    "stateUnknown": "Sconosciuto",
+    "contactAdmin": "Contatta un amministratore dello spazio per modificare questa impostazione.",
+    "shareServing": "L’accelerazione è disponibile per i campi visibili in questa vista.",
     "stateLabel": "Impostazione",
     "state": {
       "disabled": "Disattivata",
@@ -18,6 +22,11 @@
     "readOnly": "Solo i proprietari dello spazio e i creatori con il permesso di aggiornare questa tabella possono modificare questa impostazione.",
     "statusError": "Impossibile caricare l’impostazione. Puoi continuare a cercare in questa tabella.",
     "changeError": "Impossibile modificare l’impostazione. Riprova.",
+    "quotaExceeded": "Per attivare l’accelerazione della ricerca, riduci il numero di righe utilizzate nello spazio o aumenta il limite.",
+    "quotaLimit": "Limite di righe dello spazio",
+    "quotaCurrent": "Righe attualmente utilizzate",
+    "quotaIncrement": "Righe aggiuntive per l’accelerazione",
+    "unavailable": "L’accelerazione della ricerca è temporaneamente non disponibile. Riprova tra poco.",
     "confirmTitle": "Attivare l’accelerazione per questa tabella di grandi dimensioni?",
     "confirmDetail": "Questa tabella contiene almeno 50.000 record. La preparazione può richiedere tempo. Puoi continuare a cercare durante la preparazione.",
     "confirm": "Conferma e attiva"
@@ -402,6 +411,22 @@
       "removeDuplicateValues": "Rimuovi valori duplicati",
       "moreOptions": "Altre opzioni",
       "allowNewOptionsWhenEditing": "Consenti nuove opzioni durante la modifica",
+      "publicLinks": {
+        "label": "Link pubblici",
+        "description": "Chiunque abbia il link può aprire i file di questo campo",
+        "enableDescription": "Ogni file di questo campo, compresi quelli aggiunti in seguito, riceve un link che chiunque può aprire senza accedere.",
+        "status": "Pubblico",
+        "copying": "Copia dei file in corso",
+        "failed": "{{count}} non riusciti",
+        "retry": "Copia di nuovo",
+        "paused": "I link pubblici sono in pausa perché questo spazio ha esaurito i crediti. Torneranno a funzionare dopo una ricarica.",
+        "planLapsed": "Il piano di questo spazio non include più i file pubblici: i nuovi file non diventano pubblici e le copie pubblicate vengono eliminate alla fine del periodo di tolleranza. Il rinnovo li ripristina.",
+        "legacyEngine": "Questo progetto non è ancora su V2. I link pubblici richiedono V2: chiedi a un amministratore di passarlo a V2.",
+        "enableBackground": "I file vengono copiati in background e si possono aprire non appena sono copiati",
+        "enableNoRecall": "I contenuti già scaricati non possono essere recuperati",
+        "enableTraffic": "Il traffico viene addebitato sul tuo credito a {{credit}} crediti per GB",
+        "disableDescription": "I link pubblici esistenti ai file di questo campo smetteranno di funzionare."
+      },
       "deleteField": {
         "title": "Elimina campo",
         "simpleConfirm": "Sei sicuro di voler eliminare il campo <b>{{fieldName}}</b>?",

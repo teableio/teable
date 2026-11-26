@@ -20,12 +20,15 @@ import type { ISpecification } from '../domain/shared/specification/ISpecificati
 import { isRecordsBatchCreatedEvent } from '../domain/table/events/RecordsBatchCreated';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
+import { LinkFieldConfig } from '../domain/table/fields/types/LinkFieldConfig';
 import type { MultipleSelectField } from '../domain/table/fields/types/MultipleSelectField';
 import { SelectOption } from '../domain/table/fields/types/SelectOption';
 import type { SingleSelectField } from '../domain/table/fields/types/SingleSelectField';
+import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -85,8 +88,11 @@ const noopRecordWriteUndoRedoPlanService = {
 } as unknown as RecordWriteUndoRedoPlanService;
 
 const noopRecordChangedValueDecoratorService = {
-  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
-    ok(changedFields),
+  decorateChangedFields: async (
+    _table: Table,
+    _recordId: string,
+    changedFields?: ReadonlyMap<string, unknown>
+  ) => ok(changedFields),
   decorateChangedFieldsByRecord: async (
     _table: Table,
     changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>
@@ -439,32 +445,19 @@ class RollbackFakeUnitOfWork implements IUnitOfWork {
   }
 }
 
-/**
- * A FakeRecordMutationSpecResolverService that tracks calls and can be configured.
- */
-class FakeRecordMutationSpecResolverService {
-  needsResolutionValue = false;
-  resolveCalls: ICellValueSpec[] = [];
-
-  needsResolution(_spec: ICellValueSpec): Result<boolean, DomainError> {
-    return ok(this.needsResolutionValue);
-  }
-
-  async resolveAndReplace(
-    _context: IExecutionContext,
-    _tableId: TableId,
-    spec: ICellValueSpec
-  ): Promise<Result<ICellValueSpec, DomainError>> {
-    this.resolveCalls.push(spec);
-    return ok(spec);
-  }
-}
-
-const createNativeRecordMutationSpecResolver = (tableRepository: ITableRepository) => {
+const createNativeRecordMutationSpecResolver = (
+  tableRepository: ITableRepository,
+  lookups: {
+    findRecords?: ITableRecordQueryRepository['find'];
+    userLookupService?: IUserLookupService;
+  } = {}
+) => {
   const recordQueryRepository: ITableRecordQueryRepository = {
-    find: async () => {
-      throw new Error('Unexpected link-title query in native bulk-create fixture');
-    },
+    find:
+      lookups.findRecords ??
+      (async () => {
+        throw new Error('Unexpected link-title query in native bulk-create fixture');
+      }),
     findOne: async () => {
       throw new Error('Unexpected link-record query in native bulk-create fixture');
     },
@@ -490,6 +483,7 @@ const createNativeRecordMutationSpecResolver = (tableRepository: ITableRepositor
     listUsersByIds: async () => {
       throw new Error('Unexpected user-id lookup in native bulk-create fixture');
     },
+    ...lookups.userLookupService,
   };
   return new RecordMutationSpecResolverService(
     new LinkTitleResolverService(tableRepository, recordQueryRepository),
@@ -575,7 +569,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -639,7 +633,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -675,7 +669,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -710,7 +704,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -746,7 +740,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner([new TableDataSafetyLimitRecordWritePlugin()]),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -785,7 +779,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner([plugin]),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -830,7 +824,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -868,7 +862,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -900,7 +894,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -949,7 +943,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -982,7 +976,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1011,7 +1005,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1046,7 +1040,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1078,7 +1072,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1109,7 +1103,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1145,7 +1139,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1184,7 +1178,7 @@ describe('CreateRecordsHandler', () => {
     const handler = createHandler(
       tableQueryService,
       recordRepository,
-      new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+      createNativeRecordMutationSpecResolver(tableRepository),
       createRecordWritePluginRunner(),
       createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
       eventBus,
@@ -1218,7 +1212,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1274,7 +1268,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1313,7 +1307,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1354,7 +1348,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1396,7 +1390,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1438,7 +1432,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1464,49 +1458,75 @@ describe('CreateRecordsHandler', () => {
     });
   });
 
-  describe('typecast', () => {
-    it('invokes resolver when resolution is needed (typecast true)', async () => {
-      const { table, textFieldId } = createTestTable(baseId, tableId);
-
-      const tableRepository = new FakeTableRepository();
-      tableRepository.tables.push(table);
-      const tableQueryService = new TableQueryService(tableRepository);
-      const recordRepository = new FakeTableRecordRepository();
-      const eventBus = new FakeEventBus();
-      const unitOfWork = new FakeUnitOfWork();
-
-      const resolver = new FakeRecordMutationSpecResolverService();
-      resolver.needsResolutionValue = true;
-
-      const handler = createHandler(
-        tableQueryService,
-        recordRepository,
-        resolver as unknown as RecordMutationSpecResolverService,
-        createRecordWritePluginRunner(),
-        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-        eventBus,
-        noopUndoRedoService,
-        unitOfWork
-      );
-
-      const commandResult = CreateRecordsCommand.create({
-        tableId,
-        records: [
-          {
-            fields: {
-              [textFieldId]: 'Test Record',
-            },
-          },
-        ],
-        typecast: true,
-      });
-
-      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-      result._unsafeUnwrap();
-
-      expect(resolver.resolveCalls.length).toBe(1);
+  it('resolves structured user values with typecast disabled', async () => {
+    const userFieldId = FieldId.create(`fld${'u'.repeat(16)}`)._unsafeUnwrap();
+    const builder = Table.builder()
+      .withId(TableId.create(tableId)._unsafeUnwrap())
+      .withBaseId(BaseId.create(baseId)._unsafeUnwrap())
+      .withName(TableName.create('Sources')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .user()
+      .withId(userFieldId)
+      .withName(FieldName.create('Assignee')._unsafeUnwrap())
+      .withMultiplicity(UserMultiplicity.single())
+      .done();
+    builder.view().defaultGrid().done();
+    const table = builder.build()._unsafeUnwrap();
+    const tableRepository = new FakeTableRepository();
+    tableRepository.tables.push(table);
+    const recordRepository = new FakeTableRecordRepository();
+    const eventBus = new FakeEventBus();
+    const unitOfWork = new FakeUnitOfWork();
+    const userId = 'usr-1';
+    const resolver = createNativeRecordMutationSpecResolver(tableRepository, {
+      userLookupService: {
+        listTableUsersByIdentifiers: async (lookupTableId, identifiers) => {
+          expect(lookupTableId).toBe(tableId);
+          expect(identifiers).toEqual([userId]);
+          return ok([{ id: userId, name: 'Alice', email: 'alice@example.com' }]);
+        },
+        listUsersByIds: async (ids) => {
+          expect(ids).toEqual([]);
+          return ok([]);
+        },
+        listUsersByIdentityPairs: async (pairs) => {
+          expect(pairs).toEqual([]);
+          return ok([]);
+        },
+      },
     });
+    const handler = createHandler(
+      new TableQueryService(tableRepository),
+      recordRepository,
+      resolver,
+      createRecordWritePluginRunner(),
+      createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+      eventBus,
+      noopUndoRedoService,
+      unitOfWork
+    );
+    const userKey = userFieldId.toString();
+    const command = CreateRecordsCommand.create({
+      tableId,
+      typecast: false,
+      records: [{ fields: { [userKey]: { id: userId } } }],
+    })._unsafeUnwrap();
 
+    (await handler.handle(createContext(), command))._unsafeUnwrap();
+
+    expect(recordRepository.records.map(toStoredSnapshot)).toMatchObject([
+      { fields: { [userKey]: { id: userId, title: 'Alice' } } },
+    ]);
+  });
+
+  describe('typecast', () => {
     it('auto creates select options when typecast is enabled', async () => {
       const { table, textFieldId, singleSelectFieldId, multiSelectFieldId } = createTestTable(
         baseId,
@@ -1523,7 +1543,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1580,7 +1600,7 @@ describe('CreateRecordsHandler', () => {
       const handler = createHandler(
         tableQueryService,
         recordRepository,
-        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        createNativeRecordMutationSpecResolver(tableRepository),
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
@@ -1612,129 +1632,104 @@ describe('CreateRecordsHandler', () => {
       expect(tableRepository.updated).toHaveLength(0);
     });
 
-    it('invokes resolver when resolution is needed (typecast false)', async () => {
-      const { table, textFieldId } = createTestTable(baseId, tableId);
+    it('reads distinct foreign record IDs once across a batch of link strings', async () => {
+      const { table: foreignTable } = createTestTable(baseId, `tbl${'f'.repeat(16)}`);
+      const titleFieldId = FieldId.create(`fld${'p'.repeat(16)}`)._unsafeUnwrap();
+      const linkFieldId = FieldId.create(`fld${'l'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(tableId)._unsafeUnwrap())
+        .withBaseId(foreignTable.baseId())
+        .withName(TableName.create('Sources')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(titleFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .link()
+        .withId(linkFieldId)
+        .withName(FieldName.create('Target')._unsafeUnwrap())
+        .withConfig(
+          LinkFieldConfig.create({
+            relationship: 'manyOne',
+            foreignTableId: foreignTable.id().toString(),
+            lookupFieldId: foreignTable.primaryFieldId().toString(),
+            isOneWay: true,
+          })._unsafeUnwrap()
+        )
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
 
+      const firstId = `rec${'a'.repeat(16)}`;
+      const secondId = `rec${'b'.repeat(16)}`;
+      const targetTitles = new Map([
+        [firstId, 'Alpha'],
+        [secondId, 'Beta'],
+      ]);
+      const idReads: string[][] = [];
       const tableRepository = new FakeTableRepository();
-      tableRepository.tables.push(table);
-      const tableQueryService = new TableQueryService(tableRepository);
-      const recordRepository = new FakeTableRecordRepository();
-      const eventBus = new FakeEventBus();
-      const unitOfWork = new FakeUnitOfWork();
-
-      const resolver = new FakeRecordMutationSpecResolverService();
-      resolver.needsResolutionValue = true;
-
-      const handler = createHandler(
-        tableQueryService,
-        recordRepository,
-        resolver as unknown as RecordMutationSpecResolverService,
-        createRecordWritePluginRunner(),
-        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-        eventBus,
-        noopUndoRedoService,
-        unitOfWork
-      );
-
-      const commandResult = CreateRecordsCommand.create({
-        tableId,
-        records: [
-          {
-            fields: {
-              [textFieldId]: 'Test Record',
-            },
-          },
-        ],
-        typecast: false,
+      tableRepository.tables.push(table, foreignTable);
+      const resolver = createNativeRecordMutationSpecResolver(tableRepository, {
+        findRecords: async (_context, queriedTable, spec) => {
+          expect(queriedTable).toBe(foreignTable);
+          if (!(spec instanceof RecordByIdsSpec)) throw new Error('Expected a foreign ID query');
+          const ids = spec.recordIds().map(String);
+          idReads.push(ids);
+          const records = ids
+            .filter((id) => targetTitles.has(id))
+            .map((id) => ({
+              id,
+              fields: { [foreignTable.primaryFieldId().toString()]: targetTitles.get(id) },
+              version: 1,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: null,
+              lastModifiedByActorId: null,
+            }));
+          return ok({ records, total: records.length });
+        },
       });
-
-      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-      result._unsafeUnwrap();
-
-      expect(resolver.resolveCalls.length).toBe(1);
-    });
-
-    it('does not invoke link title resolver when needsResolution is false', async () => {
-      const { table, textFieldId } = createTestTable(baseId, tableId);
-
-      const tableRepository = new FakeTableRepository();
-      tableRepository.tables.push(table);
-      const tableQueryService = new TableQueryService(tableRepository);
       const recordRepository = new FakeTableRecordRepository();
       const eventBus = new FakeEventBus();
       const unitOfWork = new FakeUnitOfWork();
-
-      const resolver = new FakeRecordMutationSpecResolverService();
-      resolver.needsResolutionValue = false;
-
       const handler = createHandler(
-        tableQueryService,
+        new TableQueryService(tableRepository),
         recordRepository,
-        resolver as unknown as RecordMutationSpecResolverService,
+        resolver,
         createRecordWritePluginRunner(),
         createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
         eventBus,
         noopUndoRedoService,
         unitOfWork
       );
-
-      const commandResult = CreateRecordsCommand.create({
+      const titleKey = titleFieldId.toString();
+      const linkKey = linkFieldId.toString();
+      const directLink = { id: firstId, title: 'Supplied title' };
+      const command = CreateRecordsCommand.create({
         tableId,
-        records: [
-          {
-            fields: {
-              [textFieldId]: 'Test Record',
-            },
-          },
-        ],
         typecast: true,
-      });
-
-      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-      result._unsafeUnwrap();
-
-      expect(resolver.resolveCalls.length).toBe(0);
-    });
-
-    it('resolves each record spec separately when multiple records need resolution', async () => {
-      const { table, textFieldId } = createTestTable(baseId, tableId);
-
-      const tableRepository = new FakeTableRepository();
-      tableRepository.tables.push(table);
-      const tableQueryService = new TableQueryService(tableRepository);
-      const recordRepository = new FakeTableRecordRepository();
-      const eventBus = new FakeEventBus();
-      const unitOfWork = new FakeUnitOfWork();
-
-      const resolver = new FakeRecordMutationSpecResolverService();
-      resolver.needsResolutionValue = true;
-
-      const handler = createHandler(
-        tableQueryService,
-        recordRepository,
-        resolver as unknown as RecordMutationSpecResolverService,
-        createRecordWritePluginRunner(),
-        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
-        eventBus,
-        noopUndoRedoService,
-        unitOfWork
-      );
-
-      const commandResult = CreateRecordsCommand.create({
-        tableId,
         records: [
-          { fields: { [textFieldId]: 'Record 1' } },
-          { fields: { [textFieldId]: 'Record 2' } },
-          { fields: { [textFieldId]: 'Record 3' } },
+          { fields: { [titleKey]: 'First', [linkKey]: firstId } },
+          { fields: { [titleKey]: 'Direct', [linkKey]: directLink } },
+          { fields: { [titleKey]: 'Second', [linkKey]: secondId } },
+          { fields: { [titleKey]: 'Repeated', [linkKey]: firstId } },
         ],
-        typecast: true,
-      });
+      })._unsafeUnwrap();
 
-      const result = await handler.handle(createContext(), commandResult._unsafeUnwrap());
-      result._unsafeUnwrap();
+      const { records } = (await handler.handle(createContext(), command))._unsafeUnwrap();
 
-      // Each record's spec is resolved separately
-      expect(resolver.resolveCalls.length).toBe(3);
+      expect(idReads).toEqual([[firstId, secondId]]);
+      expect(recordRepository.records).toEqual(records);
+      expect(records.map((record) => toStoredSnapshot(record).fields)).toEqual([
+        { [titleKey]: 'First', [linkKey]: { id: firstId, title: 'Alpha' } },
+        { [titleKey]: 'Direct', [linkKey]: directLink },
+        { [titleKey]: 'Second', [linkKey]: { id: secondId, title: 'Beta' } },
+        { [titleKey]: 'Repeated', [linkKey]: { id: firstId, title: 'Alpha' } },
+      ]);
     });
   });
 

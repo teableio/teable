@@ -12,6 +12,7 @@ import type { RecordFieldChangeDTO } from '../../domain/table/events/RecordField
 import { RecordsBatchUpdated } from '../../domain/table/events/RecordsBatchUpdated';
 import type { Field } from '../../domain/table/fields/Field';
 import { FieldId } from '../../domain/table/fields/FieldId';
+import { withoutAttachmentPublicAccess } from '../../domain/table/fields/types/AttachmentPublicAccess';
 import { FieldHasError } from '../../domain/table/fields/types/FieldHasError';
 import { FieldNotNull } from '../../domain/table/fields/types/FieldNotNull';
 import { FieldUnique } from '../../domain/table/fields/types/FieldUnique';
@@ -109,6 +110,14 @@ const toUpdateFieldInput = (
       };
     }
 
+    // undo and redo turn public links off, never on: switching them on again is for the user.
+    // A snapshot saved private has no `isPublic`, and leaving it out would keep the field public.
+    if (field.type === 'attachment') {
+      return field.options?.isPublic
+        ? withoutAttachmentPublicAccess(field).options
+        : { ...field.options, isPublic: false };
+    }
+
     return 'options' in field ? field.options : undefined;
   })();
 
@@ -150,7 +159,7 @@ const toCreateFieldInput = (
   }
 ): UndoRedoFieldSnapshot['field'] =>
   stripUndefinedDeep({
-    ...field,
+    ...withoutAttachmentPublicAccess(field),
     ...(options?.deferConstraintEnforcement
       ? {
           ...(field.notNull !== undefined ? { notNull: false } : {}),

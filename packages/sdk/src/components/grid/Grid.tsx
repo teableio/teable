@@ -825,6 +825,7 @@ const GridBase: ForwardRefRenderFunction<IGridRef, IGridProps> = (props, forward
         cellLoadings={cellLoadings}
         columnLoadings={columnLoadings}
         coordInstance={coordInstance}
+        theme={theme}
         scrollState={scrollState}
         real2RowIndex={real2RowIndex}
       />

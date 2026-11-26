@@ -33,7 +33,6 @@ export const settingVoSchema = z.object({
   /**
    * Read-only, computed by the server: secrets this edition reads that are unset
    * or still on their publicly known default. Env var names only, never values.
-   * Left out while SECRET_ADMIN_TOOLS_ENABLED is off.
    */
   insecureSecrets: z
     .array(z.object({ envKey: z.string(), reason: z.enum(['missing', 'publicDefault']) }))

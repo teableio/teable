@@ -481,6 +481,16 @@ export const normalizeField = (
     };
   }
 
+  if (
+    (resolvedType === 'lookup' || resolvedType === 'conditionalLookup') &&
+    typeof field.isMultipleCellValue === 'boolean'
+  ) {
+    return {
+      ...baseField,
+      isMultipleCellValue: field.isMultipleCellValue,
+    };
+  }
+
   return baseField;
 };
 

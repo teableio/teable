@@ -75,7 +75,9 @@
       "downloadSuccess": "ダウンロードが完了しました",
       "downloadFailed": "ダウンロードに失敗しました",
       "downloadCancelled": "ダウンロードをキャンセルしました",
-      "requireHttps": "一括ダウンロードには HTTPS が必要です。HTTPS または localhost でアクセスしてください"
+      "requireHttps": "一括ダウンロードには HTTPS が必要です。HTTPS または localhost でアクセスしてください",
+      "copyPublicLink": "公開リンクをコピー",
+      "publicLinkCopied": "公開リンクをコピーしました"
     },
     "date": {
       "placeholder": "日付を選択",
@@ -1832,6 +1834,10 @@
       "endpointChanged": "保存済みのシークレットは保存時のアドレスにのみ送信できます。{{field}} を再入力してください。",
       "reenterForNewAddress": "アドレスが変更されました。先に {{fields}} を再入力するか、クリアしてください。",
       "staleMask": "保存済みの {{field}} はページの読み込み後に変更されました。再入力してください。"
+    },
+    "publicFile": {
+      "fieldNotFound": "フィールドが見つかりません",
+      "noPublicFields": "スペースが存在しないか、公開アクセスがオンの添付ファイルフィールドがありません"
     }
   },
   "usageLimitBanner": {

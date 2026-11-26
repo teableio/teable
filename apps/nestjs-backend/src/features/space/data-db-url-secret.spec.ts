@@ -1,4 +1,6 @@
+import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { SECRET_SPECS } from '../../configs/secrets/secret-specs';
 import { Encryptor } from '../../utils/encryptor';
 import { isEncryptedSecretValue, SECRET_CIPHER_PREFIX } from '../../utils/secret-value-codec';
 import { buildDataDbUrlCipher, buildDataDbUrlCipherEntries } from './data-db-url-secret';
@@ -18,6 +20,19 @@ const QUIRK_CIPHER =
 
 const open = (env: Record<string, string | undefined>, cipher: string) =>
   new Encryptor<{ url: string }>({ entries: buildDataDbUrlCipherEntries(env) }).decrypt(cipher);
+
+// A URL as it was stored under an explicit key and iv.
+const storedUnder = (key: string, iv: string) =>
+  new Encryptor<{ url: string }>({ entries: [{ algorithm: ALGORITHM, key, iv }] }).encrypt({
+    url: URL,
+  });
+
+// What a deployment following the public env docs sets: an access-token pair, no pair for
+// BYODB URLs. The legacy pair falls back to it, so its URLs are stored under this one.
+const PAT_ENV = {
+  BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'private-pat-key0',
+  BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'private-pat-iv00',
+};
 
 describe('buildDataDbUrlCipherEntries', () => {
   it('zero config → single legacy-literal entry, decrypts pre-rotation ciphertext', () => {
@@ -126,15 +141,15 @@ describe('buildDataDbUrlCipherEntries', () => {
   });
 });
 
-describe('buildDataDbUrlCipher', () => {
-  const ROOT = 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET';
-  const LEGACY_ENV = {
-    BACKEND_DATA_DB_URL_ENCRYPTION_KEY: 'legacy-key-16chr',
-    BACKEND_DATA_DB_URL_ENCRYPTION_IV: 'legacy-iv-16chr0',
-  };
-  const SWITCHED_ENV = { ...LEGACY_ENV, [ROOT]: 'byodb-root' };
+const ROOT_OLD = 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET_OLD';
+const LEGACY_ENV = {
+  BACKEND_DATA_DB_URL_ENCRYPTION_KEY: 'legacy-key-16chr',
+  BACKEND_DATA_DB_URL_ENCRYPTION_IV: 'legacy-iv-16chr0',
+};
+const SWITCHED_ENV = { ...LEGACY_ENV, SECRET_KEY: 'instance-secret' };
 
-  it('keeps writing the legacy format until the root is set', () => {
+describe('buildDataDbUrlCipher', () => {
+  it('keeps writing the legacy format while SECRET_KEY is unset', () => {
     const cipher = buildDataDbUrlCipher(LEGACY_ENV);
     const stored = cipher.encrypt(URL);
 
@@ -149,7 +164,7 @@ describe('buildDataDbUrlCipher', () => {
     expect(buildDataDbUrlCipher({}).decrypt(LITERAL_CIPHER)).toBe(URL);
   });
 
-  it('writes the authenticated format once the root is set, with a fresh nonce per write', () => {
+  it('writes the authenticated format under a private SECRET_KEY, with a fresh nonce per write', () => {
     const cipher = buildDataDbUrlCipher(SWITCHED_ENV);
     const first = cipher.encrypt(URL);
     const second = cipher.encrypt(URL);
@@ -160,6 +175,7 @@ describe('buildDataDbUrlCipher', () => {
     expect(cipher.decrypt(first)).toBe(URL);
     expect(cipher.decrypt(second)).toBe(URL);
     expect(cipher.isCurrent(first)).toBe(true);
+    expect(cipher.usesPublicKey).toBe(false);
   });
 
   it('refuses a value whose nonce, auth tag or ciphertext was altered', () => {
@@ -185,49 +201,6 @@ describe('buildDataDbUrlCipher', () => {
     expect(cipher.isCurrent(legacyStored)).toBe(false);
   });
 
-  it('a reader holding the root only as _OLD opens the new format and keeps writing the legacy one', () => {
-    const written = buildDataDbUrlCipher(SWITCHED_ENV).encrypt(URL);
-    const reader = buildDataDbUrlCipher({ ...LEGACY_ENV, [`${ROOT}_OLD`]: 'byodb-root' });
-
-    expect(reader.decrypt(written)).toBe(URL);
-    expect(reader.authenticated).toBe(false);
-    expect(isEncryptedSecretValue(reader.encrypt(URL))).toBe(false);
-    expect(reader.isCurrent(written)).toBe(false);
-  });
-
-  it('a reader without the root cannot open the new format', () => {
-    const written = buildDataDbUrlCipher(SWITCHED_ENV).encrypt(URL);
-
-    expect(() => buildDataDbUrlCipher(LEGACY_ENV).decrypt(written)).toThrow(
-      'BYODB URL decryption failed'
-    );
-  });
-
-  it('a reader whose root falls back to SECRET_KEY opens what that root wrote', () => {
-    const written = buildDataDbUrlCipher({
-      SECRET_KEY: 'instance-secret',
-      [ROOT]: 'instance-secret',
-    }).encrypt(URL);
-
-    expect(buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' }).decrypt(written)).toBe(URL);
-  });
-
-  it('writes the authenticated format under a private SECRET_KEY, with no root set', () => {
-    const env = { SECRET_KEY: 'instance-secret' };
-    const cipher = buildDataDbUrlCipher(env);
-    const stored = cipher.encrypt(URL);
-
-    expect(cipher.authenticated).toBe(true);
-    expect(isEncryptedSecretValue(stored)).toBe(true);
-    expect(cipher.decrypt(stored)).toBe(URL);
-    expect(cipher.isCurrent(stored)).toBe(true);
-    expect(cipher.usesPublicKey).toBe(false);
-    // setting the root to the same value later changes nothing
-    expect(buildDataDbUrlCipher({ ...env, [ROOT]: 'instance-secret' }).isCurrent(stored)).toBe(
-      true
-    );
-  });
-
   it('still opens what the same SECRET_KEY wrote in the legacy format, reported as not current', () => {
     const env = { SECRET_KEY: 'instance-secret' };
     // what this deployment wrote before the format followed SECRET_KEY
@@ -251,13 +224,118 @@ describe('buildDataDbUrlCipher', () => {
     expect(cipher.usesPublicKey).toBe(false);
   });
 
-  it('rotates the root via _OLD', () => {
-    const before = buildDataDbUrlCipher({ [ROOT]: 'old-root' }).encrypt(URL);
-    const after = buildDataDbUrlCipher({ [ROOT]: 'new-root', [`${ROOT}_OLD`]: 'old-root' });
+  it('keeps the superseded dedicated root as the root while it is set, as the release that had it', () => {
+    const ownRoot = 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET';
+    const secretKeyOnly = buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' });
+    const cipher = buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret', [ownRoot]: 'byodb-root' });
+    const underSecretKey = secretKeyOnly.encrypt(URL);
+    const stored = cipher.encrypt(URL);
+
+    expect(cipher.authenticated).toBe(true);
+    expect(cipher.isCurrent(stored)).toBe(true);
+    // SECRET_KEY behind it only reads
+    expect(cipher.decrypt(underSecretKey)).toBe(URL);
+    expect(cipher.isCurrent(underSecretKey)).toBe(false);
+    // and does not open what the dedicated root wrote
+    expect(() => secretKeyOnly.decrypt(stored)).toThrow('BYODB URL decryption failed');
+    // it comes ahead of the stored credential root too
+    const withStored = buildDataDbUrlCipher({
+      SECRET_KEY: 'instance-secret',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'stored-root',
+      [ownRoot]: 'byodb-root',
+    });
+    expect(withStored.isCurrent(stored)).toBe(true);
+    // on its own it switches the format, unless it is the public default
+    expect(buildDataDbUrlCipher({ [ownRoot]: 'byodb-root' }).authenticated).toBe(true);
+    expect(buildDataDbUrlCipher({ [ownRoot]: 'defaultSecretKey' }).authenticated).toBe(false);
+  });
+
+  it('retires the dedicated root like any other: its value in _OLD keeps opening what it wrote', () => {
+    const stored = buildDataDbUrlCipher({
+      SECRET_KEY: 'instance-secret',
+      BACKEND_DATA_DB_URL_ENCRYPTION_SECRET: 'byodb-root',
+    }).encrypt(URL);
+    const after = buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret', [ROOT_OLD]: 'byodb-root' });
+
+    expect(after.decrypt(stored)).toBe(URL);
+    expect(after.isCurrent(stored)).toBe(false);
+    expect(after.isCurrent(after.encrypt(URL))).toBe(true);
+  });
+
+  it('takes the stored credential root ahead of SECRET_KEY, which keeps opening what it wrote', () => {
+    const storedRoot = 'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET';
+    const before = buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' }).encrypt(URL);
+    const after = buildDataDbUrlCipher({
+      SECRET_KEY: 'instance-secret',
+      [storedRoot]: 'stored-root',
+    });
+
+    expect(after.authenticated).toBe(true);
+    expect(after.decrypt(before)).toBe(URL);
+    expect(after.isCurrent(before)).toBe(false);
+    expect(after.isCurrent(after.encrypt(URL))).toBe(true);
+    // every reader gets the root as _OLD first: it opens what the root writes, writes nothing
+    const prepared = buildDataDbUrlCipher({
+      SECRET_KEY: 'instance-secret',
+      [`${storedRoot}_OLD`]: 'stored-root',
+    });
+    expect(prepared.decrypt(after.encrypt(URL))).toBe(URL);
+    expect(prepared.isCurrent(before)).toBe(true);
+    // a private stored credential root alone switches the format; its public default does not
+    expect(buildDataDbUrlCipher({ [storedRoot]: 'stored-root' }).authenticated).toBe(true);
+    expect(buildDataDbUrlCipher({ [storedRoot]: 'defaultSecretKey' }).authenticated).toBe(false);
+  });
+
+  it('opens what the previous SECRET_KEY wrote once that value is kept as the root _OLD', () => {
+    const before = buildDataDbUrlCipher({ SECRET_KEY: 'old-root' }).encrypt(URL);
+    const after = buildDataDbUrlCipher({ SECRET_KEY: 'new-root', [ROOT_OLD]: 'old-root' });
 
     expect(after.decrypt(before)).toBe(URL);
     expect(after.isCurrent(before)).toBe(false);
-    expect(buildDataDbUrlCipher({ [ROOT]: 'new-root' }).decrypt(after.encrypt(URL))).toBe(URL);
+    expect(buildDataDbUrlCipher({ SECRET_KEY: 'new-root' }).decrypt(after.encrypt(URL))).toBe(URL);
+    expect(() => buildDataDbUrlCipher({ SECRET_KEY: 'new-root' }).decrypt(before)).toThrow(
+      'BYODB URL decryption failed'
+    );
+  });
+
+  it('the root _OLD only decrypts: it does not switch a deployment to the authenticated format', () => {
+    const written = buildDataDbUrlCipher({ SECRET_KEY: 'instance-secret' }).encrypt(URL);
+    const reader = buildDataDbUrlCipher({ ...LEGACY_ENV, [ROOT_OLD]: 'instance-secret' });
+
+    expect(reader.decrypt(written)).toBe(URL);
+    expect(reader.authenticated).toBe(false);
+    expect(isEncryptedSecretValue(reader.encrypt(URL))).toBe(false);
+    expect(reader.isCurrent(written)).toBe(false);
+  });
+
+  it('the legacy pair _OLD does not open the authenticated format, whatever is derived into it', () => {
+    const before = buildDataDbUrlCipher({ SECRET_KEY: 'old-root' }).encrypt(URL);
+    // the pair the legacy format derives from the previous SECRET_KEY
+    const derived = createHash('sha256').update('old-root').digest('hex').slice(0, 16);
+
+    expect(() =>
+      buildDataDbUrlCipher({
+        SECRET_KEY: 'new-root',
+        BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD: derived,
+        BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD: derived,
+      }).decrypt(before)
+    ).toThrow('BYODB URL decryption failed');
+  });
+
+  it('keeps the access-token pair as the legacy writer where the pair falls back to it', () => {
+    const stored = storedUnder('private-pat-key0', 'private-pat-iv00');
+    const legacy = buildDataDbUrlCipher(PAT_ENV);
+
+    expect(legacy.decrypt(stored)).toBe(URL);
+    expect(legacy.isCurrent(stored)).toBe(true);
+    // the legacy format has a fixed key and iv, so the same URL encrypts to the same value
+    expect(legacy.encrypt(URL)).toBe(stored);
+
+    // a private SECRET_KEY moves new URLs to the authenticated format; the stored one stays
+    // readable and a convergence rewrites it
+    const switched = buildDataDbUrlCipher({ ...PAT_ENV, SECRET_KEY: 'instance-secret' });
+    expect(switched.decrypt(stored)).toBe(URL);
+    expect(switched.isCurrent(stored)).toBe(false);
   });
 
   it('does not store a value that already carries the cipher prefix', () => {
@@ -270,8 +348,16 @@ describe('buildDataDbUrlCipher', () => {
     ['nothing is configured', {}, true],
     ['SECRET_KEY is its public default', { SECRET_KEY: 'defaultSecretKey' }, true],
     ['a private legacy pair is set', LEGACY_ENV, false],
-    ['the root is the public default', { ...LEGACY_ENV, [ROOT]: 'defaultSecretKey' }, true],
-    ['a private root is set over a public legacy pair', { [ROOT]: 'byodb-root' }, false],
+    ['SECRET_KEY is private', { SECRET_KEY: 'instance-secret' }, false],
+    ['only a private access-token pair is set, which then writes', PAT_ENV, false],
+    [
+      'the access-token pair it falls back to is on its public defaults',
+      {
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: SECRET_SPECS.accessTokenEncryptionKey.legacyDefault,
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: SECRET_SPECS.accessTokenEncryptionIv.legacyDefault,
+      },
+      true,
+    ],
   ])('usesPublicKey follows the key new URLs are written under: %s', (_case, env, expected) => {
     expect(buildDataDbUrlCipher(env).usesPublicKey).toBe(expected);
   });

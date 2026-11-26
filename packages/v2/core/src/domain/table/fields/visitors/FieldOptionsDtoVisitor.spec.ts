@@ -65,6 +65,7 @@ import { TimeZone } from '../types/TimeZone';
 import { UserDefaultValue } from '../types/UserDefaultValue';
 import { UserMultiplicity } from '../types/UserMultiplicity';
 import { UserNotification } from '../types/UserNotification';
+import { AttachmentPublicAccess } from '../types/AttachmentPublicAccess';
 import { FieldOptionsDtoVisitor } from './FieldOptionsDtoVisitor';
 
 const createFieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
@@ -543,6 +544,15 @@ describe('FieldOptionsDtoVisitor', () => {
       throw new Error('Expected a link field');
     }
     expect(visit(attachmentField)).toEqual({});
+    expect(
+      visit(
+        createAttachmentField({
+          id: createFieldId('Q'),
+          name: createFieldName('Public Files'),
+          isPublic: AttachmentPublicAccess.enabled(),
+        })._unsafeUnwrap()
+      )
+    ).toEqual({ isPublic: true });
     expect(visit(createdByField)).toEqual({});
     expect(visit(createdTimeField)).toEqual({
       expression: createdTimeField.expression().toString(),

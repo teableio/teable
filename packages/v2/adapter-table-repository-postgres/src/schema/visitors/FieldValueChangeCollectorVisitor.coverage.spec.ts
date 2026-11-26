@@ -107,6 +107,7 @@ describe('FieldValueChangeCollectorVisitor coverage', () => {
       'visitUpdateRatingColor',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
+      'visitUpdateAttachmentPublicAccess',
       'visitUpdateButtonLabel',
       'visitUpdateButtonColor',
       'visitUpdateButtonMaxCount',

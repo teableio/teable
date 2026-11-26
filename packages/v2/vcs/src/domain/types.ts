@@ -247,6 +247,8 @@ export interface IVcsWorkspaceConfig {
   /** Historical checkouts keep their clone revision and cannot be edited or synchronized. */
   readonly readOnly?: boolean;
   readonly cloneRevision?: number;
+  /** Original immutable checkpoint revision, marking a Builder Data PR workspace. */
+  readonly promotionBaselineRevision?: number;
   readonly lastPulledAt?: string;
   readonly lastPushedAt?: string;
 }

@@ -110,6 +110,8 @@ export const envValidationSchema = Joi.object({
   BACKEND_DATA_DB_URL_ENCRYPTION_IV: Joi.string().optional(),
   BACKEND_DATA_DB_URL_ENCRYPTION_SECRET: Joi.string().optional(),
   BACKEND_DATA_DB_URL_ENCRYPTION_SECRET_OLD: Joi.string().optional(),
+  BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: Joi.string().optional(),
+  BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD: Joi.string().optional(),
   BACKEND_WELCOME_REWARD_SECRET: Joi.string().optional(),
   BACKEND_WELCOME_REWARD_SECRET_OLD: Joi.string().optional(),
   BACKEND_MAIL_ENCRYPTION_KEY: Joi.string().optional(),
