@@ -3,7 +3,7 @@ import { createReadStream, createWriteStream } from 'node:fs';
 import { unlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { Readable } from 'node:stream';
+import { Readable, pipeline as pipelineWithCallback } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { createGunzip, createGzip } from 'node:zlib';
 import { iterateNdjsonLines } from './ndjson';
@@ -389,7 +389,10 @@ function* serializeRunRows<TRow>(rows: TRow[]): Generator<string> {
 }
 
 async function* readRunRows<TRow>(file: string): AsyncGenerator<TRow> {
-  const stream = createReadStream(file).pipe(createGunzip());
+  // pipeline (not .pipe) forwards a read error (missing/unreadable run file) to the gunzip stream,
+  // so it rejects the generator instead of surfacing as an unhandled 'error' event, and it
+  // destroys the file stream when the consumer stops early
+  const stream = pipelineWithCallback(createReadStream(file), createGunzip(), () => undefined);
   for await (const line of iterateNdjsonLines(stream)) {
     yield JSON.parse(line) as TRow;
   }
