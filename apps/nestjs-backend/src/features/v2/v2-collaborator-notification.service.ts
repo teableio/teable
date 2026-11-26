@@ -2,18 +2,13 @@ import { Injectable, Logger } from '@nestjs/common';
 import { FieldType } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import {
-  FieldClipboardValueVisitor,
   ok,
-  ListTableRecordsQuery,
   ProjectionHandler,
   RecordCreated,
   RecordsBatchCreated,
   RecordsBatchUpdated,
   RecordUpdated,
   scheduleExecutionContextBackgroundTask,
-  TableByIdSpec,
-  TableId,
-  v2CoreTokens,
   type DomainError,
   type IEventHandler,
   type IExecutionContext,
@@ -22,9 +17,6 @@ import {
   type RecordFieldValueDTO,
   type RecordValuesDTO,
   type Result,
-  type ListTableRecordsResult,
-  type IQueryBus,
-  type ITableRepository,
 } from '@teable/v2-core';
 import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
@@ -35,8 +27,8 @@ import {
   maxCollaboratorNotifyRecordTitles,
   NotificationService,
 } from '../notification/notification.service';
+import { RecordTitleReader } from './record-title-reader';
 import { V2ContainerService } from './v2-container.service';
-import { V2ExecutionContextFactory } from './v2-execution-context.factory';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from './v2-projection-registrar';
 
 type IUserField = {
@@ -159,7 +151,7 @@ export class V2CollaboratorNotificationDispatcher {
   constructor(
     private readonly v2ContainerService: V2ContainerService,
     private readonly notificationService: NotificationService,
-    private readonly v2ContextFactory: V2ExecutionContextFactory,
+    private readonly recordTitles: RecordTitleReader,
     private readonly collaboratorService: CollaboratorService
   ) {}
 
@@ -201,11 +193,8 @@ export class V2CollaboratorNotificationDispatcher {
         )
       ),
     ];
-    const recordTitles =
-      recordIdsNeedingTitles.length > 0
-        ? await this.loadRecordTitles(tableId, recordIdsNeedingTitles)
-        : [];
-    const recordTitlesMap = keyBy(recordTitles, 'id');
+    const recordTitles = await this.recordTitles.tryByIds(tableId, recordIdsNeedingTitles, 'best-effort');
+    const recordTitlesMap = keyBy(recordTitles.isOk() ? recordTitles.value : [], 'id');
     for (const userId of recipientIds) {
       const { fieldId, recordIds } = notificationData[userId]!;
       const field = userFields[fieldId];
@@ -227,59 +216,6 @@ export class V2CollaboratorNotificationDispatcher {
         },
       });
     }
-  }
-
-  private async loadRecordTitles(
-    tableId: string,
-    recordIds: ReadonlyArray<string>
-  ): Promise<Array<{ id: string; title: string }>> {
-    const container = await this.v2ContainerService.getContainerForTable(tableId);
-    const context = await this.v2ContextFactory.createContext(container);
-    const tableIdResult = TableId.create(tableId);
-    if (tableIdResult.isErr()) {
-      return [];
-    }
-    const tableRepository = container.resolve<ITableRepository>(v2CoreTokens.tableRepository);
-    const tableResult = await tableRepository.findOne(
-      context,
-      TableByIdSpec.create(tableIdResult.value)
-    );
-    if (tableResult.isErr()) {
-      return [];
-    }
-    const primaryFieldId = tableResult.value.primaryFieldId().toString();
-    const primaryFieldResult = tableResult.value.getField(
-      (field) => field.id().toString() === primaryFieldId
-    );
-    if (primaryFieldResult.isErr()) {
-      return [];
-    }
-    const queryResult = ListTableRecordsQuery.create({
-      tableId,
-      selectedRecordIds: [...recordIds],
-      projection: [primaryFieldId],
-      fieldKeyType: 'id',
-      ignoreViewQuery: true,
-    });
-    if (queryResult.isErr()) {
-      return [];
-    }
-    const queryBus = container.resolve<IQueryBus>(v2CoreTokens.queryBus);
-    const recordsResult = await queryBus.execute<ListTableRecordsQuery, ListTableRecordsResult>(
-      context,
-      queryResult.value
-    );
-    if (recordsResult.isErr()) {
-      return [];
-    }
-    return recordsResult.value.records.map((record) => {
-      const rawValue = record.fields[primaryFieldId];
-      const titleResult = primaryFieldResult.value.accept(new FieldClipboardValueVisitor(rawValue));
-      return {
-        id: record.id,
-        title: titleResult.isOk() ? titleResult.value : String(rawValue ?? ''),
-      };
-    });
   }
 
   private hasRelevantFields(records: ReadonlyArray<IV2ChangedRecord>, userFieldIds: string[]) {

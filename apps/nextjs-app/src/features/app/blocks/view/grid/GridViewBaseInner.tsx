@@ -106,6 +106,7 @@ import type { IExpandRecordContainerRef } from '@/features/app/components/expand
 import { useShareAllowCopy, useShareContext } from '@/features/app/context/ShareContext';
 import { useBaseUsage } from '@/features/app/hooks/useBaseUsage';
 import { useDisableAIAction } from '@/features/app/hooks/useDisableAIAction';
+import { isPublicAttachmentField } from '@/features/app/hooks/usePublicFileEnabled';
 import { tableConfig } from '@/features/i18n/table.config';
 import { FieldOperator } from '../../../components/field-setting';
 import { useFieldSettingStore } from '../field/useFieldSettingStore';
@@ -129,7 +130,12 @@ import { GuideSpotlight } from './components/GuideSpotlight';
 import { ResetClickCountButton } from './components/ResetClickCountButton';
 import { GIRD_FIELD_NAME_HEIGHT_DEFINITIONS, GIRD_ROW_HEIGHT_DEFINITIONS } from './const';
 import { DomBox } from './DomBox';
-import { useCollaborate, useSelectionOperation } from './hooks';
+import {
+  useCollaborate,
+  usePublicFileColumns,
+  usePublicFileProgress,
+  useSelectionOperation,
+} from './hooks';
 import { useGridCopy } from './hooks/useGridCopy';
 import { useGridSearchStore } from './useGridSearchStore';
 import {
@@ -198,11 +204,12 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   const buttonClickStatusHook = useButtonClickStatus(tableId, shareId);
   const { setGridRef, searchCursor, highlightedFieldId, setRecordMap, setFields, setMountedGrid } =
     useGridSearchStore();
-  const { columns: originalColumns, cellValue2GridDisplay } = useGridColumns(
+  const { columns: gridColumns, cellValue2GridDisplay } = useGridColumns(
     undefined,
     undefined,
     highlightedFieldId
   );
+  const originalColumns = usePublicFileColumns(gridColumns);
   const { columns, onColumnResize } = useGridColumnResize(originalColumns);
   const { columnStatistics } = useGridColumnStatistics(columns);
   const { onColumnOrdered } = useGridColumnOrder();
@@ -250,6 +257,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
     });
   }, [isTouchDevice, frozenFieldId, columns, allFields, frozenColumnCountOption]);
   const { cells: taskStatusCells, fieldMap: taskStatusFieldMap } = taskStatusCollection ?? {};
+  const publicFileProgress = usePublicFileProgress(tableId);
   const rowHeight = GIRD_ROW_HEIGHT_DEFINITIONS[view?.options?.rowHeight ?? RowHeightLevel.Short];
   const columnHeaderHeight =
     GIRD_FIELD_NAME_HEIGHT_DEFINITIONS[view?.options?.fieldNameDisplayLines ?? 1];
@@ -1542,6 +1550,7 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
   useEffect(() => {
     const fieldId2IndexMap: { [id: string]: number } = {};
     fields.forEach(({ id }, index) => (fieldId2IndexMap[id] = index));
+    const publicFieldIds = new Set(fields.filter(isPublicAttachmentField).map(({ id }) => id));
     const loadingColumnIndexs = Object.keys(taskStatusFieldMap ?? {}).map((fieldId) => {
       const index = fieldId2IndexMap[fieldId];
       const { completedCount = 0, totalCount } = taskStatusFieldMap?.[fieldId] ?? {};
@@ -1553,8 +1562,16 @@ export const GridViewBaseInner: React.FC<IGridViewBaseInnerProps> = (
         },
       };
     });
-    gridRef.current?.setColumnLoadings(loadingColumnIndexs);
-  }, [tableId, fields, taskStatusFieldMap]);
+    // a public file copy cannot be stopped; an AI fill of the same field shows over it. A field
+    // switched off drops its ring at once, the copy only stops at its next page.
+    const publicFileLoadings = Object.values(publicFileProgress)
+      .filter(({ fieldId }) => !taskStatusFieldMap?.[fieldId] && publicFieldIds.has(fieldId))
+      .map(({ fieldId, done, total }) => ({
+        index: fieldId2IndexMap[fieldId],
+        progress: total ? done / total : 0,
+      }));
+    gridRef.current?.setColumnLoadings([...loadingColumnIndexs, ...publicFileLoadings]);
+  }, [tableId, fields, taskStatusFieldMap, publicFileProgress]);
 
   // Helper to clear cell error by recordId and fieldId
   const clearCellError = useCallback(

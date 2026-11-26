@@ -20,6 +20,12 @@ export const attachmentItemSchema = z.object({
   height: z.number().optional(),
   smThumbnailUrl: z.string().optional(),
   lgThumbnailUrl: z.string().optional(),
+  publicUrl: z.string().optional().meta({
+    description: 'Permanent public link, read only: in a field with public links on',
+  }),
+  publicThumbnailUrl: z.string().optional().meta({
+    description: 'Public link of the 525 px thumbnail, read only: when the file has one',
+  }),
 });
 
 // Simplified format: only name and token (backend will fetch other fields from DB)

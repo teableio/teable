@@ -6,6 +6,7 @@ import { z } from '../zod';
 export const SET_TABLE_SEARCH_ACCELERATION = '/base/{baseId}/table/{tableId}/search-acceleration';
 export const SEARCH_ACCELERATION_LARGE_TABLE_CONFIRMATION_REQUIRED =
   'search_acceleration_large_table_confirmation_required';
+export const SEARCH_ACCELERATION_QUOTA_EXCEEDED = 'quota_exceeded';
 
 export const tableSearchAccelerationSwitchRoSchema = z.object({
   enabled: z.boolean(),
@@ -39,6 +40,8 @@ export const SetTableSearchAccelerationRoute: RouteConfig = registerRoute({
       description: 'Current search acceleration intent',
       content: { 'application/json': { schema: tableSearchAccelerationSwitchVoSchema } },
     },
+    402: { description: 'Cloud enable-time row quota exceeded (reason: quota_exceeded)' },
+    503: { description: 'Search acceleration or its required quota observation is unavailable' },
   },
   tags: ['table'],
 });

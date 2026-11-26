@@ -10,6 +10,7 @@ import { FieldId } from './fields/FieldId';
 import type { FieldName } from './fields/FieldName';
 import { validateForeignTablesForFields } from './fields/ForeignTableRelatedField';
 import { AttachmentField } from './fields/types/AttachmentField';
+import { AttachmentPublicAccess } from './fields/types/AttachmentPublicAccess';
 import { AutoNumberField } from './fields/types/AutoNumberField';
 import type { ButtonConfirm } from './fields/types/ButtonConfirm';
 import { ButtonField } from './fields/types/ButtonField';
@@ -1319,6 +1320,7 @@ export class CheckboxFieldBuilder {
 export class AttachmentFieldBuilder {
   private id: FieldId | undefined;
   private name: FieldName | undefined;
+  private publicAccess: AttachmentPublicAccess = AttachmentPublicAccess.disabled();
   private notNull: FieldNotNull = FieldNotNull.optional();
   private unique: FieldUnique = FieldUnique.disabled();
   private isPrimary = false;
@@ -1330,6 +1332,11 @@ export class AttachmentFieldBuilder {
 
   withName(name: FieldName): this {
     this.name = name;
+    return this;
+  }
+
+  withPublicAccess(publicAccess: AttachmentPublicAccess): this {
+    this.publicAccess = publicAccess;
     return this;
   }
 
@@ -1361,7 +1368,7 @@ export class AttachmentFieldBuilder {
     }
 
     const result = resolveFieldId(this.id).andThen((id) =>
-      AttachmentField.create({ id, name })
+      AttachmentField.create({ id, name, isPublic: this.publicAccess })
         .andThen((field) => applyFieldValidation(field, this.notNull, this.unique))
         .andThen((field) => {
           if (!this.isPrimary) return ok(field);

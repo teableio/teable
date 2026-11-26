@@ -75,7 +75,9 @@
       "downloadSuccess": "Загрузка завершена",
       "downloadFailed": "Не удалось скачать",
       "downloadCancelled": "Загрузка отменена",
-      "requireHttps": "Массовая загрузка требует HTTPS. Откройте через HTTPS или localhost"
+      "requireHttps": "Массовая загрузка требует HTTPS. Откройте через HTTPS или localhost",
+      "copyPublicLink": "Копировать публичную ссылку",
+      "publicLinkCopied": "Публичная ссылка скопирована"
     },
     "date": {
       "placeholder": "Выберите дату",
@@ -1844,6 +1846,10 @@
       "endpointChanged": "Сохранённый секрет можно отправить только на адрес, для которого он был сохранён. Введите {{field}} заново.",
       "reenterForNewAddress": "Адрес изменён. Сначала введите заново или очистите {{fields}}.",
       "staleMask": "Сохранённый {{field}} изменился после загрузки страницы. Введите его заново."
+    },
+    "publicFile": {
+      "fieldNotFound": "Поле не найдено",
+      "noPublicFields": "Пространство не существует или в нём нет полей вложений с включённым публичным доступом"
     }
   },
   "usageLimitBanner": {

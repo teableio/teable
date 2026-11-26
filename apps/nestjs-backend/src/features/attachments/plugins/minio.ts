@@ -366,9 +366,16 @@ export class MinioStorage implements StorageAdapter {
     const prefixes = new Set<string>();
     // minio: recursive=false groups keys at '/' into prefix entries, matching S3 delimiter='/'
     const recursive = !options?.delimiter;
-    const stream = this.minioClientPrivateNetwork.listObjects(bucket, prefix, recursive);
+    const stream = options?.startAfter
+      ? this.minioClientPrivateNetwork.listObjectsV2(bucket, prefix, recursive, options.startAfter)
+      : this.minioClientPrivateNetwork.listObjects(bucket, prefix, recursive);
     await new Promise<void>((resolve, reject) => {
       stream.on('data', (obj) => {
+        if (options?.maxKeys && objects.length >= options.maxKeys) {
+          stream.destroy();
+          resolve();
+          return;
+        }
         if (obj.name) {
           objects.push({
             key: obj.name,

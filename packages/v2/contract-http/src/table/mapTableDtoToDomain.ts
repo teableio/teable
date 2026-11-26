@@ -1,4 +1,5 @@
 import {
+  AttachmentPublicAccess,
   BaseId,
   ButtonConfirm,
   ButtonLabel,
@@ -375,7 +376,9 @@ const mapBaseFieldDtoToDomain = (
         );
       }
       case 'attachment': {
-        return createAttachmentField({ id, name });
+        return optional(dto.options?.isPublic, AttachmentPublicAccess.create).andThen((isPublic) =>
+          createAttachmentField({ id, name, isPublic })
+        );
       }
       case 'date': {
         return optional(dto.options?.formatting, DateTimeFormatting.create).andThen((formatting) =>

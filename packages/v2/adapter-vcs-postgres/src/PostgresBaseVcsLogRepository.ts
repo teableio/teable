@@ -43,6 +43,7 @@ import {
   type IVcsPullCursor,
   type IVcsPushMetadataLockTargets,
   type IVcsPushPhysicalTableLockTarget,
+  type SelectHistoricalCheckpointRecords,
 } from '@teable/v2-vcs/server';
 import { type ColumnType, type Kysely, sql, type Transaction, type RawBuilder } from 'kysely';
 
@@ -50,6 +51,7 @@ import {
   captureCheckpoint,
   compareRevisions,
   readCheckpointTableIds,
+  readHistoricalSelection,
   readSnapshot,
 } from './checkpointStore';
 import {
@@ -127,6 +129,8 @@ export interface ICompactChangesResult {
 }
 
 const CHANGE_INSERT_CHUNK_SIZE = 500;
+// Each new view order column needs a heap backfill and index within the atomic push.
+const MAX_ATOMIC_VIEW_ORDER_BACKFILL_CELLS = 1_000;
 const DEFAULT_ENABLED_CACHE_TTL_MS = 30_000;
 const DEFAULT_ENABLE_QUIESCE_TIMEOUT_MS = 15_000;
 const DEFAULT_ENABLE_QUIESCE_POLL_MS = 15;
@@ -680,6 +684,17 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     return this.readHistory(ctx, (db) => readSnapshot(db, baseId.toString(), revision));
   }
 
+  async readHistoricalSelection(
+    ctx: IExecutionContext,
+    baseId: BaseId,
+    revision: number,
+    selectRecords?: SelectHistoricalCheckpointRecords
+  ): Promise<Result<IBaseVcsSnapshot, DomainError>> {
+    return this.readHistory(ctx, (db) =>
+      readHistoricalSelection(db, baseId.toString(), revision, selectRecords)
+    );
+  }
+
   async readHistoricalTableIds(
     ctx: IExecutionContext,
     baseId: BaseId,
@@ -1076,6 +1091,37 @@ export class PostgresBaseVcsLogRepository implements IBaseVcsLogRepository {
     `.execute(dataTrx);
     if (!reg.rows[0]?.exists) {
       return ok(undefined);
+    }
+
+    if (target.newViewOrderColumnCount !== undefined) {
+      const relation = sql.table(target.dbTableName);
+      const maxRows = Math.floor(
+        MAX_ATOMIC_VIEW_ORDER_BACKFILL_CELLS / target.newViewOrderColumnCount
+      );
+      try {
+        // Fence concurrent writes before checking the budget. Normal SELECTs can
+        // run during admission, including when the target exceeds the limit.
+        await sql`LOCK TABLE ${relation} IN SHARE ROW EXCLUSIVE MODE NOWAIT`.execute(dataTrx);
+        const { rows } = await sql<{ too_large: boolean }>`
+          SELECT EXISTS (SELECT 1 FROM ${relation} OFFSET ${maxRows}) AS too_large
+        `.execute(dataTrx);
+        if (rows[0]?.too_large) {
+          return err(
+            vcsDomainError.validation({
+              code: 'vcs.new_view_order_backfill_too_large',
+              message:
+                'Create the view without record order changes, then push those changes separately.',
+              details: { maxRows, viewCount: target.newViewOrderColumnCount },
+            })
+          );
+        }
+        // An eligible push may retry behind a reader, but must never queue
+        // ACCESS EXCLUSIVE and thereby block readers which arrive later.
+        await sql`LOCK TABLE ${relation} IN ACCESS EXCLUSIVE MODE NOWAIT`.execute(dataTrx);
+        return ok(undefined);
+      } catch (error) {
+        return err(lockError(error, true));
+      }
     }
 
     const waitClause = wait ? sql`` : sql`NOWAIT`;

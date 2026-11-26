@@ -26,6 +26,7 @@ import {
   type BoundDataQuery,
   type BoundDataQueryPlan,
   type BoundDataQueryFormulaExpression,
+  type BoundDataQueryPlanProjection,
   type BoundDataQueryPredicate,
   type DataQueryBucket,
   type DataQueryRelationAggregate,
@@ -75,6 +76,7 @@ import {
   compileDataQueryPredicate,
   compileDataQueryHavingExpression,
   compileDataQueryFormulaExpression,
+  compileDecimalMetricFormula,
   type DataQueryExpressionSqlContext,
 } from './compileDataQueryExpression';
 import { compileDistinctRecords, type ProjectionStorageType } from './compileDistinctRecords';
@@ -85,7 +87,7 @@ type Row = Record<string, unknown>;
 
 function readSettings(timeoutMs: number, cursor: boolean, composition?: BoundDataQueryComposition) {
   const settings = [sql`set_config('statement_timeout', ${String(timeoutMs)}, true)`];
-  // A returned float group key must identify the same group when passed back as a filter.
+  // Float group keys and decimal accumulation both need the shortest round-trip representation.
   if (composition?.definition.metricDimensions) {
     settings.push(sql`set_config('extra_float_digits', '3', true)`);
   }
@@ -245,6 +247,55 @@ const expressionSqlContext = (
       return ok(where ? sql`${where}` : undefined);
     }),
 });
+
+function monthComparisonSourceWhere(
+  where: RawBuilder<unknown>,
+  predicates: readonly RawBuilder<unknown>[],
+  comparison: BoundDataQueryComposition['monthComparison'],
+  projections: readonly BoundDataQueryPlanProjection[],
+  source: Pick<ExpressionSqlSource, 'sqlAlias' | 'fields' | 'masks'>
+) {
+  if (!comparison) return where;
+  const projection = projections.find(({ alias }) => alias === comparison.dimension);
+  if (
+    projection?.kind !== 'field' ||
+    projection.source !== 'root' ||
+    projection.column === null ||
+    projection.bucket?.kind !== 'dateTrunc' ||
+    projection.bucket.unit !== 'month' ||
+    source.masks?.has(projection.fieldId)
+  ) {
+    return where;
+  }
+  const field = source.fields.get(projection.fieldId);
+  if (field?.type().toString() !== 'date' || !field.hasDbFieldType()) return where;
+  const storage = field.dbFieldType().andThen((type) => type.value());
+  if (storage.isErr()) return where;
+  const type = storage.value.trim().toUpperCase();
+  if (type !== 'DATETIME' && type !== 'TIMESTAMPTZ' && type !== 'TIMESTAMP WITH TIME ZONE') {
+    return where;
+  }
+
+  // No-op on native timestamptz. If legacy physical storage drifted, use the same cast as the bucket.
+  const column = sql`${sql.id(source.sqlAlias, projection.column)}::timestamptz`;
+  const firstDay = `${comparison.previousMonth}-01`;
+  const lastMonthStart = `${comparison.currentMonth}-01`;
+  // A local time lies within one day of its UTC representation. The padding admits both
+  // occurrences of a repeated midnight. The projected local bucket decides membership.
+  const padding =
+    projection.bucket.timeZone.toUpperCase() === 'UTC' ? sql`interval '0'` : sql`interval '1 day'`;
+  const lower = sql`(${firstDay}::timestamp - ${padding}) at time zone 'UTC'`;
+  const upper = sql`(${lastMonthStart}::timestamp + interval '1 month' + ${padding}) at time zone 'UTC'`;
+  // The YYYY bucket format omits the era, so BC timestamps can match the same labels.
+  const firstBcMonth = sql`${`${firstDay} BC`}::timestamp`;
+  const lastBcMonth = sql`${`${lastMonthStart} BC`}::timestamp`;
+  const lowerBc = sql`(least(${firstBcMonth}, ${lastBcMonth}) - ${padding}) at time zone 'UTC'`;
+  const upperBc = sql`(greatest(${firstBcMonth}, ${lastBcMonth}) + interval '1 month' + ${padding}) at time zone 'UTC'`;
+  const range = sql`((${column} >= (${lower}) and ${column} < (${upper}))
+    or (${column} >= (${lowerBc}) and ${column} < (${upperBc})))`;
+  return sql`where ${sql.join([...predicates, range], sql` and `)}`;
+}
+
 /**
  * Compile one of the controlled bucket shapes. Labels are bound values, never
  * interpolated SQL; the stored expression is already masked before it arrives.
@@ -322,6 +373,33 @@ const uniqueInternalAlias = (prefix: string, used: ReadonlySet<string>): string 
   while (used.has(alias)) alias = `${prefix}_${++suffix}`;
   return alias;
 };
+
+const compileCompositionSourceSelections = (
+  projections: readonly BoundDataQueryPlanProjection[],
+  selections: RawBuilder<unknown>[],
+  rootId: RawBuilder<unknown>,
+  composition: BoundDataQueryComposition,
+  expressionContext: DataQueryExpressionSqlContext
+): Result<{ rootIdAlias: string; decimalMetricAlias?: string }, DomainError> =>
+  safeTry(function* () {
+    const used = new Set(projections.map(({ alias }) => alias));
+    for (const { alias } of composition.outputs) used.add(alias);
+    const rootIdAlias = uniqueInternalAlias('__teable_composition_root_id', used);
+    selections.push(sql`${rootId} as ${sql.id(rootIdAlias)}`);
+    const metric = composition.definition.metricDimensions
+      ? composition.definition.metrics?.[0]
+      : undefined;
+    if (metric?.input === undefined || metric.statistic === 'count') return ok({ rootIdAlias });
+    const projection = projections.find(({ alias }) => alias === metric.input);
+    if (projection?.kind !== 'expression') return ok({ rootIdAlias });
+    const value = yield* compileDecimalMetricFormula(projection.expression, expressionContext);
+    if (!value) return ok({ rootIdAlias });
+    // Only the aggregate reads this column. PostgreSQL can prune the unused public
+    // formula when it does not participate in a filter or group.
+    const decimalMetricAlias = uniqueInternalAlias('__teable_composition_decimal_metric', used);
+    selections.push(sql`${value} as ${sql.id(decimalMetricAlias)}`);
+    return ok({ rootIdAlias, decimalMetricAlias });
+  });
 
 const compileTopNQueries = (
   db: Kysely<V1TeableDatabase>,
@@ -670,18 +748,24 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 return sql`${value} as ${sql.id(projection.alias)}`;
               });
           if (composition) {
-            const rootIdAlias = uniqueInternalAlias(
-              '__teable_composition_root_id',
-              new Set([
-                ...plan.projections.map((projection) => projection.alias),
-                ...composition.outputs.map((output) => output.alias),
-              ])
+            const { rootIdAlias, decimalMetricAlias } = yield* compileCompositionSourceSelections(
+              plan.projections,
+              selections!,
+              sql.id('t', '__id'),
+              composition,
+              expressionContext
             );
-            const source = sql`select ${sql.join([
-              ...selections!,
-              sql`${sql.id('t', '__id')} as ${sql.id(rootIdAlias)}`,
-            ])} from ${from} ${where}`;
-            return ok(compileDataQueryComposition(db, source, rootIdAlias, composition));
+            const sourceWhere = monthComparisonSourceWhere(
+              where,
+              predicates,
+              composition.monthComparison,
+              plan.projections,
+              { sqlAlias: 't', fields, masks }
+            );
+            const source = sql`select ${sql.join(selections!)} from ${from} ${sourceWhere}`;
+            return ok(
+              compileDataQueryComposition(db, source, rootIdAlias, composition, decimalMetricAlias)
+            );
           }
           if (plan.topN) {
             const outputAliases = plan.projections.map((projection) => projection.alias);
@@ -2229,18 +2313,24 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 sql`${outputValues.get(projection.alias)!} as ${sql.id(projection.alias)}`
             );
         if (composition) {
-          const rootIdAlias = uniqueInternalAlias(
-            '__teable_composition_root_id',
-            new Set([
-              ...boundPlan.projections.map((projection) => projection.alias),
-              ...composition.outputs.map((output) => output.alias),
-            ])
+          const { rootIdAlias, decimalMetricAlias } = yield* compileCompositionSourceSelections(
+            boundPlan.projections,
+            selections!,
+            sql.id(rootAlias, '__id'),
+            composition,
+            expressionContext
           );
-          const source = sql`select ${sql.join([
-            ...selections!,
-            sql`${sql.id(rootAlias, '__id')} as ${sql.id(rootIdAlias)}`,
-          ])} from ${rootFrom} ${sql.join([...joins, ...manyLaterals], sql` `)} ${where}`;
-          return ok(compileDataQueryComposition(db, source, rootIdAlias, composition));
+          const sourceWhere = monthComparisonSourceWhere(
+            where,
+            predicates,
+            composition.monthComparison,
+            boundPlan.projections,
+            expressionSources.get('root')!
+          );
+          const source = sql`select ${sql.join(selections!)} from ${rootFrom} ${sql.join([...joins, ...manyLaterals], sql` `)} ${sourceWhere}`;
+          return ok(
+            compileDataQueryComposition(db, source, rootIdAlias, composition, decimalMetricAlias)
+          );
         }
         if (boundPlan.resultGrain === 'distinctTuple' && !plan.query.cursor) {
           return ok(
@@ -2483,6 +2573,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           message: 'Data query cursor signing is not configured',
         })
       );
+    const includeTotal =
+      !composition?.monthComparison &&
+      (composition ? composition.definition.page?.includeTotal : plan.query.includeTotal);
     const compiled = plan.query.cursor
       ? undefined
       : composition
@@ -2558,10 +2651,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 pages.rows.push(...remainder.rows);
               }
               const cursor = queries.cursor;
-              if (
-                !(composition ? composition.definition.page?.includeTotal : plan.query.includeTotal)
-              )
-                return ok({ pages, total: undefined, cursor });
+              if (!includeTotal) return ok({ pages, total: undefined, cursor });
               if (queries.constantTotal !== undefined)
                 return ok({ pages, total: queries.constantTotal, cursor });
               if (!queries.count) throw new Error('Missing count query');
@@ -2575,10 +2665,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       );
       if (read.isErr()) return err(read.error);
       const { pages, total, cursor } = read.value;
-      if (
-        (composition ? composition.definition.page?.includeTotal : plan.query.includeTotal) &&
-        total === undefined
-      ) {
+      if (includeTotal && total === undefined) {
         return err(
           domainError.infrastructure({
             code: 'data_query.execution_failed',
@@ -2588,6 +2675,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       }
       if (cursor)
         return finishCursorRecords(pages.rows, plan.query, cursor, total, this.cursorSigningKey);
+      if (composition?.monthComparison) return ok({ rows: pages.rows });
       const statistics = new Map(
         plan.plan.kind === 'records'
           ? plan.plan.projections
@@ -2643,6 +2731,9 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
           message: 'Data query cursor signing is not configured',
         })
       );
+    const includeTotal =
+      !composition?.monthComparison &&
+      (composition ? composition.definition.page?.includeTotal : query.includeTotal);
     const compiled = query.cursor
       ? undefined
       : await traceDataQueryStage(
@@ -2732,8 +2823,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
                 pages.rows.push(...remainder.rows);
               }
               const cursor = queries.cursor;
-              if (!(composition ? composition.definition.page?.includeTotal : query.includeTotal))
-                return ok({ pages, total: undefined, cursor });
+              if (!includeTotal) return ok({ pages, total: undefined, cursor });
               if (queries.constantTotal !== undefined)
                 return ok({ pages, total: queries.constantTotal, cursor });
               if (!queries.count) throw new Error('Missing count query');
@@ -2747,10 +2837,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       );
       if (read.isErr()) return err(read.error);
       const { pages, total, cursor } = read.value;
-      if (
-        (composition ? composition.definition.page?.includeTotal : query.includeTotal) &&
-        total === undefined
-      ) {
+      if (includeTotal && total === undefined) {
         return err(
           domainError.infrastructure({
             code: 'data_query.execution_failed',
@@ -2760,6 +2847,7 @@ export class PostgresDataQueryExecutor implements IDataQueryExecutor {
       }
       if (cursor)
         return finishCursorRecords(pages.rows, query, cursor, total, this.cursorSigningKey);
+      if (composition?.monthComparison) return ok({ rows: pages.rows });
       const aggregates = new Map(
         bound.plan.kind === 'aggregate'
           ? bound.plan.aggregates.map(

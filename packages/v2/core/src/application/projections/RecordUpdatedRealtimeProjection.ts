@@ -14,7 +14,10 @@ import * as RecordQueryRepositoryPort from '../../ports/TableRecordQueryReposito
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
-import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
+import {
+  decorateRealtimeAttachmentValue,
+  linkRealtimeAttachmentValues,
+} from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { buildRecordCollection } from './TableRecordRealtimeDTO';
@@ -52,12 +55,26 @@ export class RecordUpdatedRealtimeProjection implements IEventHandler<RecordUpda
       // The record already exists in the client, so we should NOT call ensure()
       // which would broadcast a create op with empty fields and overwrite client data.
       const batchedChanges: RealtimeChange[] = [];
-      for (const change of event.changes) {
+      const tableId = event.tableId.toString();
+      const recordId = event.recordId.toString();
+      const linked = yield* (
+        await linkRealtimeAttachmentValues(
+          attachmentValueDecoratorService,
+          event.changes.map(({ fieldId, newValue, oldValue }) => ({
+            tableId,
+            recordId,
+            fieldId,
+            value: newValue,
+            oldValue,
+          }))
+        )
+      ).safeUnwrap();
+      for (const [index, change] of event.changes.entries()) {
         const oldValue = change.oldValue;
         const newValue = yield* (
           await decorateRealtimeAttachmentValue(
             attachmentValueDecoratorService,
-            change.newValue,
+            linked[index],
             oldValue
           )
         ).safeUnwrap();

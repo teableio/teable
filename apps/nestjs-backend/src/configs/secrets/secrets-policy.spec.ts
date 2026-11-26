@@ -13,7 +13,6 @@ import {
   findMissingSecrets,
   findPublicDefaultSecrets,
   findWrongLengthCipherValues,
-  isSecretAdminToolsEnabled,
 } from './secrets-policy';
 
 const fullEnv = {
@@ -42,31 +41,43 @@ describe('secrets guard', () => {
   it('reports every secret missing on an empty environment, with pin teaching', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
     // EE/cloud-only secrets (requiredWhen) are not nagged about on an empty
-    // community env, nor is the BYODB root, which is in scope only once it is
-    // set; everything else is required.
+    // community env; everything else is required.
     const eeOnly = [
-      'BACKEND_ENV_VARIABLE_SECRET',
       'BACKEND_MAIL_ENCRYPTION_KEY',
       'BACKEND_MAIL_ENCRYPTION_IV',
       'SANDBOX_JWT_SECRET',
     ];
-    // the welcome reward is granted on cloud signups alone
-    const cloudOnly = ['BACKEND_WELCOME_REWARD_SECRET'];
-    const optIn = ['BACKEND_DATA_DB_URL_ENCRYPTION_SECRET'];
-    expect(missing).toHaveLength(
-      ALL_SECRET_SPECS.length - eeOnly.length - cloudOnly.length - optIn.length
-    );
-    for (const envKey of [...eeOnly, ...cloudOnly, ...optIn]) {
+    // The stored credential root and what it superseded all end at SECRET_KEY, whose line
+    // covers them: none is listed itself.
+    const superseded = [
+      'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET',
+      'BACKEND_ENV_VARIABLE_SECRET',
+      'BACKEND_AI_CONFIG_ENCRYPTION_SECRET',
+      'BACKEND_WELCOME_REWARD_SECRET',
+      'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET',
+    ];
+    expect(missing).toHaveLength(ALL_SECRET_SPECS.length - eeOnly.length - superseded.length);
+    for (const envKey of [...eeOnly, ...superseded]) {
       expect(missing.map((s) => s.envKey)).not.toContain(envKey);
     }
-    expect(
-      findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'EE' }).map((s) => s.envKey)
-    ).toEqual(expect.arrayContaining(eeOnly));
-    expect(
-      findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'CLOUD' }).map((s) => s.envKey)
-    ).toEqual(expect.arrayContaining([...eeOnly, ...cloudOnly]));
+    expect(missing.map((s) => s.envKey)).toContain('SECRET_KEY');
+    for (const edition of ['EE', 'CLOUD']) {
+      const keys = findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: edition }).map(
+        (s) => s.envKey
+      );
+      expect(keys).toEqual(expect.arrayContaining(eeOnly));
+      for (const envKey of superseded) expect(keys).not.toContain(envKey);
+    }
 
     const message = buildMissingSecretsMessage(missing);
+    // What was stored under the public default stays readable through an _OLD var next to a
+    // private SECRET_KEY; nothing teaches pinning a root to that default.
+    expect(message).toContain("BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD='defaultSecretKey'");
+    expect(message).not.toContain("BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET='defaultSecretKey'");
+    expect(message).not.toContain("SECRET_KEY='defaultSecretKey'");
+    for (const envKey of superseded) expect(message).not.toContain(`${envKey} (or`);
+    for (const envKey of superseded.slice(1)) expect(message).not.toContain(envKey);
     expect(message).toContain('BACKEND_JWT_SECRET (or SECRET_KEY)');
     expect(message).toContain('533Cr3tK3yF0rH4sh1nGJ4W773k3n$');
     expect(message).toContain('dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932');
@@ -79,6 +90,63 @@ describe('secrets guard', () => {
     const message = buildMissingSecretsMessage(missing);
     expect(message).toContain('BACKEND_DATA_DB_URL_ENCRYPTION_KEY');
     expect(message).toContain("createHash('sha256')");
+  });
+
+  // The env lines the message offers a new deployment to generate.
+  const generated = (message: string) =>
+    message
+      .split('\n')
+      .map((line) => line.trim())
+      .filter((line) => /^[A-Z_]+=\$\(openssl rand /.test(line));
+
+  it('tells a new deployment to generate SECRET_KEY and what does not follow it, nothing else', () => {
+    const missing = findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'EE' });
+    const message = buildMissingSecretsMessage(missing);
+
+    // Everything else falls back to SECRET_KEY or is derived from it; the sandbox secret is
+    // the one that never follows it.
+    expect(generated(message)).toEqual([
+      'SECRET_KEY=$(openssl rand -base64 32)',
+      'SANDBOX_JWT_SECRET=$(openssl rand -base64 32)',
+    ]);
+    expect(message).toContain('That is all a new deployment sets.');
+    // an existing deployment is still told, secret by secret, what it has been running on
+    expect(message).toContain("BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY='ie21hOKjlXUiGDx9'");
+    expect(message).toContain('# BACKEND_DATA_DB_URL_ENCRYPTION_KEY — previous effective value');
+  });
+
+  it('with SECRET_KEY set, asks only for what does not follow it', () => {
+    const missing = findMissingSecrets(ALL_SECRET_SPECS, {
+      NEXT_BUILD_ENV_EDITION: 'EE',
+      SECRET_KEY: 'strong-secret',
+    });
+    const message = buildMissingSecretsMessage(missing);
+
+    expect(generated(message)).toEqual(['SANDBOX_JWT_SECRET=$(openssl rand -base64 32)']);
+    // nothing listed follows SECRET_KEY, so there is nothing to tell to leave unset
+    expect(message).not.toContain('That is all a new deployment sets.');
+  });
+
+  it('gives a new deployment no line for a deprecated secret, whatever it follows', () => {
+    const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
+    expect(missing.filter((s) => s.deprecated).map((s) => s.envKey)).toEqual([
+      'BACKEND_DATA_DB_URL_ENCRYPTION_KEY',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_IV',
+    ]);
+
+    // one that nothing covers: it is still pinned for an existing deployment, and with
+    // nothing left to generate the message has no part for a new one
+    const message = buildMissingSecretsMessage([
+      {
+        envKey: 'RETIRING_SECRET',
+        usedFor: 'something on its way out',
+        legacyDefault: 'old-value',
+        deprecated: true,
+      },
+    ]);
+    expect(message).toContain("RETIRING_SECRET='old-value'");
+    expect(generated(message)).toEqual([]);
+    expect(message).not.toContain('NEW deployment');
   });
 
   it('accepts SECRET_KEY for jwt, session and what derives from it', () => {
@@ -135,6 +203,24 @@ describe('secrets guard', () => {
     expect(missing.map((s) => s.envKey)).toEqual(['SECRET_KEY']);
   });
 
+  it('never asks for the stored credential root: SECRET_KEY covers what resolves through it', () => {
+    const missing = (env: Record<string, string>) =>
+      findMissingSecrets(ALL_SECRET_SPECS, env).map((s) => s.envKey);
+    const {
+      SECRET_KEY: _root,
+      BACKEND_AI_CONFIG_ENCRYPTION_SECRET: _aiConfig,
+      ...withoutAiConfigRoot
+    } = fullEnv;
+    // The AI config root is unset and nothing stands in for it: it runs on the public default
+    // SECRET_KEY falls back to, and SECRET_KEY is the one variable asked for.
+    expect(missing(withoutAiConfigRoot)).toEqual(['SECRET_KEY']);
+    // Either root covers it.
+    expect(
+      missing({ ...withoutAiConfigRoot, BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'stored' })
+    ).toEqual(['SECRET_KEY']);
+    expect(missing({ ...withoutAiConfigRoot, SECRET_KEY: 'strong-secret' })).toEqual([]);
+  });
+
   it('flags secrets pinned to their public former defaults, and only those', () => {
     const pinnedEnv = {
       ...fullEnv,
@@ -158,11 +244,61 @@ describe('secrets guard', () => {
     expect(findPublicDefaultSecrets(ALL_SECRET_SPECS, fullEnv)).toEqual([]);
   });
 
-  it('keeps the secret admin tools off unless SECRET_ADMIN_TOOLS_ENABLED is "true"', () => {
-    expect(isSecretAdminToolsEnabled({})).toBe(false);
-    expect(isSecretAdminToolsEnabled({ SECRET_ADMIN_TOOLS_ENABLED: 'false' })).toBe(false);
-    expect(isSecretAdminToolsEnabled({ SECRET_ADMIN_TOOLS_ENABLED: '1' })).toBe(false);
-    expect(isSecretAdminToolsEnabled({ SECRET_ADMIN_TOOLS_ENABLED: 'true' })).toBe(true);
+  it('flags a stored credential root set to the default SECRET_KEY falls back to', () => {
+    // The root has no former default of its own; the public value is the one its purposes
+    // run on with nothing set.
+    expect(SECRET_SPECS.storedCredentialEncryptionSecret).not.toHaveProperty('legacyDefault');
+    const flagged = findPublicDefaultSecrets(ALL_SECRET_SPECS, {
+      ...fullEnv,
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: SECRET_SPECS.secretKey.legacyDefault,
+    });
+    expect(flagged.map((s) => s.envKey)).toEqual(['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET']);
+  });
+
+  it('announces the coming startup refusal in production mode, where SECRET_KEY is the cause', () => {
+    const notice = 'A LATER VERSION WILL REFUSE TO START while SECRET_KEY is unset';
+    const production = { NODE_ENV: 'production' };
+    const missingRoot = findMissingSecrets(ALL_SECRET_SPECS, {});
+    expect(missingRoot.map((s) => s.envKey)).toContain('SECRET_KEY');
+    const onDefault = findPublicDefaultSecrets(ALL_SECRET_SPECS, {
+      ...fullEnv,
+      SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault,
+    });
+    expect(onDefault.map((s) => s.envKey)).toEqual(['SECRET_KEY']);
+    expect(buildMissingSecretsMessage(missingRoot, production)).toContain(notice);
+    expect(buildPublicDefaultsWarning(onDefault, production)).toContain(notice);
+
+    // The refusal will only apply in production mode: development and tests, which run
+    // without a SECRET_KEY, are not told.
+    for (const env of [{}, { NODE_ENV: 'development' }, { NODE_ENV: 'test' }]) {
+      expect(buildMissingSecretsMessage(missingRoot, env)).not.toContain(notice);
+      expect(buildPublicDefaultsWarning(onDefault, env)).not.toContain(notice);
+    }
+
+    const otherDefault = findPublicDefaultSecrets(ALL_SECRET_SPECS, {
+      ...fullEnv,
+      BACKEND_JWT_SECRET: SECRET_SPECS.jwtSecret.legacyDefault,
+    });
+    expect(buildPublicDefaultsWarning(otherDefault, production)).not.toContain(notice);
+
+    const { SANDBOX_JWT_SECRET: _sandbox, ...withoutSandbox } = fullEnv;
+    const missingOther = findMissingSecrets(ALL_SECRET_SPECS, {
+      ...withoutSandbox,
+      NEXT_BUILD_ENV_EDITION: 'EE',
+    });
+    expect(missingOther.map((s) => s.envKey)).toEqual(['SANDBOX_JWT_SECRET']);
+    expect(buildMissingSecretsMessage(missingOther, production)).not.toContain(notice);
+  });
+
+  it('carries the announcement in the boot warning of a production instance', () => {
+    const logged: string[] = [];
+    enforceSecretsPolicy({ NODE_ENV: 'production' }, (message) => logged.push(message));
+    expect(logged.join('\n')).toContain('A LATER VERSION WILL REFUSE TO START');
+
+    logged.length = 0;
+    enforceSecretsPolicy({ NODE_ENV: 'development' }, (message) => logged.push(message));
+    expect(logged.join('\n')).toContain('SECURITY WARNING: missing secret');
+    expect(logged.join('\n')).not.toContain('A LATER VERSION WILL REFUSE TO START');
   });
 
   describe('findInsecureSecrets', () => {
@@ -229,20 +365,21 @@ describe('secrets guard', () => {
       ]);
     });
 
-    it('checks the BYODB root only once it is set', () => {
-      // unset, nothing is written under it: neither missing nor on a default
-      expect(findInsecureSecrets({ BACKEND_DATA_DB_URL_ENCRYPTION_SECRET: undefined })).not.toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({ envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET' }),
-        ])
-      );
-      expect(
-        findInsecureSecrets({
-          ...fullEnv,
-          BACKEND_DATA_DB_URL_ENCRYPTION_SECRET:
-            SECRET_SPECS.dataDbUrlEncryptionSecret.legacyDefault,
-        })
-      ).toEqual([{ envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET', reason: 'publicDefault' }]);
+    it('checks the BYODB root whenever it is set, its public default included', () => {
+      const byodbRoot = 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET';
+      // unset, the purpose follows the roots that are set: nothing of its own to report
+      expect(keys(fullEnv)).not.toContain(byodbRoot);
+      expect(keys({})).not.toContain(byodbRoot);
+      // On its public default it keeps the legacy format in use, whatever else is private:
+      // the backend reads it, so it is reported instead of going out of scope.
+      const publicRoot = SECRET_SPECS.dataDbUrlEncryptionSecret.legacyDefault;
+      expect(findInsecureSecrets({ ...fullEnv, [byodbRoot]: publicRoot })).toEqual([
+        { envKey: byodbRoot, reason: 'publicDefault' },
+      ]);
+      expect(findInsecureSecrets({ [byodbRoot]: publicRoot })).toEqual([
+        { envKey: 'SECRET_KEY', reason: 'missing' },
+        { envKey: byodbRoot, reason: 'publicDefault' },
+      ]);
     });
 
     it('counts SECRET_KEY for the BYODB pair and the pairs derived from it', () => {
@@ -293,7 +430,7 @@ describe('secrets guard', () => {
       expect(logged[0]).toContain('EXISTING deployment');
       // Both remediation paths are complete copy-pastable env lines.
       expect(logged[0]).toContain("BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY='ie21hOKjlXUiGDx9'");
-      expect(logged[0]).toContain('BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY=$(openssl rand -hex 8)');
+      expect(logged[0]).toContain('SECRET_KEY=$(openssl rand -base64 32)');
       // The message must be explicit that boot continues on public defaults.
       expect(logged[0]).toContain('PUBLICLY KNOWN');
     });

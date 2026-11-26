@@ -7,6 +7,16 @@ import { z } from 'zod';
  */
 export const COMPUTE_ACTIVITY_CHANGED = 'computeActivityChanged';
 
+/** Presence signal of a whole-field copy of public attachment files: at its start, each page, its end. */
+export const PUBLIC_FILE_PROGRESS = 'publicFileProgress';
+
+/** The files of the field copied so far; `done` reaching `total` ends the copy. */
+export interface IPublicFileProgress {
+  fieldId: string;
+  done: number;
+  total: number;
+}
+
 export const tableActionKeys = z.enum([
   'addRecord',
   'setRecord',
@@ -19,6 +29,7 @@ export const tableActionKeys = z.enum([
   'taskCancelled',
   'taskFailed',
   COMPUTE_ACTIVITY_CHANGED,
+  PUBLIC_FILE_PROGRESS,
 ]);
 
 export const viewActionKeys = z.enum([

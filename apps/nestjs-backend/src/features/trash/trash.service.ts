@@ -107,6 +107,9 @@ import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
 import { ViewOpenApiV2Service } from '../view/open-api/view-open-api-v2.service';
 import { ViewService } from '../view/view.service';
+import { recordTrashResetLockKey } from './record-trash-row';
+import type { IRecordsRestoreHook } from './records-restore.hook';
+import { RECORDS_RESTORE_HOOK } from './records-restore.hook';
 import type {
   ITrashFlow,
   ITrashResourceHandler,
@@ -275,6 +278,7 @@ type IRecordTrashDelegate = {
 type ITrashDataPrisma = {
   tableTrash: ITableTrashDelegate;
   recordTrash: IRecordTrashDelegate;
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
 };
 
 export type IGetTrashItemsOptions = {
@@ -320,6 +324,9 @@ export class TrashService {
   @Inject(ViewOpenApiV2Service) private readonly viewOpenApiV2Service!: ViewOpenApiV2Service;
   @Inject(TrustedRetentionContextService)
   private readonly trustedRetentionContextService!: TrustedRetentionContextService;
+  @Optional()
+  @Inject(RECORDS_RESTORE_HOOK)
+  private readonly recordsRestoreHook?: IRecordsRestoreHook;
 
   constructor(
     protected readonly performanceCacheService: PerformanceCacheService<IPerformanceCacheStore>,
@@ -2117,11 +2124,9 @@ export class TrashService {
     }
 
     await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+      await prisma.tableTrash.deleteMany({ where: { id: trashId } });
       await prisma.recordTrash.deleteMany({
         where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
-      });
-      await prisma.tableTrash.delete({
-        where: { id: trashId },
       });
     });
 
@@ -2135,6 +2140,12 @@ export class TrashService {
       tableId,
       [...matchedRecordTrashRows, ...coldTrashRows].map(({ recordId }) => recordId)
     );
+
+    await this.recordsRestoreHook
+      ?.afterRestore({ tableId, recordIds: readyRows.map(({ recordId }) => recordId) })
+      .catch((error) =>
+        this.logger.warn(`records restore hook failed for table ${tableId}: ${error}`)
+      );
 
     yield this.createRestoreDoneEvent(ResourceType.Record, {
       totalCount: records.length,
@@ -2431,11 +2442,9 @@ export class TrashService {
 
         await this.recordRestoreService.restoreRecordSnapshots(tableId, records);
         await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
+          await prisma.tableTrash.deleteMany({ where: { id: trashId } });
           await prisma.recordTrash.deleteMany({
             where: { id: { in: matchedRecordTrashRows.map(({ id }) => id) } },
-          });
-          await prisma.tableTrash.delete({
-            where: { id: trashId },
           });
         });
         // Cold-copy suppression, same rule as the stream restore path above.
@@ -2791,15 +2800,33 @@ export class TrashService {
     }
 
     await this.trashDataPrismaTransactionForTable(tableId, async (prisma) => {
-      // Scope to trash rows: archive snapshots share record_trash (reason 'archived') and
-      // must survive a trash reset together with their kept attachment reference rows.
-      await prisma.recordTrash.deleteMany({
-        where: { tableId, reason: RECORD_REMOVAL_REASON.Deleted },
-      });
-
-      await prisma.tableTrash.deleteMany({
-        where: { tableId },
-      });
+      await prisma.$executeRawUnsafe(
+        'SELECT pg_advisory_xact_lock(hashtextextended($1, 0))',
+        recordTrashResetLockKey(tableId)
+      );
+      // Lock and delete the same rows in id order, matching undo cleanup.
+      await prisma.$executeRawUnsafe(
+        `WITH locked AS (
+           SELECT id FROM table_trash WHERE table_id = $1 ORDER BY id FOR UPDATE
+         )
+         DELETE FROM table_trash USING locked WHERE table_trash.id = locked.id`,
+        tableId
+      );
+      // Read again after the index locks: a projection that held one of those
+      // locks may have just committed its snapshots. Keep snapshots whose index
+      // was created concurrently and therefore survived this reset.
+      await prisma.$executeRawUnsafe(
+        `DELETE FROM record_trash AS snapshot
+         WHERE snapshot.table_id = $1 AND snapshot.reason = $2
+           AND NOT EXISTS (
+             SELECT 1 FROM table_trash AS item
+             WHERE item.id = snapshot.operation_id AND item.table_id = snapshot.table_id
+               AND item.resource_type = $3
+           )`,
+        tableId,
+        RECORD_REMOVAL_REASON.Deleted,
+        TableTrashType.Record
+      );
     });
 
     // The deleted/ cold subtree mirrors the PG rows just removed — wipe it too so

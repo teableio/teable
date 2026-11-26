@@ -76,6 +76,7 @@ import { TimeZone } from '../domain/table/fields/types/TimeZone';
 import { UserDefaultValue } from '../domain/table/fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../domain/table/fields/types/UserMultiplicity';
 import { UserNotification } from '../domain/table/fields/types/UserNotification';
+import { AttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
 import {
   toLinkForeignTableReference,
   type LinkForeignTableReference,
@@ -1737,6 +1738,7 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
   private constructor(
     private readonly id: FieldId | undefined,
     private readonly name: FieldName,
+    private readonly publicAccess: AttachmentPublicAccess | undefined,
     private readonly notNull: FieldNotNull,
     private readonly unique: FieldUnique
   ) {}
@@ -1744,11 +1746,20 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
   static create(
     id: FieldId | undefined,
     name: FieldName,
-    options: { isPrimary: boolean; notNull: FieldNotNull; unique: FieldUnique }
+    options: {
+      isPrimary: boolean;
+      isPublic?: AttachmentPublicAccess;
+      notNull: FieldNotNull;
+      unique: FieldUnique;
+    }
   ): CreateAttachmentFieldSpec {
-    return new CreateAttachmentFieldSpec(id, name, options.notNull, options.unique).withPrimary(
-      options.isPrimary
-    );
+    return new CreateAttachmentFieldSpec(
+      id,
+      name,
+      options.isPublic,
+      options.notNull,
+      options.unique
+    ).withPrimary(options.isPrimary);
   }
 
   applyTo(builder: TableBuilder): void {
@@ -1758,6 +1769,7 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
       .withName(this.name)
       .withNotNull(this.notNull)
       .withUnique(this.unique);
+    if (this.publicAccess) fieldBuilder.withPublicAccess(this.publicAccess);
     if (this.id) fieldBuilder.withId(this.id);
     if (this.isPrimary) fieldBuilder.primary();
     fieldBuilder.done();
@@ -1770,6 +1782,7 @@ class CreateAttachmentFieldSpec implements ICreateTableFieldSpec {
       createAttachmentField({
         id,
         name: this.name,
+        isPublic: this.publicAccess,
         notNull: this.notNull,
         unique: this.unique,
       })
@@ -2685,10 +2698,11 @@ export const parseTableFieldSpec = (
               })
             )
           )
-          .with({ type: 'attachment' }, () =>
-            ok(
+          .with({ type: 'attachment' }, (field) =>
+            optional(field.options?.isPublic, AttachmentPublicAccess.create).map((isPublic) =>
               CreateAttachmentFieldSpec.create(id, name, {
                 isPrimary: options.isPrimary,
+                isPublic,
                 notNull: validation.notNull,
                 unique: validation.unique,
               })

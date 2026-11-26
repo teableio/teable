@@ -75,7 +75,9 @@
       "downloadSuccess": "Descarga completada",
       "downloadFailed": "La descarga falló",
       "downloadCancelled": "Descarga cancelada",
-      "requireHttps": "La descarga masiva requiere HTTPS. Accede mediante HTTPS o localhost"
+      "requireHttps": "La descarga masiva requiere HTTPS. Accede mediante HTTPS o localhost",
+      "copyPublicLink": "Copiar enlace público",
+      "publicLinkCopied": "Enlace público copiado"
     },
     "date": {
       "placeholder": "Selecciona una fecha",
@@ -1840,6 +1842,10 @@
       "endpointChanged": "Un secreto guardado solo puede enviarse a la dirección para la que se guardó. Vuelve a introducir {{field}}.",
       "reenterForNewAddress": "La dirección ha cambiado. Primero vuelve a introducir o borra {{fields}}.",
       "staleMask": "El {{field}} guardado cambió después de cargar la página. Vuelve a introducirlo."
+    },
+    "publicFile": {
+      "fieldNotFound": "No se encontró el campo",
+      "noPublicFields": "El espacio no existe o no tiene campos de adjuntos con acceso público activado"
     }
   },
   "usageLimitBanner": {

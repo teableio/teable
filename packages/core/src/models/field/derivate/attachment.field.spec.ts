@@ -4,6 +4,7 @@ import { plainToInstance } from 'class-transformer';
 import { FieldType, DbFieldType, CellValueType } from '../constant';
 import { FieldCore } from '../field';
 import type { IFieldVo } from '../field.schema';
+import { omitAttachmentPublic } from './attachment-option.schema';
 import type { IAttachmentCellValue } from './attachment.field';
 import { AttachmentFieldCore } from './attachment.field';
 
@@ -146,6 +147,8 @@ describe('AttachmentFieldCore', () => {
         options: {},
       });
       expect(field.validateOptions().success).toBe(true);
+      field.options = { isPublic: true };
+      expect(field.validateOptions().success).toBe(true);
     });
 
     it('should return failure if options are invalid', () => {
@@ -158,6 +161,26 @@ describe('AttachmentFieldCore', () => {
 
     it('should get default options', () => {
       expect(AttachmentFieldCore.defaultOptions()).toEqual({});
+    });
+  });
+
+  describe('omitAttachmentPublic', () => {
+    it('clears isPublic from attachment fields and their lookups only', () => {
+      expect(
+        omitAttachmentPublic({ type: FieldType.Attachment, options: { isPublic: true } })
+      ).toEqual({ type: FieldType.Attachment, options: {} });
+      expect(
+        omitAttachmentPublic({
+          type: FieldType.Attachment,
+          isLookup: true,
+          options: { isPublic: true },
+        })
+      ).toEqual({ type: FieldType.Attachment, isLookup: true, options: {} });
+
+      const text = { type: FieldType.SingleLineText, options: { isPublic: true } };
+      expect(omitAttachmentPublic(text)).toBe(text);
+      const privateField = { type: FieldType.Attachment, options: {} };
+      expect(omitAttachmentPublic(privateField)).toBe(privateField);
     });
   });
 });

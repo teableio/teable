@@ -4,6 +4,7 @@ import type { DomainError } from '../../shared/DomainError';
 import type { ISpecVisitor } from '../../shared/specification/ISpecVisitor';
 import type {
   RemoveSymmetricLinkFieldSpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateButtonColorSpec,
   UpdateButtonLabelSpec,
   UpdateButtonMaxCountSpec,
@@ -173,6 +174,11 @@ export interface ITableSpecVisitor<TResult = unknown> extends ISpecVisitor {
   visitUpdateUserMultiplicity(spec: UpdateUserMultiplicitySpec): Result<TResult, DomainError>;
   visitUpdateUserNotification(spec: UpdateUserNotificationSpec): Result<TResult, DomainError>;
   visitUpdateUserDefaultValue(spec: UpdateUserDefaultValueSpec): Result<TResult, DomainError>;
+
+  // ============ Attachment Update specs ============
+  visitUpdateAttachmentPublicAccess(
+    spec: UpdateAttachmentPublicAccessSpec
+  ): Result<TResult, DomainError>;
 
   // ============ Button Update specs ============
   visitUpdateButtonLabel(spec: UpdateButtonLabelSpec): Result<TResult, DomainError>;

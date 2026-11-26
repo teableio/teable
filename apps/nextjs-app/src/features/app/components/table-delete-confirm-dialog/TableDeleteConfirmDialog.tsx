@@ -1,6 +1,7 @@
 import { useBaseId } from '@teable/sdk/hooks';
 import { ConfirmDialog } from '@teable/ui-lib/base';
 import { useTranslation } from 'next-i18next';
+import { usePublicFileEnabled } from '../../hooks/usePublicFileEnabled';
 import { LoginAppWarning } from '../LoginAppWarning';
 import { OperationPreviewPanel, useOperationPreview } from '../operation-preview';
 
@@ -28,6 +29,7 @@ export const TableDeleteConfirmDialog = (props: TableDeleteConfirmDialogProps) =
   } = props;
   const { t } = useTranslation(['common', 'table']);
   const baseId = useBaseId();
+  const publicFileEnabled = usePublicFileEnabled();
   const preview = useOperationPreview(
     { operation: 'table.delete', input: { baseId, tableId, mode }, options: { detail: 'full' } },
     open && Boolean(baseId && tableId)
@@ -43,6 +45,7 @@ export const TableDeleteConfirmDialog = (props: TableDeleteConfirmDialogProps) =
           {loginApps && loginApps.length > 0 && (
             <LoginAppWarning message={t('table:table.loginDeleteWarning')} apps={loginApps} />
           )}
+          {mode === 'soft' && publicFileEnabled && <p>{t('common:trash.publicLinksOffAll')}</p>}
           <OperationPreviewPanel
             preview={preview.data}
             error={preview.error}

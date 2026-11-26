@@ -14,6 +14,7 @@ import type { IPasteByIdVo, ITableFullVo } from '@teable/openapi';
 import {
   axios,
   PASTE_BY_ID_URL,
+  PASTE_URL,
   X_CANARY_HEADER,
   urlBuilder,
   undo,
@@ -116,6 +117,66 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
       await permanentDeleteTable(baseId, target.id);
     }
   });
+
+  it.each([false, true])(
+    'preserves cells beyond the clipboard in a non-tiling selection (header=%s)',
+    async (withHeader) => {
+      const target = await createTable(baseId, {
+        name: 'Wide by-id selection',
+        fields: [
+          { name: 'Title', type: FieldType.SingleLineText },
+          { name: 'Detail', type: FieldType.SingleLineText },
+          {
+            name: 'Progress',
+            type: FieldType.Number,
+            options: { formatting: { type: NumberFormattingType.Percent, precision: 1 } },
+          },
+        ],
+        records: [
+          { fields: { Title: 'before-one', Detail: 'clear-one', Progress: 0.8 } },
+          { fields: { Title: 'before-two', Detail: 'clear-two', Progress: 0.9 } },
+          { fields: { Title: 'before-three', Detail: 'keep-three', Progress: 1 } },
+        ],
+      });
+      try {
+        const [title, detail, progress] = target.fields;
+        const selection = {
+          recordIds: target.records.map((record) => record.id),
+          fieldIds: [title.id, detail.id, progress.id],
+        };
+        const response = await pasteById(target.id, {
+          viewId: target.views[0].id,
+          selection,
+          content: [
+            [withHeader ? 0.25 : '25.0%', ''],
+            [withHeader ? 0.5 : '50.0%', null],
+            [withHeader ? 0.75 : '75.0%'],
+          ],
+          ...(withHeader ? { header: [progress, detail] } : {}),
+        });
+        expect(response.status, JSON.stringify(response.data)).toBe(200);
+        expect(response.headers['x-teable-v2']).toBe('true');
+        expect(response.data.selection).toEqual(selection);
+        expect(response.data.createdRecordIds).toBeUndefined();
+        expect(response.data.createdFieldIds).toBeUndefined();
+
+        const first = await getRecord(target.id, selection.recordIds[0]);
+        const second = await getRecord(target.id, selection.recordIds[1]);
+        const third = await getRecord(target.id, selection.recordIds[2]);
+        expect(first.fields).toMatchObject({ [title.id]: '25.0%', [progress.id]: 0.8 });
+        expect(second.fields).toMatchObject({ [title.id]: '50.0%', [progress.id]: 0.9 });
+        expect(third.fields).toMatchObject({
+          [title.id]: '75.0%',
+          [detail.id]: 'keep-three',
+          [progress.id]: 1,
+        });
+        expect(first.fields[detail.id] ?? null).toBeNull();
+        expect(second.fields[detail.id] ?? null).toBeNull();
+      } finally {
+        await permanentDeleteTable(baseId, target.id);
+      }
+    }
+  );
 
   it('retires the legacy factory for no-header string paste-by-id updates and creates', async () => {
     const target = await createTable(baseId, {
@@ -559,7 +620,7 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
     }
   });
 
-  it('preserves header type/default metadata while stripping workflow from an expanded button field', async () => {
+  it('preserves header type/default metadata while stripping workflow and public links from expanded fields', async () => {
     const target = await createTable(baseId, {
       name: 'paste-by-id-v2-header-metadata',
       fields: [{ name: 'Name', type: FieldType.SingleLineText }],
@@ -575,6 +636,7 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
           type: FieldType.Button,
           options: { label: 'Run', color: Colors.Teal, resetCount: true },
         },
+        { name: 'Files source', type: FieldType.Attachment },
       ],
       records: [],
     });
@@ -582,6 +644,7 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
       const nameField = target.fields[0];
       const sourceNumber = source.fields.find((field) => field.name === 'Number source')!;
       const sourceButton = source.fields.find((field) => field.name === 'Button source')!;
+      const sourceFiles = source.fields.find((field) => field.name === 'Files source')!;
       const copiedButton = {
         ...sourceButton,
         options: {
@@ -589,24 +652,89 @@ describe('Selection paste-by-id field expansion (v2, non-stream HTTP)', () => {
           workflow: { id: generateWorkflowId(), name: 'Do not copy', isActive: true },
         },
       };
+      const copiedFiles = { ...sourceFiles, options: { ...sourceFiles.options, isPublic: true } };
       const response = await pasteById(target.id, {
         viewId: target.views[0].id,
         selection: { recordIds: [target.records[0].id], fieldIds: [nameField.id] },
-        content: [['after', 12, '']],
-        header: [nameField, sourceNumber, copiedButton],
+        content: [['after', 12, '', '']],
+        header: [nameField, sourceNumber, copiedButton, copiedFiles],
       });
 
       expect(response.status).toBe(200);
-      expect(response.data.createdFieldIds).toHaveLength(2);
+      expect(response.data.createdFieldIds).toHaveLength(3);
       const fields = await getFields(target.id);
-      const [numberId, buttonId] = response.data.createdFieldIds!;
+      const [numberId, buttonId, filesId] = response.data.createdFieldIds!;
       const createdNumber = fields.find((field) => field.id === numberId)!;
       const createdButton = fields.find((field) => field.id === buttonId)!;
+      const createdFiles = fields.find((field) => field.id === filesId)!;
       expect(createdNumber).toMatchObject({ name: 'Number source', type: FieldType.Number });
       expect((createdNumber.options as { defaultValue?: number }).defaultValue).toBe(7);
       expect(createdButton).toMatchObject({ name: 'Button source', type: FieldType.Button });
       expect((createdButton.options as { label?: string; workflow?: unknown }).label).toBe('Run');
       expect((createdButton.options as { workflow?: unknown }).workflow).toBeUndefined();
+      expect(createdFiles).toMatchObject({ name: 'Files source', type: FieldType.Attachment });
+      expect((createdFiles.options as { isPublic?: boolean }).isPublic).toBeUndefined();
+    } finally {
+      await permanentDeleteTable(baseId, target.id);
+      await permanentDeleteTable(baseId, source.id);
+    }
+  });
+
+  it('strips workflow and public links from fields a range paste expands', async () => {
+    const target = await createTable(baseId, {
+      name: 'paste-range-v2-header-metadata',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      records: [{ fields: { Name: 'before' } }],
+    });
+    const source = await createTable(baseId, {
+      name: 'paste-range-v2-header-source',
+      fields: [
+        { name: 'Source name', type: FieldType.SingleLineText },
+        {
+          name: 'Button source',
+          type: FieldType.Button,
+          options: { label: 'Run', color: Colors.Teal },
+        },
+        { name: 'Files source', type: FieldType.Attachment },
+      ],
+      records: [],
+    });
+    try {
+      const nameField = target.fields[0];
+      const sourceButton = source.fields.find((field) => field.name === 'Button source')!;
+      const sourceFiles = source.fields.find((field) => field.name === 'Files source')!;
+      const response = await axios.patch(
+        urlBuilder(PASTE_URL, { tableId: target.id }),
+        {
+          viewId: target.views[0].id,
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+          content: [['after', '', '']],
+          header: [
+            nameField,
+            {
+              ...sourceButton,
+              options: {
+                ...sourceButton.options,
+                workflow: { id: generateWorkflowId(), name: 'Do not copy', isActive: true },
+              },
+            },
+            { ...sourceFiles, options: { ...sourceFiles.options, isPublic: true } },
+          ],
+        },
+        { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true }
+      );
+
+      expect(response.status).toBe(200);
+      const fields = await getFields(target.id);
+      const createdButton = fields.find((field) => field.name === 'Button source')!;
+      const createdFiles = fields.find((field) => field.name === 'Files source')!;
+      expect(createdButton.type).toBe(FieldType.Button);
+      expect((createdButton.options as { workflow?: unknown }).workflow).toBeUndefined();
+      expect(createdFiles.type).toBe(FieldType.Attachment);
+      expect((createdFiles.options as { isPublic?: boolean }).isPublic).toBeUndefined();
     } finally {
       await permanentDeleteTable(baseId, target.id);
       await permanentDeleteTable(baseId, source.id);

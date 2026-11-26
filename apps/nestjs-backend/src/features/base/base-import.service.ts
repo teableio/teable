@@ -1,8 +1,24 @@
 import type { Readable } from 'node:stream';
 import { Inject, Injectable, Logger, Optional } from '@nestjs/common';
+import type {
+  ICalendarViewOptions,
+  IConditionalLookupOptions,
+  IConditionalRollupFieldOptions,
+  IFieldReferenceValue,
+  IFilter,
+  IFilterItem,
+  IFilterSet,
+  IFormulaFieldOptions,
+  ILinkFieldOptions,
+  IRollupFieldOptions,
+} from '@teable/core';
 import {
+  analyzeFilterValidationIssues,
+  CellValueType,
+  DbFieldType,
   FieldType,
   fieldVoSchema,
+  FormulaFieldCore,
   generateBaseId,
   generateBaseNodeFolderId,
   generateBaseNodeId,
@@ -12,7 +28,12 @@ import {
   generateShareId,
   getUniqName,
   HttpErrorCode,
+  isFieldReferenceComparable,
+  isFieldReferenceValue,
+  isLinkLookupOptions,
+  isRollupFunctionSupportedForCellValueType,
   pluginViewOptionSchema,
+  RelationshipRevert,
   ViewType,
 } from '@teable/core';
 import { PrismaService, ProvisionState } from '@teable/db-main-prisma';
@@ -211,7 +232,16 @@ export class BaseImportService {
       path
     );
 
-    const { base, tableIdMap, viewIdMap, fieldIdMap, fkMap, structure, ...rest } =
+    const {
+      base,
+      tableIdMap,
+      viewIdMap,
+      fieldIdMap,
+      fkMap,
+      structure,
+      ignoredJunctionArchiveNames,
+      ...rest
+    } =
       await this.prismaService.$tx(
         async () => {
           return await this.processStructure(structureStream, importBaseRo, onProgress);
@@ -241,7 +271,8 @@ export class BaseImportService {
       fkMap,
       structure,
       logId,
-      rest
+      rest,
+      ignoredJunctionArchiveNames
     );
 
     return {
@@ -368,14 +399,21 @@ export class BaseImportService {
     viewIdMap: Record<string, string>;
     fkMap: Record<string, string>;
     structure: IBaseJson;
+    ignoredJunctionArchiveNames: string[];
   }> {
     const { spaceId } = importBaseRo;
     const structure = await this.readDotTeaStructure(zipStream);
     this.validateStructureDbIdentifiers(structure);
-    await this.preflightExtraBaseResources(structure, importBaseRo.notify.path);
-    return await this.createBaseStructure(
+    const { tables: normalizedTables, ignoredJunctionArchiveNames } =
+      this.normalizeDisconnectedImportTables(structure.tables);
+    const normalizedStructure: IBaseJson = {
+      ...structure,
+      tables: normalizedTables,
+    };
+    await this.preflightExtraBaseResources(normalizedStructure, importBaseRo.notify.path);
+    const result = await this.createBaseStructure(
       spaceId,
-      structure,
+      normalizedStructure,
       undefined,
       undefined,
       undefined,
@@ -383,6 +421,11 @@ export class BaseImportService {
       { useTransaction: true },
       true
     );
+    return {
+      ...result,
+      structure: normalizedStructure,
+      ignoredJunctionArchiveNames,
+    };
   }
 
   private async uploadAttachments(path: string) {
@@ -411,7 +454,8 @@ export class BaseImportService {
     // Supplied by caller (importBase / importBaseV2) so HTTP-side structural rows and
     // BullMQ worker chunk rows share the same audit operationId.
     logId: string,
-    hostResourceIdMaps: Record<string, Record<string, string>>
+    hostResourceIdMaps: Record<string, Record<string, string>>,
+    ignoredJunctionArchiveNames?: string[]
   ): Promise<string> {
     for (const tableId of Object.values(tableIdMap)) {
       await this.recordMutationPolicy.assertAllowed({
@@ -438,6 +482,7 @@ export class BaseImportService {
         structure,
         importBaseRo,
         hostResourceIdMaps,
+        ignoredJunctionArchiveNames,
         logId,
       },
       {
@@ -557,6 +602,602 @@ export class BaseImportService {
       dashboardIdMap,
       nodeIdMap,
       baseIdMap,
+    };
+  }
+
+  private downgradeDisconnectedField(
+    field: IBaseJson['tables'][number]['fields'][number]
+  ): IBaseJson['tables'][number]['fields'][number] {
+    const downgraded: Record<string, unknown> = {
+      ...field,
+      type: FieldType.SingleLineText,
+      dbFieldType: DbFieldType.Text,
+      cellValueType: CellValueType.String,
+      options: {},
+    };
+    delete downgraded.lookupOptions;
+    delete downgraded.isLookup;
+    delete downgraded.isConditionalLookup;
+    delete downgraded.isMultipleCellValue;
+    delete downgraded.isComputed;
+    delete downgraded.hasError;
+    return downgraded as IBaseJson['tables'][number]['fields'][number];
+  }
+
+  private willConvertToTextDuringImport(
+    foreignTableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>
+  ): boolean {
+    if (downgradedFieldIdsByTable.get(foreignTableId)?.has(field.id)) {
+      return true;
+    }
+    return (
+      Boolean(field.hasError) &&
+      (Boolean(field.isLookup) ||
+        field.type === FieldType.Rollup ||
+        field.type === FieldType.ConditionalRollup)
+    );
+  }
+
+  private isCompatibleWithTextLookupTarget(
+    field: IBaseJson['tables'][number]['fields'][number],
+    targetWasMultiValueFormula: boolean
+  ): boolean {
+    if (field.isLookup) {
+      return field.type === FieldType.SingleLineText;
+    }
+    if (field.type === FieldType.Rollup || field.type === FieldType.ConditionalRollup) {
+      const expression = (
+        field.options as IRollupFieldOptions | IConditionalRollupFieldOptions | undefined
+      )?.expression;
+      if (
+        typeof expression !== 'string' ||
+        expression.length === 0 ||
+        !isRollupFunctionSupportedForCellValueType(expression, CellValueType.String)
+      ) {
+        return false;
+      }
+      // These rollups inherit the target's cell value type and depend on array boundaries.
+      // The CSV text for a downgraded formula array is now a single value.
+      if (
+        (expression === 'array_unique({values})' || expression === 'array_compact({values})') &&
+        (field.cellValueType !== CellValueType.String || targetWasMultiValueFormula)
+      ) {
+        return false;
+      }
+      return true;
+    }
+    return true;
+  }
+
+  private isMissingOrIncompatibleLookupTarget(
+    field: IBaseJson['tables'][number]['fields'][number],
+    foreignTableId: string | undefined,
+    lookupFieldId: string | undefined,
+    tableIds: ReadonlySet<string>,
+    fieldsByTable: ReadonlyMap<
+      string,
+      ReadonlyMap<string, IBaseJson['tables'][number]['fields'][number]>
+    >,
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>,
+    downgradedMultiValueFormulaIds: ReadonlySet<string>
+  ): boolean {
+    if (field.hasError) {
+      return true;
+    }
+    if (!foreignTableId || !tableIds.has(foreignTableId)) {
+      return true;
+    }
+    if (!lookupFieldId) {
+      return true;
+    }
+    const targetField = fieldsByTable.get(foreignTableId)?.get(lookupFieldId);
+    if (!targetField) {
+      return true;
+    }
+    if (
+      this.willConvertToTextDuringImport(foreignTableId, targetField, downgradedFieldIdsByTable) &&
+      !this.isCompatibleWithTextLookupTarget(
+        field,
+        downgradedMultiValueFormulaIds.has(lookupFieldId)
+      )
+    ) {
+      return true;
+    }
+    return false;
+  }
+
+  private getEffectiveImportFilterFieldMeta(
+    tableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>
+  ): {
+    type: FieldType;
+    cellValueType: CellValueType;
+    isMultipleCellValue: boolean;
+    wasConvertedToText: boolean;
+  } {
+    const wasConvertedToText = this.willConvertToTextDuringImport(
+      tableId,
+      field,
+      downgradedFieldIdsByTable
+    );
+    if (wasConvertedToText) {
+      return {
+        type: FieldType.SingleLineText,
+        cellValueType: CellValueType.String,
+        isMultipleCellValue: false,
+        wasConvertedToText: true,
+      };
+    }
+    return {
+      type: field.type,
+      cellValueType: field.cellValueType ?? CellValueType.String,
+      isMultipleCellValue: Boolean(field.isMultipleCellValue),
+      wasConvertedToText: false,
+    };
+  }
+
+  private extractFilterFieldReferences(value: unknown): IFieldReferenceValue[] {
+    if (isFieldReferenceValue(value)) {
+      return [value];
+    }
+    if (Array.isArray(value)) {
+      return value.filter((entry): entry is IFieldReferenceValue => isFieldReferenceValue(entry));
+    }
+    return [];
+  }
+
+  private hasIncompatibleConditionalFilter(
+    hostTableId: string,
+    foreignTableId: string | undefined,
+    filter: IFilter | null | undefined,
+    fieldsByTable: ReadonlyMap<
+      string,
+      ReadonlyMap<string, IBaseJson['tables'][number]['fields'][number]>
+    >,
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>
+  ): boolean {
+    if (!filter || !foreignTableId) {
+      return false;
+    }
+
+    const inspectNode = (node: IFilterSet | IFilterItem): boolean => {
+      if ('filterSet' in node) {
+        return node.filterSet.some((child) => inspectNode(child));
+      }
+
+      const lhsField = fieldsByTable.get(foreignTableId)?.get(node.fieldId);
+      const lhsMeta = lhsField
+        ? this.getEffectiveImportFilterFieldMeta(foreignTableId, lhsField, downgradedFieldIdsByTable)
+        : undefined;
+      const rhsRefs = this.extractFilterFieldReferences(node.value);
+      const rhsMetas = rhsRefs.map((ref) => {
+        if (ref.tableId) {
+          const refField = fieldsByTable.get(ref.tableId)?.get(ref.fieldId);
+          return refField
+            ? this.getEffectiveImportFilterFieldMeta(
+                ref.tableId,
+                refField,
+                downgradedFieldIdsByTable
+              )
+            : undefined;
+        }
+        const hostField = fieldsByTable.get(hostTableId)?.get(ref.fieldId);
+        if (hostField) {
+          return this.getEffectiveImportFilterFieldMeta(
+            hostTableId,
+            hostField,
+            downgradedFieldIdsByTable
+          );
+        }
+        const foreignField = fieldsByTable.get(foreignTableId)?.get(ref.fieldId);
+        return foreignField
+          ? this.getEffectiveImportFilterFieldMeta(
+              foreignTableId,
+              foreignField,
+              downgradedFieldIdsByTable
+            )
+          : undefined;
+      });
+
+      const touchesDowngradedField =
+        Boolean(lhsMeta?.wasConvertedToText) || rhsMetas.some((meta) => meta?.wasConvertedToText);
+      if (!touchesDowngradedField) {
+        return false;
+      }
+
+      if (!lhsMeta) {
+        return true;
+      }
+
+      const issues = analyzeFilterValidationIssues(
+        { conjunction: 'and', filterSet: [node] },
+        { [node.fieldId]: lhsMeta }
+      );
+      if (issues.length > 0) {
+        return true;
+      }
+
+      if (rhsRefs.length > 0) {
+        return rhsMetas.some(
+          (refMeta) => !refMeta || !isFieldReferenceComparable(lhsMeta, refMeta)
+        );
+      }
+
+      if (lhsMeta.wasConvertedToText && node.value != null && typeof node.value === 'object') {
+        return true;
+      }
+
+      return false;
+    };
+
+    return inspectNode(filter);
+  }
+
+  private shouldDowngradeDisconnectedField(
+    tableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    tableIds: ReadonlySet<string>,
+    fieldsByTable: ReadonlyMap<
+      string,
+      ReadonlyMap<string, IBaseJson['tables'][number]['fields'][number]>
+    >,
+    activeLinkFieldIds: ReadonlySet<string>,
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>,
+    downgradedMultiValueFormulaIds: ReadonlySet<string>
+  ): boolean {
+    if (field.type === FieldType.Link && !field.isLookup) {
+      const linkOptions = field.options as ILinkFieldOptions | undefined;
+      const foreignTableId = linkOptions?.foreignTableId;
+      if (!foreignTableId || !tableIds.has(foreignTableId)) {
+        return true;
+      }
+      if (!linkOptions?.isOneWay) {
+        const symmetricFieldId = linkOptions?.symmetricFieldId;
+        if (
+          typeof symmetricFieldId !== 'string' ||
+          !symmetricFieldId ||
+          symmetricFieldId === field.id
+        ) {
+          return true;
+        }
+        const reciprocal = fieldsByTable.get(foreignTableId)?.get(symmetricFieldId);
+        const reciprocalOptions =
+          reciprocal && reciprocal.type === FieldType.Link && !reciprocal.isLookup
+            ? (reciprocal.options as ILinkFieldOptions | undefined)
+            : undefined;
+        if (
+          !reciprocalOptions ||
+          reciprocalOptions.isOneWay ||
+          reciprocalOptions.foreignTableId !== tableId ||
+          reciprocalOptions.symmetricFieldId !== field.id
+        ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    if (field.isLookup && field.isConditionalLookup) {
+      const conditionalOptions = field.lookupOptions as IConditionalLookupOptions | undefined;
+      return this.isMissingOrIncompatibleLookupTarget(
+        field,
+        conditionalOptions?.foreignTableId,
+        conditionalOptions?.lookupFieldId,
+        tableIds,
+        fieldsByTable,
+        downgradedFieldIdsByTable,
+        downgradedMultiValueFormulaIds
+      );
+    }
+
+    if (field.isLookup || field.type === FieldType.Rollup) {
+      const lookupOptions =
+        field.lookupOptions && isLinkLookupOptions(field.lookupOptions)
+          ? field.lookupOptions
+          : undefined;
+      if (!lookupOptions?.linkFieldId || !activeLinkFieldIds.has(lookupOptions.linkFieldId)) {
+        return true;
+      }
+      return this.isMissingOrIncompatibleLookupTarget(
+        field,
+        lookupOptions.foreignTableId,
+        lookupOptions.lookupFieldId,
+        tableIds,
+        fieldsByTable,
+        downgradedFieldIdsByTable,
+        downgradedMultiValueFormulaIds
+      );
+    }
+
+    if (field.type === FieldType.ConditionalRollup) {
+      const conditionalOptions = field.options as IConditionalRollupFieldOptions | undefined;
+      return this.isMissingOrIncompatibleLookupTarget(
+        field,
+        conditionalOptions?.foreignTableId,
+        conditionalOptions?.lookupFieldId,
+        tableIds,
+        fieldsByTable,
+        downgradedFieldIdsByTable,
+        downgradedMultiValueFormulaIds
+      );
+    }
+
+    return false;
+  }
+
+  private shouldDowngradeConditionalFieldByFilter(
+    tableId: string,
+    field: IBaseJson['tables'][number]['fields'][number],
+    fieldsByTable: ReadonlyMap<
+      string,
+      ReadonlyMap<string, IBaseJson['tables'][number]['fields'][number]>
+    >,
+    downgradedFieldIdsByTable: ReadonlyMap<string, ReadonlySet<string>>
+  ): boolean {
+    if (field.isLookup && field.isConditionalLookup) {
+      const conditionalOptions = field.lookupOptions as IConditionalLookupOptions | undefined;
+      return this.hasIncompatibleConditionalFilter(
+        tableId,
+        conditionalOptions?.foreignTableId,
+        conditionalOptions?.filter,
+        fieldsByTable,
+        downgradedFieldIdsByTable
+      );
+    }
+
+    if (field.type === FieldType.ConditionalRollup) {
+      const conditionalOptions = field.options as IConditionalRollupFieldOptions | undefined;
+      return this.hasIncompatibleConditionalFilter(
+        tableId,
+        conditionalOptions?.foreignTableId,
+        conditionalOptions?.filter,
+        fieldsByTable,
+        downgradedFieldIdsByTable
+      );
+    }
+
+    return false;
+  }
+
+  private clearDowngradedCalendarBindings(
+    views: IBaseJson['tables'][number]['views'],
+    downgradedFieldIds: ReadonlySet<string>
+  ): IBaseJson['tables'][number]['views'] {
+    if (!downgradedFieldIds.size || !views?.length) {
+      return views;
+    }
+    let viewsChanged = false;
+    const normalizedViews = views.map((view) => {
+      if (view.type !== ViewType.Calendar || !view.options) {
+        return view;
+      }
+      const calendarOptions = view.options as ICalendarViewOptions;
+      const clearStart =
+        typeof calendarOptions.startDateFieldId === 'string' &&
+        downgradedFieldIds.has(calendarOptions.startDateFieldId);
+      const clearEnd =
+        typeof calendarOptions.endDateFieldId === 'string' &&
+        downgradedFieldIds.has(calendarOptions.endDateFieldId);
+      if (!clearStart && !clearEnd) {
+        return view;
+      }
+      viewsChanged = true;
+      const nextOptions = { ...calendarOptions };
+      if (clearStart) {
+        delete nextOptions.startDateFieldId;
+      }
+      if (clearEnd) {
+        delete nextOptions.endDateFieldId;
+      }
+      return { ...view, options: nextOptions };
+    });
+    return viewsChanged ? normalizedViews : views;
+  }
+
+  private findMissingSymmetricPointers(
+    tables: IBaseJson['tables'],
+    fieldsByTable: ReadonlyMap<
+      string,
+      ReadonlyMap<string, IBaseJson['tables'][number]['fields'][number]>
+    >
+  ) {
+    const pointers = new Map<string, string | null>();
+    for (const table of tables) {
+      for (const field of table.fields) {
+        if (field.type !== FieldType.Link || field.isLookup) continue;
+        const options = field.options as ILinkFieldOptions | undefined;
+        if (!options?.symmetricFieldId || options.isOneWay) continue;
+        const other = fieldsByTable.get(options.foreignTableId)?.get(options.symmetricFieldId);
+        if (!other || other === field || other.type !== FieldType.Link || other.isLookup) continue;
+        const inverse = other.options as ILinkFieldOptions | undefined;
+        if (
+          !inverse ||
+          inverse.isOneWay ||
+          inverse.symmetricFieldId ||
+          inverse.foreignTableId !== table.id ||
+          inverse.relationship !== RelationshipRevert[options.relationship] ||
+          !options.fkHostTableName ||
+          inverse.fkHostTableName !== options.fkHostTableName ||
+          !options.selfKeyName ||
+          inverse.foreignKeyName !== options.selfKeyName ||
+          !options.foreignKeyName ||
+          inverse.selfKeyName !== options.foreignKeyName
+        ) {
+          continue;
+        }
+        // A legacy archive may omit one pointer. Never choose between competing pairs.
+        pointers.set(other.id, pointers.has(other.id) ? null : field.id);
+      }
+    }
+    return pointers;
+  }
+
+  private normalizeDisconnectedImportTables(tables: IBaseJson['tables']): {
+    tables: IBaseJson['tables'];
+    ignoredJunctionArchiveNames: string[];
+  } {
+    const tableIds = new Set(tables.map((table) => table.id));
+    const fieldsByTable = new Map(
+      tables.map((table) => [
+        table.id,
+        new Map(table.fields.map((field) => [field.id, field])),
+      ])
+    );
+    const currentFieldsByTable = new Map(tables.map((table) => [table.id, table.fields]));
+    const missingPointers = this.findMissingSymmetricPointers(tables, fieldsByTable);
+    if (missingPointers.size) {
+      for (const table of tables) {
+        if (!table.fields.some((field) => missingPointers.get(field.id))) continue;
+        const tableFields = fieldsByTable.get(table.id)!;
+        const repaired = table.fields.map((field) => {
+          const symmetricFieldId = missingPointers.get(field.id);
+          if (!symmetricFieldId) return field;
+          const options = { ...(field.options as ILinkFieldOptions), symmetricFieldId };
+          const link = { ...field, options };
+          tableFields.set(field.id, link);
+          return link;
+        });
+        currentFieldsByTable.set(table.id, repaired);
+      }
+    }
+    const downgradedFieldIdsByTable = new Map(
+      tables.map((table) => [table.id, new Set<string>()])
+    );
+    const downgradedMultiValueFormulaIds = new Set<string>();
+    const ignoredJunctionArchiveNames = new Set<string>();
+    const maxPasses = tables.reduce((sum, table) => sum + table.fields.length, 0) + 1;
+    const referencesByExpression = new Map<string, readonly string[]>();
+    const referencesDowngradedField = (
+      field: IBaseJson['tables'][number]['fields'][number],
+      downgradedIds: ReadonlySet<string>
+    ): boolean => {
+      if (
+        !downgradedIds.size ||
+        field.type !== FieldType.Formula ||
+        field.isLookup ||
+        field.hasError
+      ) {
+        return false;
+      }
+      const expression = (field.options as IFormulaFieldOptions).expression;
+      let references = referencesByExpression.get(expression);
+      if (!references) {
+        references = FormulaFieldCore.getReferenceFieldIds(expression);
+        referencesByExpression.set(expression, references);
+      }
+      return references.some((id) => downgradedIds.has(id));
+    };
+
+    for (let pass = 0; pass < maxPasses; pass++) {
+      for (let structuralPass = 0; structuralPass < maxPasses; structuralPass++) {
+        let structuralChanged = false;
+        for (const table of tables) {
+          const currentFields = currentFieldsByTable.get(table.id)!;
+          const tableFieldMap = fieldsByTable.get(table.id)!;
+          const downgradedFieldIds = downgradedFieldIdsByTable.get(table.id)!;
+          const activeLinkFieldIds = new Set(
+            currentFields
+              .filter((field) => field.type === FieldType.Link && !field.isLookup)
+              .map((field) => field.id)
+          );
+          let tableChanged = false;
+          const nextFields = currentFields.map((field) => {
+            if (
+              referencesDowngradedField(field, downgradedFieldIds) ||
+              this.shouldDowngradeDisconnectedField(
+                table.id,
+                field,
+                tableIds,
+                fieldsByTable,
+                activeLinkFieldIds,
+                downgradedFieldIdsByTable,
+                downgradedMultiValueFormulaIds
+              )
+            ) {
+              structuralChanged = true;
+              tableChanged = true;
+              downgradedFieldIds.add(field.id);
+              if (field.type === FieldType.Formula && !field.isLookup && field.isMultipleCellValue) {
+                downgradedMultiValueFormulaIds.add(field.id);
+              }
+              if (field.type === FieldType.Link && !field.isLookup) {
+                const fkHostTableName = (field.options as ILinkFieldOptions | undefined)
+                  ?.fkHostTableName;
+                if (typeof fkHostTableName === 'string' && fkHostTableName.includes('junction_')) {
+                  ignoredJunctionArchiveNames.add(fkHostTableName);
+                }
+              }
+              const downgraded = this.downgradeDisconnectedField(field);
+              tableFieldMap.set(field.id, downgraded);
+              return downgraded;
+            }
+            return field;
+          });
+          if (tableChanged) {
+            currentFieldsByTable.set(table.id, nextFields);
+          }
+        }
+        if (!structuralChanged) break;
+      }
+
+      const filterDowngradeIdsByTable = new Map<string, Set<string>>();
+      let filterChanged = false;
+      for (const table of tables) {
+        const currentFields = currentFieldsByTable.get(table.id)!;
+        for (const field of currentFields) {
+          if (
+            this.shouldDowngradeConditionalFieldByFilter(
+              table.id,
+              field,
+              fieldsByTable,
+              downgradedFieldIdsByTable
+            )
+          ) {
+            let ids = filterDowngradeIdsByTable.get(table.id);
+            if (!ids) {
+              ids = new Set<string>();
+              filterDowngradeIdsByTable.set(table.id, ids);
+            }
+            ids.add(field.id);
+            filterChanged = true;
+          }
+        }
+      }
+
+      if (!filterChanged) break;
+
+      for (const [tableId, fieldIds] of filterDowngradeIdsByTable) {
+        const currentFields = currentFieldsByTable.get(tableId)!;
+        const tableFieldMap = fieldsByTable.get(tableId)!;
+        const downgradedFieldIds = downgradedFieldIdsByTable.get(tableId)!;
+        const nextFields = currentFields.map((field) => {
+          if (!fieldIds.has(field.id)) {
+            return field;
+          }
+          downgradedFieldIds.add(field.id);
+          const downgraded = this.downgradeDisconnectedField(field);
+          tableFieldMap.set(field.id, downgraded);
+          return downgraded;
+        });
+        currentFieldsByTable.set(tableId, nextFields);
+      }
+    }
+
+    const normalizedTables = tables.map((table) => {
+      const currentFields = currentFieldsByTable.get(table.id)!;
+      const downgradedFieldIds = downgradedFieldIdsByTable.get(table.id)!;
+      const normalizedViews = this.clearDowngradedCalendarBindings(table.views, downgradedFieldIds);
+      return currentFields === table.fields && normalizedViews === table.views
+        ? table
+        : { ...table, fields: currentFields, views: normalizedViews };
+    });
+
+    return {
+      tables: normalizedTables,
+      ignoredJunctionArchiveNames: [...ignoredJunctionArchiveNames],
     };
   }
 

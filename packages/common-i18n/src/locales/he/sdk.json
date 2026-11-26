@@ -75,7 +75,9 @@
       "downloadSuccess": "ההורדה הושלמה",
       "downloadFailed": "ההורדה נכשלה",
       "downloadCancelled": "ההורדה בוטלה",
-      "requireHttps": "הורדה מרובה מחייבת HTTPS. יש לגשת דרך HTTPS או localhost"
+      "requireHttps": "הורדה מרובה מחייבת HTTPS. יש לגשת דרך HTTPS או localhost",
+      "copyPublicLink": "העתקת קישור ציבורי",
+      "publicLinkCopied": "הקישור הציבורי הועתק"
     },
     "date": {
       "placeholder": "בחירת תאריך",
@@ -1840,6 +1842,10 @@
       "endpointChanged": "ניתן לשלוח סוד שמור רק לכתובת שעבורה הוא נשמר. הזן שוב את {{field}}.",
       "reenterForNewAddress": "הכתובת השתנתה. הזן שוב או נקה קודם את {{fields}}.",
       "staleMask": "{{field}} השמור השתנה מאז טעינת הדף. הזן אותו שוב."
+    },
+    "publicFile": {
+      "fieldNotFound": "השדה לא נמצא",
+      "noPublicFields": "המרחב לא קיים, או שאין בו שדות קבצים מצורפים עם גישה ציבורית"
     }
   },
   "usageLimitBanner": {

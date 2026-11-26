@@ -454,7 +454,7 @@ const regularFieldDtoSchema = z.discriminatedUnion('type', [
   }),
   baseFieldDtoSchema.extend({
     type: z.literal('attachment'),
-    options: z.object({}).optional(),
+    options: z.object({ isPublic: z.boolean().optional() }).optional(),
   }),
   baseFieldDtoSchema.extend({
     type: z.literal('date'),
@@ -866,7 +866,7 @@ class FieldToDtoVisitor implements IFieldVisitor<RegularFieldDto> {
     return ok({
       ...this.baseField(field),
       type: 'attachment',
-      options: {},
+      options: field.publicAccess().toBoolean() ? { isPublic: true } : {},
     });
   }
 

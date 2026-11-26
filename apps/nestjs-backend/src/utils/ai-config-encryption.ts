@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { SECRET_SPECS } from '../configs/secrets/secret-specs';
+import { STORED_SECRET_PURPOSES } from '../configs/secrets/stored-secret-roots';
 import type { ISecretMapper } from './secret-value-codec';
 import { SecretValueCodec } from './secret-value-codec';
 
@@ -7,14 +7,15 @@ type IEnv = Record<string, string | undefined>;
 
 /**
  * Value codec for secrets embedded in AI config JSON (setting.aiConfig /
- * integration.config), rooted at BACKEND_AI_CONFIG_ENCRYPTION_SECRET.
+ * integration.config), rooted at the stored credential root
+ * (BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET, else SECRET_KEY); the superseded
+ * BACKEND_AI_CONFIG_ENCRYPTION_SECRET still takes its place while set.
  */
 export class AiConfigValueCodec extends SecretValueCodec {
   constructor(env: IEnv = process.env) {
     super(
       {
-        spec: SECRET_SPECS.aiConfigEncryptionSecret,
-        oldEnvKey: 'BACKEND_AI_CONFIG_ENCRYPTION_SECRET_OLD',
+        purpose: STORED_SECRET_PURPOSES.aiConfig,
         hkdfInfo: 'teable:ai-config',
         label: 'AI config secret',
       },
@@ -137,7 +138,7 @@ export const decryptAiConfigSecrets = <T>(config: T, logLabel = 'unknown'): T =>
       return codec.decryptValueStrict(value);
     } catch {
       logger.error(
-        `Failed to decrypt an AI config secret in ${logLabel} — check BACKEND_AI_CONFIG_ENCRYPTION_SECRET(_OLD)`
+        `Failed to decrypt an AI config secret in ${logLabel} — check BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET(_OLD) and BACKEND_AI_CONFIG_ENCRYPTION_SECRET(_OLD)`
       );
       return value;
     }

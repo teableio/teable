@@ -75,7 +75,9 @@
       "downloadSuccess": "Download abgeschlossen",
       "downloadFailed": "Download fehlgeschlagen",
       "downloadCancelled": "Download abgebrochen",
-      "requireHttps": "Der Massendownload erfordert HTTPS. Bitte greifen Sie über HTTPS oder localhost zu"
+      "requireHttps": "Der Massendownload erfordert HTTPS. Bitte greifen Sie über HTTPS oder localhost zu",
+      "copyPublicLink": "Öffentlichen Link kopieren",
+      "publicLinkCopied": "Öffentlicher Link kopiert"
     },
     "date": {
       "placeholder": "Datum auswählen",
@@ -1836,6 +1838,10 @@
       "endpointChanged": "Ein gespeichertes Geheimnis kann nur an die Adresse gesendet werden, für die es gespeichert wurde. Geben Sie {{field}} erneut ein.",
       "reenterForNewAddress": "Die Adresse wurde geändert. Geben Sie zuerst {{fields}} erneut ein oder leeren Sie die Felder.",
       "staleMask": "Das gespeicherte {{field}} wurde seit dem Laden der Seite geändert. Geben Sie es erneut ein."
+    },
+    "publicFile": {
+      "fieldNotFound": "Feld nicht gefunden",
+      "noPublicFields": "Der Space existiert nicht oder hat keine Anhangfelder mit öffentlichem Zugriff"
     }
   },
   "usageLimitBanner": {

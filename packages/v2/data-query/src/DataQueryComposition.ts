@@ -76,6 +76,7 @@ export type BoundDataQueryComposition = {
   definition: DataQueryComposition;
   sourceOutputs: readonly DataQueryOutput[];
   outputs: readonly DataQueryOutput[];
+  monthComparison?: { dimension: string; currentMonth: string; previousMonth: string };
   filters: readonly { alias: string; operator: Filter['operator']; value?: Scalar | null }[];
 };
 
@@ -240,6 +241,7 @@ function prepareFixedComposition(
     return ok({
       outputs,
       parameters,
+      monthDimensions: undefined,
       optionalParameters: [...optionalParameters],
       bind(input: Readonly<Record<string, unknown>> = {}) {
         return safeTry(function* () {
@@ -328,6 +330,67 @@ function metricGroupBy(value: unknown, dimensions: readonly string[]) {
   return ok(value);
 }
 
+function admittedMonthDimensions(source: DataQueryDefinitionInput, dimensions: readonly string[]) {
+  const months: Record<string, string> = Object.create(null);
+  if (source.kind === 'records') {
+    for (const field of source.select) {
+      if (!dimensions.includes(field.alias) || !('bucket' in field)) continue;
+      if (field.bucket?.kind === 'dateTrunc' && field.bucket.unit === 'month') {
+        months[field.alias] = field.bucket.timeZone;
+      }
+    }
+  }
+  return months;
+}
+
+const monthComparisonOutputs: DataQueryOutput[] = [
+  ...['currentMonth', 'previousMonth'].map((alias) => ({
+    alias,
+    wireType: 'string' as const,
+    cellValueType: 'string',
+    nullable: false,
+    isMultipleCellValue: false,
+  })),
+  ...['current', 'previous', 'difference', 'changeRate'].map((alias) => ({
+    alias,
+    wireType: 'numberOrString' as const,
+    cellValueType: 'number',
+    nullable: true,
+    isMultipleCellValue: false,
+  })),
+];
+
+function bindMonthComparison(
+  months: Record<string, string>,
+  dimension: unknown,
+  currentMonth: unknown,
+  filters: Readonly<Record<string, unknown>>,
+  groups: readonly string[]
+) {
+  if (dimension === undefined && currentMonth === undefined) return ok(undefined);
+  if (typeof dimension !== 'string' || !Object.hasOwn(months, dimension)) {
+    return err(invalid('compareDimension must name an admitted calendar month bucket'));
+  }
+  if (
+    typeof currentMonth !== 'string' ||
+    currentMonth.length !== 7 ||
+    !/^\d{4}-(?:0[1-9]|1[0-2])$/.test(currentMonth) ||
+    currentMonth < '0001-02'
+  ) {
+    return err(invalid('compareMonth must be YYYY-MM with a representable previous month'));
+  }
+  if (groups.length || Object.hasOwn(filters, `where_${dimension}`)) {
+    return err(invalid('Month comparison cannot group rows or filter its comparison dimension'));
+  }
+  const year = Number(currentMonth.slice(0, 4));
+  const month = Number(currentMonth.slice(5));
+  const previousMonth =
+    month === 1
+      ? `${String(year - 1).padStart(4, '0')}-12`
+      : `${currentMonth.slice(0, 4)}-${String(month - 1).padStart(2, '0')}`;
+  return ok({ dimension, currentMonth, previousMonth });
+}
+
 function prepareSharedMetric(
   definition: DataQueryComposition,
   dimensions: string[],
@@ -355,6 +418,11 @@ function prepareSharedMetric(
     const base = yield* fixed.bind();
     const dimensionOutputs = fixed.outputs.slice(0, dimensions.length);
     const parameters = yield* metricControls(dimensionOutputs);
+    const monthDimensions = admittedMonthDimensions(source.definition, dimensions);
+    if (Object.keys(monthDimensions).length) {
+      parameters.compareDimension = { type: 'string' };
+      parameters.compareMonth = { type: 'string' };
+    }
     const filterOutputs = new Map<string, DataQueryOutput>(
       dimensionOutputs.map((output) => [`where_${output.alias}`, output])
     );
@@ -366,14 +434,22 @@ function prepareSharedMetric(
     return ok({
       outputs,
       parameters,
+      monthDimensions,
       optionalParameters,
       bind(input: Readonly<Record<string, unknown>> = {}) {
         return safeTry(function* () {
           if (!input || typeof input !== 'object' || Array.isArray(input) || !isPlainData(input)) {
             return err(invalid('Metric parameters must be a plain object'));
           }
-          const { groupBy, ...filterInput } = input;
+          const { groupBy, compareMonth, compareDimension, ...filterInput } = input;
           const groups = yield* metricGroupBy(groupBy, dimensions);
+          const monthComparison = yield* bindMonthComparison(
+            monthDimensions,
+            compareDimension,
+            compareMonth,
+            filterInput,
+            groups
+          );
           const filters = [...base.composition.filters];
           for (const [name, inputValue] of Object.entries(filterInput)) {
             const output = filterOutputs.get(name);
@@ -392,7 +468,8 @@ function prepareSharedMetric(
             composition: {
               ...base.composition,
               definition: { ...definition, groupBy: groups },
-              outputs,
+              outputs: monthComparison ? monthComparisonOutputs : outputs,
+              monthComparison,
               filters,
             },
           });

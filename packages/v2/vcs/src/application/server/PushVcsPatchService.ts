@@ -116,10 +116,20 @@ const originPushIdUsed = () =>
     message: 'An exact-head push requires an unused origin push ID.',
   });
 
-const resolveMaxSingleTxPushOps = (): number => {
-  const raw = Number(process.env.TEABLE_VCS_MAX_SINGLE_TX_PUSH_OPS);
-  return Number.isInteger(raw) && raw > 0 ? raw : MAX_SINGLE_TX_PUSH_RECORD_OPS;
-};
+export function validateSingleTxPushRecordOps(patch: IBaseVcsPatch): Result<void, DomainError> {
+  const configured = Number(process.env.TEABLE_VCS_MAX_SINGLE_TX_PUSH_OPS);
+  const maxSingleTxOps =
+    Number.isInteger(configured) && configured > 0 ? configured : MAX_SINGLE_TX_PUSH_RECORD_OPS;
+  const patchRecordOps = countPatchRecordOps(patch);
+  if (patchRecordOps <= maxSingleTxOps) return ok(undefined);
+  return err(
+    vcsDomainError.validation({
+      code: 'vcs.patch_too_large_for_single_tx',
+      message: `VCS patch record operation count (${String(patchRecordOps)}) exceeds single-transaction limit (${String(maxSingleTxOps)}); split the push into smaller topological batches.`,
+      details: { patchRecordOps, maxSingleTxOps },
+    })
+  );
+}
 
 const commitToPushResult = (commit: IVcsCommit, baseRevision: number): IVcsPushResult => ({
   ok: true,
@@ -224,10 +234,7 @@ const collectPhysicalLockTargets = (
       ])
     ).sort((a, b) => a.localeCompare(b));
     if (touchedRecordIds.length === 0) continue;
-    physicalLocks.push({
-      dbTableName: dbNameRes.value,
-      recordIds: touchedRecordIds,
-    });
+    physicalLocks.push({ dbTableName: dbNameRes.value, recordIds: touchedRecordIds });
     collectLinkTableLocks(liveTable, dbNameRes.value, touchedRecordIds, physicalLocks);
   }
 
@@ -411,11 +418,12 @@ export class PushVcsPatchService {
     return ok(undefined);
   }
 
-  private async prepareOrderColumns(
+  private async prepareExistingOrderColumns(
     ctx: IExecutionContext,
     baseId: string,
     patch: IBaseVcsPatch
-  ): Promise<Result<void, DomainError>> {
+  ): Promise<Result<ReadonlyMap<string, ReadonlySet<string>>, DomainError>> {
+    const newViewOrders = new Map<string, Set<string>>();
     for (const tp of patch.tablesUpdated) {
       const viewIds = new Set<string>();
       for (const row of tp.recordsAdded) {
@@ -423,6 +431,15 @@ export class PushVcsPatchService {
       }
       for (const row of tp.recordsUpdated) {
         for (const change of row.orderChanges ?? []) viewIds.add(change.viewId);
+      }
+      for (const view of tp.viewsAdded) {
+        if (!viewIds.delete(view.id)) continue;
+        let added = newViewOrders.get(tp.tableId);
+        if (!added) {
+          added = new Set<string>();
+          newViewOrders.set(tp.tableId, added);
+        }
+        added.add(view.id);
       }
       if (!viewIds.size) continue;
       const query = GetTableByIdQuery.create({ baseId, tableId: tp.tableId });
@@ -437,14 +454,12 @@ export class PushVcsPatchService {
         const id = ViewId.create(rawId);
         if (id.isErr()) return err(id.error);
         const view = table.getView(id.value);
-        if (view.isErr() && !tp.viewsAdded.some((added) => added.id === rawId)) {
-          return err(view.error);
-        }
+        if (view.isErr()) return err(view.error);
         const prepared = await this.orderColumns.prepareOrderColumn(ctx, table, id.value);
         if (prepared.isErr()) return err(prepared.error);
       }
     }
-    return ok(undefined);
+    return ok(newViewOrders);
   }
 
   private async collectRecordUpdateCasConflicts(params: {
@@ -656,6 +671,7 @@ export class PushVcsPatchService {
     readonly rollbackCommitId?: string;
     readonly restore?: IVcsRollbackRestore;
     readonly borrowedTransaction: boolean;
+    readonly newViewOrders?: ReadonlyMap<string, ReadonlySet<string>>;
     readonly setDryRunResult: (result: IVcsPushResult) => void;
   }): Promise<Result<IVcsPushResult, DomainError>> {
     const { batchCtx, baseId, baseName, input, originPushId, summary, setDryRunResult } = params;
@@ -802,6 +818,40 @@ export class PushVcsPatchService {
       }
     }
 
+    if (params.newViewOrders?.size) {
+      const targets = [];
+      for (const [tableId, viewIds] of params.newViewOrders) {
+        const table = liveTableMap.get(tableId);
+        if (!table) {
+          return err(
+            vcsDomainError.invariant({ message: `Missing order target table ${tableId}.` })
+          );
+        }
+        const dbName = table.dbTableName().andThen((name) => name.value());
+        if (dbName.isErr()) return err(dbName.error);
+        targets.push({
+          table,
+          viewIds,
+          dbTableName: dbName.value,
+          newViewOrderColumnCount: viewIds.size,
+        });
+      }
+      // Only take the DDL lock after CAS and the bounded backfill admission check.
+      // Upgrades must never wait while the transaction holds metadata and head locks.
+      const locked = await this.logRepository.lockPushPhysicalTargets(batchCtx, baseId, targets);
+      if (locked.isErr()) return err(locked.error);
+      for (const { table, viewIds } of targets) {
+        for (const viewId of viewIds) {
+          const id = ViewId.create(viewId);
+          if (id.isErr()) return err(id.error);
+          const prepared = await this.orderColumns.prepareOrderColumn(batchCtx, table, id.value, {
+            inTransaction: true,
+          });
+          if (prepared.isErr()) return err(prepared.error);
+        }
+      }
+    }
+
     const adapter = new V2EngineSyncAdapter({
       commandBus: this.commandBus,
       queryBus: this.queryBus,
@@ -887,18 +937,9 @@ export class PushVcsPatchService {
     );
     if (authRes.isErr()) return err(authRes.error);
 
-    const maxSingleTxOps = resolveMaxSingleTxPushOps();
     const effectivePatch = effectivePushPatch(input.patch, options.restore);
-    const patchRecordOps = countPatchRecordOps(effectivePatch);
-    if (patchRecordOps > maxSingleTxOps) {
-      return err(
-        vcsDomainError.validation({
-          code: 'vcs.patch_too_large_for_single_tx',
-          message: `VCS patch record operation count (${String(patchRecordOps)}) exceeds single-transaction limit (${String(maxSingleTxOps)}); split the push into smaller topological batches.`,
-          details: { patchRecordOps, maxSingleTxOps },
-        })
-      );
-    }
+    const size = validateSingleTxPushRecordOps(effectivePatch);
+    if (size.isErr()) return err(size.error);
 
     const originPushId = input.originPushId ?? `vcsp_${randomUUID().replace(/-/g, '')}`;
     const summary = summarizePatch(input.patch);
@@ -914,11 +955,13 @@ export class PushVcsPatchService {
       return this.handleEmptyPatch(ctx, baseId, input, summary, requireExactHead);
     }
 
+    let newViewOrders: ReadonlyMap<string, ReadonlySet<string>> | undefined;
     // Ordinary pushes can be the first writer to materialize a view's order column.
     // Historical rollback reuses the columns retained with the table.
     if (!options.restore && !input.dryRun) {
-      const prepared = await this.prepareOrderColumns(ctx, input.baseId, input.patch);
+      const prepared = await this.prepareExistingOrderColumns(ctx, input.baseId, input.patch);
       if (prepared.isErr()) return err(prepared.error);
+      newViewOrders = prepared.value;
     }
 
     let dryRunResult: IVcsPushResult | undefined;
@@ -938,6 +981,7 @@ export class PushVcsPatchService {
             requireExactHead,
             rollbackCommitId,
             restore: options.restore,
+            newViewOrders,
             borrowedTransaction: Boolean(
               getUnitOfWorkTransaction(context, 'data') || getUnitOfWorkTransaction(context, 'meta')
             ),

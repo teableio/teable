@@ -6,6 +6,7 @@ import {
   normalizeAttachmentCellValue,
   presignAttachmentCellValue,
   presignAttachmentFieldMaps,
+  presignAttachmentFieldMapsWithSigned,
 } from './presignAttachmentCellValue';
 
 const item = {
@@ -42,6 +43,7 @@ describe('presignAttachmentCellValue', () => {
         )
       ),
       invalidatePreview: vi.fn().mockResolvedValue(ok(undefined)),
+      publicLinks: vi.fn(async (cells: ReadonlyArray<unknown>) => ok(cells.map(() => undefined))),
     };
 
     const result = await presignAttachmentCellValue([item], signer);
@@ -57,6 +59,25 @@ describe('presignAttachmentCellValue', () => {
     expect(signer.signItems).toHaveBeenCalledTimes(1);
   });
 
+  it('gives the signer result beside the signed maps, for the public links to reuse', async () => {
+    const urls = {
+      presignedUrl: 'https://cdn.example/photo',
+      file: { size: 12, mimetype: 'image/png' },
+    };
+    const signer: IAttachmentUrlSignerService = {
+      signItems: vi.fn().mockResolvedValue(ok(new Map([['tok-photo', urls]]))),
+      invalidatePreview: vi.fn().mockResolvedValue(ok(undefined)),
+      publicLinks: vi.fn(async (cells: ReadonlyArray<unknown>) => ok(cells.map(() => undefined))),
+    };
+
+    const { fieldMaps, signed } = (
+      await presignAttachmentFieldMapsWithSigned([{ Files: [item] }], new Set(['Files']), signer)
+    )._unsafeUnwrap();
+
+    expect(signed.get('tok-photo')).toBe(urls);
+    expect(fieldMaps[0]?.Files).toEqual([{ ...item, presignedUrl: 'https://cdn.example/photo' }]);
+  });
+
   it('batch-signs attachment keys across records with one signer call', async () => {
     const signer: IAttachmentUrlSignerService = {
       signItems: vi.fn().mockResolvedValue(
@@ -68,6 +89,7 @@ describe('presignAttachmentCellValue', () => {
         )
       ),
       invalidatePreview: vi.fn().mockResolvedValue(ok(undefined)),
+      publicLinks: vi.fn(async (cells: ReadonlyArray<unknown>) => ok(cells.map(() => undefined))),
     };
 
     const doc = {

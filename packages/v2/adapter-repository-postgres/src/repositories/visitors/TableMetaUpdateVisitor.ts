@@ -52,6 +52,7 @@ import {
   type UpdateRatingIconSpec,
   type UpdateRatingColorSpec,
   type UpdateUserMultiplicitySpec,
+  type UpdateAttachmentPublicAccessSpec,
   type UpdateUserNotificationSpec,
   type UpdateUserDefaultValueSpec,
   type UpdateButtonLabelSpec,
@@ -1096,6 +1097,12 @@ export class TableMetaUpdateVisitor
     spec: UpdateUserMultiplicitySpec
   ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
     return this.buildFieldStorageMetadataUpdate(spec.fieldId());
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    spec: UpdateAttachmentPublicAccessSpec
+  ): Result<ReadonlyArray<TableUpdateBuilder>, DomainError> {
+    return this.buildFieldOptionsUpdate(spec.fieldId());
   }
 
   visitUpdateUserNotification(

@@ -130,11 +130,12 @@ export class RecordBatchCreationService {
       } = yield* tableForCreate.createRecords(resolvedRecordsFieldValues, {
         typecast: input.typecast,
       });
-      const { records } = yield* await service.recordMutationSpecResolver.resolveCreatedRecords(
-        context,
-        tableForCreate.id(),
-        { records: createdRecords, mutateSpecs }
-      );
+      const { records, mutateSpecs: resolvedMutateSpecs } =
+        yield* await service.recordMutationSpecResolver.resolveCreatedRecords(
+          context,
+          tableForCreate.id(),
+          { records: createdRecords, mutateSpecs }
+        );
 
       let tableEvents: ReadonlyArray<IDomainEvent> = [];
       const tableUpdateResult = sideEffectResult.updateResult;
@@ -152,7 +153,10 @@ export class RecordBatchCreationService {
 
       yield* await pluginExecution.beforePersist(context);
       const fillLinkTitleForeignTables = input.typecast
-        ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(context, mutateSpecs)
+        ? yield* await service.foreignTableLoaderService.loadForLinkTitleFill(
+            context,
+            resolvedMutateSpecs
+          )
         : new Map();
       const mutationResult = yield* await service.tableRecordRepository.insertMany(
         context,

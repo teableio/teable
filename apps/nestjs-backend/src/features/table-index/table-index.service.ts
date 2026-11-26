@@ -88,7 +88,10 @@ export class TableIndexService {
     private readonly v2ExecutionContextFactory?: V2ExecutionContextFactory
   ) {}
 
-  async getSearchVectorStatus(tableId: string): Promise<ITableSearchVectorStatusVo> {
+  async getSearchVectorStatus(
+    tableId: string,
+    projection?: 'published'
+  ): Promise<ITableSearchVectorStatusVo> {
     const disabled: ITableSearchVectorStatusVo = {
       tableId,
       state: 'disabled',
@@ -116,7 +119,10 @@ export class TableIndexService {
       );
     }
     const status = result.value;
-    const coverage = await this.resolveSearchCoverageFields(container, context, tableId, status);
+    const coverage =
+      projection === 'published'
+        ? { coveredFieldIds: [...status.coveredFieldIds], uncoveredFieldIds: undefined }
+        : await this.resolveSearchCoverageFields(container, context, tableId, status);
     return {
       tableId: status.tableId,
       state: status.state,

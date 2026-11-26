@@ -3,8 +3,10 @@ import {
   CreateRecordsCommand,
   DeleteByRangeCommand,
   DeleteByRangeStreamCommand,
+  RECORD_REMOVAL_REASON,
   RecordsDeleted,
   RecordWriteOperationKind,
+  RestoreRecordsCommand,
   domainError,
   type CreateRecordsResult,
   type DeleteByRangeStreamResult,
@@ -340,5 +342,187 @@ describe('undo-redo/deleteByRange (db)', () => {
         plugins.splice(pluginIndex, 1);
       }
     }
+  });
+
+  it('restores all streamed delete chunks when only the last chunk has landed in record_trash', async () => {
+    if (!harness) throw new Error('Missing harness');
+
+    const table = await createBasicTable(harness, 'Undo DeleteByRange Stream Partial RecordTrash');
+    const viewId = getViewId(table);
+    const titleField = findField(table, 'Title');
+    const amountField = findField(table, 'Amount');
+    const tableId = table.id().toString();
+    const totalRecords = 15;
+
+    const createResult = await harness.execute<CreateRecordsCommand, CreateRecordsResult>(
+      CreateRecordsCommand.create({
+        tableId,
+        records: Array.from({ length: totalRecords }, (_, index) => ({
+          fields: {
+            [titleField.id().toString()]: `Row ${index}`,
+            [amountField.id().toString()]: index,
+          },
+        })),
+      })._unsafeUnwrap()
+    );
+
+    const stream = await harness.execute<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>(
+      DeleteByRangeStreamCommand.create({
+        tableId,
+        viewId,
+        type: 'rows',
+        ranges: [[0, totalRecords - 1]],
+        batchSize: 5,
+      })._unsafeUnwrap()
+    );
+    await collectStreamEvents(stream);
+    expect(await listRows(harness.db, table)).toHaveLength(0);
+
+    const tableTrashBefore = await harness.db
+      .selectFrom('table_trash')
+      .select(['id', 'snapshot'])
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', 'record')
+      .execute();
+    expect(tableTrashBefore).toHaveLength(1);
+
+    // Simulate async V2RecordsDeletedTableTrashProjection having landed ONLY for
+    // the last chunk (the first chunk undo replays) while earlier chunks are still
+    // only tracked in the shared table_trash row.
+    const lastChunkIds = createResult.records.slice(10, 15).map((record) => record.id().toString());
+    const actorId = harness.context.actorId.toString();
+    const tableTrashId = tableTrashBefore[0]?.id as string;
+    expect(tableTrashId).toBeTruthy();
+    const createdTime = new Date();
+    await harness.db
+      .insertInto('record_trash')
+      .values(
+        lastChunkIds.map((recordId, index) => ({
+          id: `rtrLastChunk00000${index}`,
+          table_id: tableId,
+          record_id: recordId,
+          snapshot: JSON.stringify({ id: recordId }),
+          created_by: actorId,
+          created_time: createdTime,
+          reason: RECORD_REMOVAL_REASON.Deleted,
+          operation_id: tableTrashId,
+        }))
+      )
+      .execute();
+
+    await harness.undo(tableId);
+
+    expect(await listRows(harness.db, table)).toHaveLength(totalRecords);
+    const remainingRecordTrash = await harness.db
+      .selectFrom('record_trash')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .execute();
+    const remainingTableTrash = await harness.db
+      .selectFrom('table_trash')
+      .select('id')
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', 'record')
+      .execute();
+    expect(remainingRecordTrash).toHaveLength(0);
+    expect(remainingTableTrash).toHaveLength(0);
+  });
+
+  it('shrinks table_trash snapshot per restored chunk even when sibling chunks exist in record_trash', async () => {
+    if (!harness) throw new Error('Missing harness');
+
+    const table = await createBasicTable(harness, 'Undo DeleteByRange Stream Shrink Snapshot');
+    const viewId = getViewId(table);
+    const titleField = findField(table, 'Title');
+    const amountField = findField(table, 'Amount');
+    const tableId = table.id().toString();
+    const totalRecords = 10;
+
+    const createResult = await harness.execute<CreateRecordsCommand, CreateRecordsResult>(
+      CreateRecordsCommand.create({
+        tableId,
+        records: Array.from({ length: totalRecords }, (_, index) => ({
+          fields: {
+            [titleField.id().toString()]: `Row ${index}`,
+            [amountField.id().toString()]: index,
+          },
+        })),
+      })._unsafeUnwrap()
+    );
+
+    const stream = await harness.execute<DeleteByRangeStreamCommand, DeleteByRangeStreamResult>(
+      DeleteByRangeStreamCommand.create({
+        tableId,
+        viewId,
+        type: 'rows',
+        ranges: [[0, totalRecords - 1]],
+        batchSize: 5,
+      })._unsafeUnwrap()
+    );
+    await collectStreamEvents(stream);
+
+    const tableTrashRow = await harness.db
+      .selectFrom('table_trash')
+      .select(['id', 'snapshot'])
+      .where('table_id', '=', tableId)
+      .where('resource_type', '=', 'record')
+      .executeTakeFirstOrThrow();
+
+    const firstChunkIds = createResult.records.slice(0, 5).map((record) => record.id().toString());
+    const secondChunkIds = createResult.records
+      .slice(5, 10)
+      .map((record) => record.id().toString());
+    const actorId = harness.context.actorId.toString();
+    const createdTime = new Date();
+    await harness.db
+      .insertInto('record_trash')
+      .values(
+        [...firstChunkIds, ...secondChunkIds].map((recordId, index) => ({
+          id: `rtrBothChunks000${index}`,
+          table_id: tableId,
+          record_id: recordId,
+          snapshot: JSON.stringify({ id: recordId }),
+          created_by: actorId,
+          created_time: createdTime,
+          reason: RECORD_REMOVAL_REASON.Deleted,
+          operation_id: tableTrashRow.id as string,
+        }))
+      )
+      .execute();
+
+    await harness.execute(
+      RestoreRecordsCommand.create(
+        {
+          tableId,
+          records: secondChunkIds.map((recordId, index) => ({
+            recordId,
+            fields: {
+              [titleField.id().toString()]: `Row ${index + 5}`,
+              [amountField.id().toString()]: index + 5,
+            },
+          })),
+        },
+        { requireTrashRowReason: RECORD_REMOVAL_REASON.Deleted }
+      )._unsafeUnwrap()
+    );
+
+    const tableTrashAfterFirstRestore = await harness.db
+      .selectFrom('table_trash')
+      .select(['id', 'snapshot'])
+      .where('id', '=', tableTrashRow.id as string)
+      .executeTakeFirstOrThrow();
+    const remainingSnapshotIds = JSON.parse(
+      tableTrashAfterFirstRestore.snapshot as string
+    ) as string[];
+    expect(remainingSnapshotIds.sort()).toEqual([...firstChunkIds].sort());
+
+    const remainingRecordTrashIds = (
+      await harness.db
+        .selectFrom('record_trash')
+        .select('record_id')
+        .where('table_id', '=', tableId)
+        .execute()
+    ).map((row) => row.record_id as string);
+    expect(remainingRecordTrashIds.sort()).toEqual([...firstChunkIds].sort());
   });
 });

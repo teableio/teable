@@ -57,6 +57,7 @@ import type {
   UpdateRatingIconSpec,
   UpdateRatingColorSpec,
   UpdateUserMultiplicitySpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateUserNotificationSpec,
   UpdateUserDefaultValueSpec,
   UpdateButtonLabelSpec,
@@ -370,6 +371,12 @@ export class DependencyChangeDetectorVisitor implements ITableSpecVisitor<void> 
   }
 
   visitUpdateUserMultiplicity(_spec: UpdateUserMultiplicitySpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): Result<void, DomainError> {
     return ok(undefined);
   }
 

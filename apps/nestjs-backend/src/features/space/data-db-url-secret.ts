@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { dedupeCipherEntries } from '../../configs/secrets/resolve-cipher-entries';
 import { SECRET_SPECS, writesAuthenticatedDataDbUrls } from '../../configs/secrets/secret-specs';
+import { STORED_SECRET_PURPOSES } from '../../configs/secrets/stored-secret-roots';
 import type { ICipherEntry } from '../../utils/encryptor';
 import { Encryptor } from '../../utils/encryptor';
 import { isEncryptedSecretValue, SecretValueCodec } from '../../utils/secret-value-codec';
@@ -101,8 +102,6 @@ const isPublicLegacyPrimary = (primary: ICipherEntry): boolean =>
     return publicPrimary.key === primary.key && publicPrimary.iv === primary.iv;
   });
 
-const AUTHENTICATED_ROOT = SECRET_SPECS.dataDbUrlEncryptionSecret;
-
 export interface IDataDbUrlCipher {
   /** Whether new URLs are written in the authenticated format. */
   readonly authenticated: boolean;
@@ -123,18 +122,16 @@ export interface IDataDbUrlCipher {
  *   tampered value fails to open instead of decrypting to something else.
  * - legacy: the fixed key/iv chain above.
  *
- * Both are always readable. New URLs are written in the authenticated format
- * once BACKEND_DATA_DB_URL_ENCRYPTION_SECRET is set, or once SECRET_KEY (what
- * the root falls back to) is a private value (writesAuthenticatedDataDbUrls);
- * the roots that only decrypt are its `_OLD` var and SECRET_KEY. Readers from
- * the version that introduced the format on already open what a SECRET_KEY
- * root writes, so an upgrade switches the format with no extra step. A
- * dedicated root that differs from SECRET_KEY is turned on in two steps
- * wherever several processes share the database — replicas mid-rollout, or two
- * environments on one database: first every reader gets the root (as `_OLD`,
- * which writes nothing), then the dedicated var is set. Without a dedicated
- * root or a private SECRET_KEY the legacy format is written, and what was
- * written in the new one stays readable through `_OLD`.
+ * Both are always readable. The root resolves like every stored-secret purpose
+ * (resolveStoredSecretRoots): the format's superseded dedicated var
+ * BACKEND_DATA_DB_URL_ENCRYPTION_SECRET while it is set, else the stored
+ * credential root, else SECRET_KEY. New URLs are written in the authenticated
+ * format once that root is a private value (writesAuthenticatedDataDbUrls), and
+ * in the legacy one while it is unset or the public default. The roots that
+ * only decrypt are the ones the resolver lists: what comes later in that order
+ * and is also set, the stored credential root's `_OLD` var, and
+ * BACKEND_DATA_DB_URL_ENCRYPTION_SECRET_OLD, which holds a previous root of this
+ * format alone. The legacy pair's `_OLD` vars do not open this format.
  */
 export const buildDataDbUrlCipher = (env: IEnv = process.env): IDataDbUrlCipher => {
   const entries = buildDataDbUrlCipherEntries(env);
@@ -142,8 +139,7 @@ export const buildDataDbUrlCipher = (env: IEnv = process.env): IDataDbUrlCipher 
   const legacyPrimary = new Encryptor<IDataDbUrlSecret>({ entries: [entries[0]] });
   const codec = new SecretValueCodec(
     {
-      spec: AUTHENTICATED_ROOT,
-      oldEnvKey: `${AUTHENTICATED_ROOT.envKey}_OLD`,
+      purpose: STORED_SECRET_PURPOSES.dataDbUrl,
       hkdfInfo: 'teable:data-db-url',
       label: 'BYODB URL',
     },

@@ -35,6 +35,7 @@ import type { UserField } from '../domain/table/fields/types/UserField';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { RecordUpdateResult } from '../domain/table/records/RecordUpdateResult';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../domain/table/records/specs/RecordByIdsSpec';
 import type { ICellValueSpec } from '../domain/table/records/specs/values/ICellValueSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -81,6 +82,7 @@ import {
   createRecordWritePluginRunner,
   createTrackedRecordWritePlugin,
 } from './recordWritePluginRunnerTestUtils';
+import { DEFAULT_SELECTION_STREAM_BATCH_SIZE } from './shared/streamBatchSize';
 import { createNoopUndoRedoStackService } from './undoRedoStackServiceTestUtils';
 
 const createContext = (): IExecutionContext => {
@@ -3062,6 +3064,215 @@ describe('PasteHandler', () => {
   });
 
   describe('PasteStreamApplicationService', () => {
+    it('rejects explicit record targets that exceed the command budget before writes', async () => {
+      const { table, tableId, textFieldId } = buildTable();
+      const tableRepository = new FakeTableRepository();
+      tableRepository.tables.push(table);
+      const tableQueryService = new TableQueryService(tableRepository);
+      const recordQueryRepository = new FakeTableRecordQueryRepository();
+      const targetRecordIds = [`rec${'a'.repeat(16)}`, `rec${'b'.repeat(16)}`];
+      recordQueryRepository.records = targetRecordIds.map((id) => ({
+        id,
+        fields: { [textFieldId.toString()]: 'Old value' },
+        version: 1,
+        createdByActorType: null,
+        createdByActorId: null,
+        lastModifiedByActorType: null,
+        lastModifiedByActorId: null,
+      }));
+      const recordRepository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const unitOfWork = new FakeUnitOfWork();
+      const handler = new PasteStreamApplicationService(
+        tableQueryService,
+        createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+        new FakeFieldCreationSideEffectService() as never,
+        new PastePreparationService(
+          tableQueryService,
+          recordQueryRepository,
+          new FakeForeignTableLoaderService() as never
+        ),
+        recordRepository,
+        recordQueryRepository,
+        new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+        noopPasteLinkAutoResolveService,
+        new RecordWriteSideEffectService(),
+        noopRecordWriteUndoRedoPlanService,
+        createRecordWritePluginRunner(),
+        new TrackingUndoRedoService() as unknown as UndoRedoStackService,
+        new EventBusDomainWriteTransaction(unitOfWork, eventBus)
+      );
+      const command = PasteStreamCommand.create(
+        {
+          tableId: tableId.toString(),
+          viewId: table.views()[0]!.id().toString(),
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+          content: [['x']],
+          targetRecordIds,
+        },
+        1
+      )._unsafeUnwrap();
+
+      const events = [];
+      for await (const event of handler.createStream(createContext(), command)) events.push(event);
+
+      expect(events.at(-1)).toMatchObject({
+        id: 'error',
+        phase: 'preparing',
+        code: 'validation.paste.max_cells_exceeded',
+        message: 'Exceed max paste cells 1',
+      });
+      expect(recordRepository.updateCalls).toBe(0);
+      expect(recordRepository.insertCalls).toBe(0);
+    });
+
+    it.each(['success', 'invalid id', 'query error'])(
+      'reads ordered explicit target IDs in bounded batches (%s)',
+      async (scenario) => {
+        const { table, tableId, textFieldId } = buildTable();
+        const tableRepository = new FakeTableRepository();
+        tableRepository.tables.push(table);
+        const tableQueryService = new TableQueryService(tableRepository);
+        const recordQueryRepository = new FakeTableRecordQueryRepository();
+        const recordRepository = new FakeTableRecordRepository();
+        const eventBus = new FakeEventBus();
+        const unitOfWork = new FakeUnitOfWork();
+        const batchSize = DEFAULT_SELECTION_STREAM_BATCH_SIZE;
+        const ids = Array.from({ length: batchSize + 1 }, (_, index) =>
+          `rec${index.toString(36).padStart(16, '0')}`
+        );
+        const existingIds = [ids[0]!, ids[1]!, ids[batchSize]!];
+        recordQueryRepository.records = [...existingIds].reverse().map((id) => ({
+          id,
+          fields: { [textFieldId.toString()]: 'Old value' },
+          version: 1,
+          createdByActorType: null,
+          createdByActorId: null,
+          lastModifiedByActorType: null,
+          lastModifiedByActorId: null,
+        }));
+        const batches: string[][] = [];
+        let leaseHeld = false;
+        let leaseCount = 0;
+        recordQueryRepository.find = async (
+          ...args: Parameters<ITableRecordQueryRepository['find']>
+        ) => {
+          const [, , spec, options] = args;
+          expect(leaseHeld).toBe(true);
+          if (!options?.recordIdsOrder) {
+            return ok({ records: recordQueryRepository.records, total: existingIds.length });
+          }
+          expect(spec).toEqual(RecordByIdsSpec.create(options.recordIdsOrder));
+          expect(options).toMatchObject({ mode: 'stored', includeTotal: false });
+          expect(recordRepository.updateCalls).toBe(0);
+          expect(recordRepository.insertCalls).toBe(0);
+          const batch = options.recordIdsOrder.map((id) => id.toString());
+          batches.push(batch);
+          if (scenario === 'query error' && batches.length === 2) {
+            return err(domainError.infrastructure({ message: 'Failed to read target batch' }));
+          }
+          const records = recordQueryRepository.records
+            .filter((record) => batch.includes(record.id))
+            .sort((a, b) => batch.indexOf(a.id) - batch.indexOf(b.id));
+          return ok({ records, total: records.length });
+        };
+        const handler = new PasteStreamApplicationService(
+          tableQueryService,
+          createTableUpdateFlow(tableRepository, eventBus, unitOfWork),
+          new FakeFieldCreationSideEffectService() as never,
+          new PastePreparationService(
+            tableQueryService,
+            recordQueryRepository,
+            new FakeForeignTableLoaderService() as never
+          ),
+          recordRepository,
+          recordQueryRepository,
+          new FakeRecordMutationSpecResolverService() as unknown as RecordMutationSpecResolverService,
+          noopPasteLinkAutoResolveService,
+          new RecordWriteSideEffectService(),
+          noopRecordWriteUndoRedoPlanService,
+          createRecordWritePluginRunner(),
+          noopUndoRedoService,
+          new EventBusDomainWriteTransaction(unitOfWork, eventBus),
+          undefined,
+          undefined,
+          {
+            acquire: async (_context, tableIds, mode) => {
+              expect(leaseHeld).toBe(false);
+              expect(tableIds).toEqual([tableId.toString()]);
+              expect(mode).toBe('exclusive');
+              leaseHeld = true;
+              leaseCount += 1;
+              return ok(
+                createTableSchemaCoordinationLease(mode, tableIds, async () => {
+                  leaseHeld = false;
+                })
+              );
+            },
+          }
+        );
+        const command = PasteStreamCommand.create({
+          tableId: tableId.toString(),
+          viewId: table.views()[0]!.id().toString(),
+          ranges: [
+            [0, 0],
+            [0, 0],
+          ],
+          content:
+            scenario === 'query error'
+              ? [['First'], ['Second']]
+              : [['First'], ['Second'], ['Last'], ['Created']],
+          targetRecordIds: [
+            ids[0]!,
+            ...ids.slice(0, batchSize),
+            ids[0]!,
+            ids[batchSize]!,
+            ...(scenario === 'invalid id' ? ['invalid'] : []),
+          ],
+          batchSize: 1,
+        })._unsafeUnwrap();
+        const events = [];
+        for await (const event of handler.createStream(createContext(), command))
+          events.push(event);
+
+        expect(leaseHeld).toBe(false);
+        expect(leaseCount).toBe(1);
+        expect(batches).toEqual(
+          scenario === 'invalid id' ? [] : [ids.slice(0, batchSize), ids.slice(batchSize)]
+        );
+        if (scenario !== 'success') {
+          expect(events.at(-1)).toMatchObject({
+            id: 'error',
+            phase: 'preparing',
+            message: scenario === 'invalid id' ? 'Invalid RecordId' : 'Failed to read target batch',
+            processedCount: 0,
+          });
+          expect(recordRepository.updateCalls).toBe(0);
+          expect(recordRepository.insertCalls).toBe(0);
+          expect(eventBus.published).toHaveLength(0);
+          return;
+        }
+
+        expect(events.at(-1)).toMatchObject({ id: 'done', updatedCount: 3, createdCount: 1 });
+        expect(
+          recordRepository.updated.map(({ record }) => [
+            record.id().toString(),
+            record.fields().entries()[0]?.value.toValue(),
+          ])
+        ).toEqual([
+          [existingIds[0], 'First'],
+          [existingIds[1], 'Second'],
+          [existingIds[2], 'Last'],
+        ]);
+        expect(recordRepository.inserted[0]?.fields().entries()[0]?.value.toValue()).toBe(
+          'Created'
+        );
+      }
+    );
+
     it.each([
       { name: 'existing rows only', existingCount: 2, expandColumns: false },
       {

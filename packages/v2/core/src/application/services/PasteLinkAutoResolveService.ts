@@ -155,7 +155,7 @@ export class PasteLinkAutoResolveService {
           input.existingResolvedValues?.get(entry.fieldId) ?? []
         );
         for (const item of existingResult.resolvedIds) {
-          existingMap.set(item.title, { id: item.id, title: item.title });
+          if (item.title !== undefined) existingMap.set(item.title, item);
         }
         resolvedValues.set(entry.fieldId, existingMap);
 

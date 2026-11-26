@@ -1,10 +1,65 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import { createPrismaPgAdapter, type IPgPoolLease } from '@teable/db-main-prisma';
+import {
+  createPrismaPgAdapter,
+  type IPgPoolLease,
+  type MetaPrismaService,
+} from '@teable/db-main-prisma';
 
 import { Prisma, PrismaClient } from './generated/client';
 import { getDataTransactionMaxWait, getDataTransactionTimeout } from './utils';
 
-const quoteLiteral = (value: string) => `'${value.replaceAll("'", "''")}'`;
+const setLocalSearchPath = `
+  pg_catalog.set_config(
+    'search_path',
+    pg_catalog.format('%I, public', $1::text) || COALESCE((
+      SELECT ', ' || pg_catalog.quote_ident(n.nspname)
+      FROM pg_catalog.pg_extension e
+      JOIN pg_catalog.pg_namespace n ON n.oid = e.extnamespace
+      WHERE e.extname = 'pg_trgm'
+    ), ''),
+    true
+  )
+`;
+const applyLocalSearchPath = `SELECT ${setLocalSearchPath}`;
+
+type SearchPathTransaction = {
+  $executeRawUnsafe(query: string, ...values: unknown[]): Promise<number>;
+  $queryRawUnsafe<T>(query: string, ...values: unknown[]): Promise<T>;
+};
+
+/** Apply scoped raw-query name resolution to an already-open transaction. */
+export const withDataSchemaSearchPath = async <T>(
+  transaction: SearchPathTransaction,
+  schema: string,
+  run: () => Promise<T>
+): Promise<T> => {
+  await transaction.$executeRawUnsafe('SAVEPOINT teable_data_search_path');
+  try {
+    const [previous] = await transaction.$queryRawUnsafe<[{ search_path: string }]>(
+      `WITH previous AS MATERIALIZED (
+        SELECT pg_catalog.current_setting('search_path') AS search_path
+      )
+      SELECT previous.search_path, ${setLocalSearchPath} FROM previous`,
+      schema
+    );
+    const result = await run();
+    await transaction.$executeRawUnsafe(
+      `SELECT pg_catalog.set_config('search_path', $1::text, true)`,
+      previous.search_path
+    );
+    await transaction.$executeRawUnsafe('RELEASE SAVEPOINT teable_data_search_path');
+    return result;
+  } catch (error) {
+    // Rollback restores the prior path even after a SQL error aborts the savepoint.
+    try {
+      await transaction.$executeRawUnsafe('ROLLBACK TO SAVEPOINT teable_data_search_path');
+      await transaction.$executeRawUnsafe('RELEASE SAVEPOINT teable_data_search_path');
+    } catch {
+      // The transaction may already be closed. Preserve the original error.
+    }
+    throw error;
+  }
+};
 
 type ScopedTransaction = <T>(
   fn: (prisma: Prisma.TransactionClient) => Promise<T>,
@@ -18,6 +73,7 @@ type ScopedTransaction = <T>(
 export type ScopedDataPrismaClient = PrismaClient & {
   txClient(): Prisma.TransactionClient;
   $tx: ScopedTransaction;
+  getSharedPoolSchema(metadata: Pick<MetaPrismaService, 'usesPgPool'>): string | undefined;
   afterCommit(callback: () => Promise<void>): boolean;
   afterRollback(callback: () => Promise<void>): boolean;
 };
@@ -33,18 +89,8 @@ export const createScopedDataPrismaClient = (
   schema: string
 ): ScopedDataPrismaClient => {
   const client = new PrismaClient({ adapter: createPrismaPgAdapter(poolLease.pool, schema) });
-  const setLocalSearchPath = `
-    SELECT set_config(
-      'search_path',
-      format('%I, public', ${quoteLiteral(schema)}) || COALESCE((
-        SELECT ', ' || quote_ident(n.nspname)
-        FROM pg_extension e
-        JOIN pg_namespace n ON n.oid = e.extnamespace
-        WHERE e.extname = 'pg_trgm'
-      ), ''),
-      true
-    )
-  `;
+  const getSharedPoolSchema: ScopedDataPrismaClient['getSharedPoolSchema'] = (metadata) =>
+    metadata.usesPgPool(poolLease.pool) ? schema : undefined;
 
   const activeTransaction = new AsyncLocalStorage<{
     client: Prisma.TransactionClient;
@@ -84,7 +130,7 @@ export const createScopedDataPrismaClient = (
     try {
       const result = await client.$transaction(
         async (transaction) => {
-          await transaction.$executeRawUnsafe(setLocalSearchPath);
+          await transaction.$executeRawUnsafe(applyLocalSearchPath, schema);
           return activeTransaction.run(Object.assign(ownerState, { client: transaction }), () =>
             fn(transaction)
           );
@@ -120,7 +166,11 @@ export const createScopedDataPrismaClient = (
   let proxy: ScopedDataPrismaClient;
 
   proxy = new Proxy(client, {
+    has(target, property) {
+      return property === 'getSharedPoolSchema' || Reflect.has(target, property);
+    },
     get(target, property, receiver) {
+      if (property === 'getSharedPoolSchema') return getSharedPoolSchema;
       if (property === 'txClient')
         return () => {
           const owner = activeTransaction.getStore();

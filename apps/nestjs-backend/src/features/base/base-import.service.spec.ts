@@ -1,5 +1,5 @@
 import { PassThrough, Readable } from 'stream';
-import { DbFieldType, FieldType, HttpErrorCode } from '@teable/core';
+import { DbFieldType, FieldType, HttpErrorCode, Relationship, ViewType } from '@teable/core';
 import { BaseDuplicateMode, type IBaseJson, type ImportBaseRo } from '@teable/openapi';
 import type { RestoreRecordInput } from '@teable/v2-core';
 import archiver from 'archiver';
@@ -191,7 +191,10 @@ describe('BaseImportService', () => {
           spaceId: 'spcImport',
           notify: { path: 'imports/base.tea' },
         })
-      ).resolves.toBe(expectedResult);
+      ).resolves.toEqual({
+        ...expectedResult,
+        ignoredJunctionArchiveNames: [],
+      });
 
       expect(service.createBaseStructure).toHaveBeenCalledWith(
         'spcImport',
@@ -319,6 +322,8 @@ describe('BaseImportService', () => {
         })
       ).resolves.toEqual({
         base: { id: 'bseImported' },
+        structure,
+        ignoredJunctionArchiveNames: [],
       });
       expect(archive.destroyed).toBe(true);
       endlessTableData.destroy();
@@ -1215,5 +1220,1504 @@ describe('BaseImportV2Service dottea stream actor provenance', () => {
       expect(record.extraColumnValues).toBeUndefined();
       expect(record).not.toHaveProperty('createdByActorId');
     }
+  });
+
+  it('preserves empty [] on required multi-user fields without relaxing notNull or adding warnings', () => {
+    const service = Object.create(BaseImportV2Service.prototype) as {
+      parseImportedUserReferences: (
+        rawValue: unknown,
+        isMultiple: boolean
+      ) => ReadonlyArray<{ id: string; email?: string }> | null;
+      authorizeImportedUserCell: (
+        references: ReadonlyArray<{ id: string; email?: string }> | null,
+        field: { id: string; isMultipleCellValue: boolean; notNull: boolean },
+        scopedUsersById: ReadonlyMap<string, unknown>,
+        pairedUsersById: ReadonlyMap<string, unknown>,
+        warnings: { skippedUserCells: number; relaxedRequiredUserFields: number },
+        affectedRequiredFields: Set<string>
+      ) => string | null;
+    };
+
+    const references = service.parseImportedUserReferences('[]', true);
+    expect(references).toEqual([]);
+
+    const warnings = { skippedUserCells: 0, relaxedRequiredUserFields: 0 };
+    const affectedRequiredFields = new Set<string>();
+    const authorized = service.authorizeImportedUserCell(
+      references,
+      { id: `fld${'u'.repeat(16)}`, isMultipleCellValue: true, notNull: true },
+      new Map(),
+      new Map(),
+      warnings,
+      affectedRequiredFields
+    );
+
+    expect(authorized).toBe('[]');
+    expect(warnings.skippedUserCells).toBe(0);
+    expect(affectedRequiredFields.size).toBe(0);
+  });
+});
+
+describe('BaseImportService disconnected relation normalization', () => {
+  it('downgrades links pointing outside the archive and their dependent lookups/rollups to singleLineText', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const sourceTableId = `tbl${'a'.repeat(16)}`;
+    const missingForeignTableId = `tbl${'z'.repeat(16)}`;
+    const brokenLinkId = `fld${'l'.repeat(16)}`;
+    const dependentLookupId = `fld${'k'.repeat(16)}`;
+    const dependentRollupId = `fld${'r'.repeat(16)}`;
+
+    const { tables: normalized, ignoredJunctionArchiveNames } =
+      service.normalizeDisconnectedImportTables([
+        {
+          id: sourceTableId,
+        name: 'Source',
+        dbTableName: 'source',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: `fld${'p'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: brokenLinkId,
+            name: 'External Link',
+            type: FieldType.Link,
+            dbFieldName: 'External_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: missingForeignTableId,
+              lookupFieldId: `fld${'x'.repeat(16)}`,
+              fkHostTableName: 'junction_external_link',
+              isOneWay: true,
+            },
+          },
+          {
+            id: dependentLookupId,
+            name: 'External Lookup',
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            dbFieldName: 'External_Lookup',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            lookupOptions: {
+              foreignTableId: missingForeignTableId,
+              linkFieldId: brokenLinkId,
+              lookupFieldId: `fld${'x'.repeat(16)}`,
+            },
+          },
+          {
+            id: dependentRollupId,
+            name: 'External Rollup',
+            type: FieldType.Rollup,
+            dbFieldName: 'External_Rollup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: { expression: 'countall({values})' },
+            lookupOptions: {
+              foreignTableId: missingForeignTableId,
+              linkFieldId: brokenLinkId,
+              lookupFieldId: `fld${'x'.repeat(16)}`,
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ]);
+
+    const fieldsById = new Map(normalized[0].fields.map((field) => [field.id, field]));
+    expect(fieldsById.get(brokenLinkId)).toMatchObject({
+      type: FieldType.SingleLineText,
+      dbFieldType: DbFieldType.Text,
+      cellValueType: 'string',
+    });
+    expect(fieldsById.get(brokenLinkId)?.options).toEqual({});
+    expect(fieldsById.get(dependentLookupId)).toMatchObject({
+      type: FieldType.SingleLineText,
+      dbFieldType: DbFieldType.Text,
+      cellValueType: 'string',
+    });
+    expect(fieldsById.get(dependentLookupId)?.isLookup).toBeUndefined();
+    expect(fieldsById.get(dependentRollupId)).toMatchObject({
+      type: FieldType.SingleLineText,
+      dbFieldType: DbFieldType.Text,
+      cellValueType: 'string',
+    });
+    expect(fieldsById.get(dependentRollupId)?.lookupOptions).toBeUndefined();
+    expect(ignoredJunctionArchiveNames).toEqual(['junction_external_link']);
+  });
+
+  it('downgrades two-way self-links without symmetricFieldId, non-error rollups without lookupFieldId, and clears downgraded calendar bindings', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const tableId = `tbl${'b'.repeat(16)}`;
+    const selfLinkId = `fld${'s'.repeat(16)}`;
+    const oneWayLinkId = `fld${'o'.repeat(16)}`;
+    const rollupMissingLookupId = `fld${'m'.repeat(16)}`;
+    const downgradedDateLookupId = `fld${'d'.repeat(16)}`;
+    const validDateId = `fld${'v'.repeat(16)}`;
+
+    const { tables: normalized, ignoredJunctionArchiveNames } =
+      service.normalizeDisconnectedImportTables([
+        {
+          id: tableId,
+          name: 'Events',
+          dbTableName: 'events',
+          order: 1,
+          views: [
+            {
+              id: `viw${'c'.repeat(16)}`,
+              name: 'Calendar',
+              type: ViewType.Calendar,
+              options: {
+                startDateFieldId: downgradedDateLookupId,
+                endDateFieldId: validDateId,
+                titleFieldId: `fld${'p'.repeat(16)}`,
+              },
+            },
+          ],
+          fields: [
+            {
+              id: `fld${'p'.repeat(16)}`,
+              name: 'Name',
+              type: FieldType.SingleLineText,
+              dbFieldName: 'Name',
+              dbFieldType: DbFieldType.Text,
+              cellValueType: 'string',
+              isPrimary: true,
+              order: 1,
+              createdTime: '2025-10-29T00:00:00.000Z',
+            },
+            {
+              id: validDateId,
+              name: 'End Date',
+              type: FieldType.Date,
+              dbFieldName: 'End_Date',
+              dbFieldType: DbFieldType.DateTime,
+              cellValueType: 'dateTime',
+              order: 2,
+              createdTime: '2025-10-29T00:00:01.000Z',
+            },
+            {
+              id: selfLinkId,
+              name: 'Broken Two-Way Self Link',
+              type: FieldType.Link,
+              dbFieldName: 'Broken_Self_Link',
+              dbFieldType: DbFieldType.Json,
+              cellValueType: 'string',
+              isMultipleCellValue: true,
+              order: 3,
+              createdTime: '2025-10-29T00:00:02.000Z',
+              options: {
+                relationship: 'manyMany',
+                foreignTableId: tableId,
+                lookupFieldId: `fld${'p'.repeat(16)}`,
+                fkHostTableName: 'junction_broken_self_link',
+              },
+            },
+            {
+              id: downgradedDateLookupId,
+              name: 'Start Date Lookup',
+              type: FieldType.Date,
+              isLookup: true,
+              dbFieldName: 'Start_Date_Lookup',
+              dbFieldType: DbFieldType.DateTime,
+              cellValueType: 'dateTime',
+              order: 4,
+              createdTime: '2025-10-29T00:00:03.000Z',
+              lookupOptions: {
+                foreignTableId: tableId,
+                linkFieldId: selfLinkId,
+                lookupFieldId: validDateId,
+              },
+            },
+            {
+              id: oneWayLinkId,
+              name: 'Valid One-Way Self Link',
+              type: FieldType.Link,
+              dbFieldName: 'Valid_Self_Link',
+              dbFieldType: DbFieldType.Json,
+              cellValueType: 'string',
+              isMultipleCellValue: true,
+              order: 5,
+              createdTime: '2025-10-29T00:00:04.000Z',
+              options: {
+                relationship: 'manyOne',
+                foreignTableId: tableId,
+                lookupFieldId: `fld${'p'.repeat(16)}`,
+                isOneWay: true,
+              },
+            },
+            {
+              id: rollupMissingLookupId,
+              name: 'Rollup Missing Target',
+              type: FieldType.Rollup,
+              dbFieldName: 'Rollup_Missing_Target',
+              dbFieldType: DbFieldType.Real,
+              cellValueType: 'number',
+              order: 6,
+              createdTime: '2025-10-29T00:00:05.000Z',
+              options: { expression: 'countall({values})' },
+              lookupOptions: {
+                foreignTableId: tableId,
+                linkFieldId: oneWayLinkId,
+              },
+            },
+          ],
+        } as unknown as IBaseJson['tables'][number],
+      ]);
+
+    const fieldsById = new Map(normalized[0].fields.map((field) => [field.id, field]));
+    expect(fieldsById.get(selfLinkId)?.type).toBe(FieldType.SingleLineText);
+    expect(fieldsById.get(downgradedDateLookupId)?.type).toBe(FieldType.SingleLineText);
+    expect(fieldsById.get(downgradedDateLookupId)?.isLookup).toBeUndefined();
+    expect(fieldsById.get(oneWayLinkId)?.type).toBe(FieldType.Link);
+    expect(fieldsById.get(rollupMissingLookupId)?.type).toBe(FieldType.SingleLineText);
+    expect(ignoredJunctionArchiveNames).toEqual(['junction_broken_self_link']);
+    expect(normalized[0].views[0].options).toEqual({
+      endDateFieldId: validDateId,
+      titleFieldId: `fld${'p'.repeat(16)}`,
+    });
+  });
+
+  it('downgrades incompatible downstream fields while preserving text-compatible consumers across downgraded and errored computed targets', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const downstreamTableId = `tbl${'c'.repeat(16)}`;
+    const upstreamTableId = `tbl${'d'.repeat(16)}`;
+    const validLinkId = `fld${'l'.repeat(16)}`;
+    const downstreamSumRollupId = `fld${'r'.repeat(16)}`;
+    const downstreamCountRollupId = `fld${'m'.repeat(16)}`;
+    const downstreamTextLookupId = `fld${'t'.repeat(16)}`;
+    const downstreamConditionalLookupId = `fld${'k'.repeat(16)}`;
+    const downstreamSumOfErroredRollupId = `fld${'e'.repeat(16)}`;
+    const downstreamCountOfErroredRollupId = `fld${'f'.repeat(16)}`;
+    const downstreamNumberLookupOfErroredId = `fld${'g'.repeat(16)}`;
+    const upstreamBrokenLinkId = `fld${'x'.repeat(16)}`;
+    const upstreamNumberLookupId = `fld${'n'.repeat(16)}`;
+    const upstreamErroredNumberLookupId = `fld${'h'.repeat(16)}`;
+    const upstreamNumberFieldId = `fld${'u'.repeat(16)}`;
+
+    const { tables: normalized } = service.normalizeDisconnectedImportTables([
+      {
+        id: downstreamTableId,
+        name: 'Summary',
+        dbTableName: 'summary',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: `fld${'a'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: validLinkId,
+            name: 'Upstream',
+            type: FieldType.Link,
+            dbFieldName: 'Upstream',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: upstreamTableId,
+              lookupFieldId: `fld${'b'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: downstreamSumRollupId,
+            name: 'Sum Of Downgraded Lookup',
+            type: FieldType.Rollup,
+            dbFieldName: 'Sum_Of_Downgraded_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: { expression: 'sum({values})' },
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamNumberLookupId,
+            },
+          },
+          {
+            id: downstreamCountRollupId,
+            name: 'Count Of Downgraded Lookup',
+            type: FieldType.Rollup,
+            dbFieldName: 'Count_Of_Downgraded_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: { expression: 'countall({values})' },
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamNumberLookupId,
+            },
+          },
+          {
+            id: downstreamTextLookupId,
+            name: 'Text Lookup Of Downgraded',
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            dbFieldName: 'Text_Lookup_Of_Downgraded',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamNumberLookupId,
+            },
+          },
+          {
+            id: downstreamConditionalLookupId,
+            name: 'Conditional Number Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            isConditionalLookup: true,
+            dbFieldName: 'Conditional_Number_Lookup',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 6,
+            createdTime: '2025-10-29T00:00:05.000Z',
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              lookupFieldId: upstreamNumberLookupId,
+            },
+          },
+          {
+            id: downstreamSumOfErroredRollupId,
+            name: 'Sum Of Errored Lookup',
+            type: FieldType.Rollup,
+            dbFieldName: 'Sum_Of_Errored_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 7,
+            createdTime: '2025-10-29T00:00:06.000Z',
+            options: { expression: 'sum({values})' },
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamErroredNumberLookupId,
+            },
+          },
+          {
+            id: downstreamCountOfErroredRollupId,
+            name: 'Count Of Errored Lookup',
+            type: FieldType.Rollup,
+            dbFieldName: 'Count_Of_Errored_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 8,
+            createdTime: '2025-10-29T00:00:07.000Z',
+            options: { expression: 'countall({values})' },
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamErroredNumberLookupId,
+            },
+          },
+          {
+            id: downstreamNumberLookupOfErroredId,
+            name: 'Number Lookup Of Errored',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Number_Lookup_Of_Errored',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 9,
+            createdTime: '2025-10-29T00:00:08.000Z',
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: upstreamErroredNumberLookupId,
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: upstreamTableId,
+        name: 'Source',
+        dbTableName: 'source',
+        order: 2,
+        views: [],
+        fields: [
+          {
+            id: `fld${'b'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: upstreamNumberFieldId,
+            name: 'Amount',
+            type: FieldType.Number,
+            dbFieldName: 'Amount',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+          },
+          {
+            id: upstreamBrokenLinkId,
+            name: 'Broken Two-Way Link',
+            type: FieldType.Link,
+            dbFieldName: 'Broken_Two_Way_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: upstreamTableId,
+              lookupFieldId: `fld${'b'.repeat(16)}`,
+            },
+          },
+          {
+            id: upstreamNumberLookupId,
+            name: 'Amount Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Amount_Lookup',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: upstreamBrokenLinkId,
+              lookupFieldId: upstreamNumberFieldId,
+            },
+          },
+          {
+            id: upstreamErroredNumberLookupId,
+            name: 'Errored Amount Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            hasError: true,
+            dbFieldName: 'Errored_Amount_Lookup',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            lookupOptions: {
+              foreignTableId: upstreamTableId,
+              linkFieldId: validLinkId,
+              lookupFieldId: `fld${'z'.repeat(16)}`,
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ]);
+
+    const downstreamFields = new Map(normalized[0].fields.map((field) => [field.id, field]));
+    const upstreamFields = new Map(normalized[1].fields.map((field) => [field.id, field]));
+    expect(upstreamFields.get(upstreamBrokenLinkId)?.type).toBe(FieldType.SingleLineText);
+    expect(upstreamFields.get(upstreamNumberLookupId)?.type).toBe(FieldType.SingleLineText);
+    expect(upstreamFields.get(upstreamErroredNumberLookupId)?.type).toBe(FieldType.SingleLineText);
+    expect(upstreamFields.get(upstreamErroredNumberLookupId)?.isLookup).toBeUndefined();
+    expect(upstreamFields.get(upstreamErroredNumberLookupId)?.hasError).toBeUndefined();
+    expect(downstreamFields.get(validLinkId)?.type).toBe(FieldType.Link);
+    expect(downstreamFields.get(downstreamSumRollupId)?.type).toBe(FieldType.SingleLineText);
+    expect(downstreamFields.get(downstreamSumRollupId)?.lookupOptions).toBeUndefined();
+    expect(downstreamFields.get(downstreamCountRollupId)?.type).toBe(FieldType.Rollup);
+    expect(downstreamFields.get(downstreamTextLookupId)?.type).toBe(FieldType.SingleLineText);
+    expect(downstreamFields.get(downstreamTextLookupId)?.isLookup).toBe(true);
+    expect(downstreamFields.get(downstreamConditionalLookupId)?.type).toBe(
+      FieldType.SingleLineText
+    );
+    expect(downstreamFields.get(downstreamConditionalLookupId)?.isLookup).toBeUndefined();
+    expect(downstreamFields.get(downstreamSumOfErroredRollupId)?.type).toBe(
+      FieldType.SingleLineText
+    );
+    expect(downstreamFields.get(downstreamCountOfErroredRollupId)?.type).toBe(FieldType.Rollup);
+    expect(downstreamFields.get(downstreamNumberLookupOfErroredId)?.type).toBe(
+      FieldType.SingleLineText
+    );
+    expect(downstreamFields.get(downstreamNumberLookupOfErroredId)?.isLookup).toBeUndefined();
+  });
+
+  it('preserves CSV values for errored rollups and rollups whose targets lose type or formula array shape', () => {
+    const service = Object.create(BaseImportService.prototype) as INormalizeDisconnectedService;
+    const sourceTableId = `tbl${'1'.repeat(16)}`;
+    const midTableId = `tbl${'2'.repeat(16)}`;
+    const consumerTableId = `tbl${'3'.repeat(16)}`;
+    const brokenLinkId = `fld${'a'.repeat(16)}`;
+    const downgradedNumberLookupId = `fld${'b'.repeat(16)}`;
+    const erroredRollupId = `fld${'c'.repeat(16)}`;
+    const erroredConditionalRollupId = `fld${'d'.repeat(16)}`;
+    const midToSourceLinkId = `fld${'e'.repeat(16)}`;
+    const numericArrayUniqueId = `fld${'f'.repeat(16)}`;
+    const stringArrayUniqueId = `fld${'g'.repeat(16)}`;
+    const consumerToMidLinkId = `fld${'h'.repeat(16)}`;
+    const consumerSumOfArrayUniqueId = `fld${'i'.repeat(16)}`;
+    const splitFormulaId = `fld${'j'.repeat(16)}`;
+    const scalarFormulaId = `fld${'k'.repeat(16)}`;
+    const splitArrayUniqueId = `fld${'l'.repeat(16)}`;
+    const splitConditionalArrayCompactId = `fld${'m'.repeat(16)}`;
+    const scalarArrayUniqueId = `fld${'n'.repeat(16)}`;
+
+    const { tables: normalized } = service.normalizeDisconnectedImportTables([
+      {
+        id: sourceTableId,
+        name: 'Source',
+        dbTableName: 'source',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: `fld${'0'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: brokenLinkId,
+            name: 'Broken Link',
+            type: FieldType.Link,
+            dbFieldName: 'Broken_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: `tbl${'x'.repeat(16)}`,
+              lookupFieldId: `fld${'y'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: downgradedNumberLookupId,
+            name: 'Number Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Number_Lookup',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            lookupOptions: {
+              foreignTableId: `tbl${'x'.repeat(16)}`,
+              linkFieldId: brokenLinkId,
+              lookupFieldId: `fld${'z'.repeat(16)}`,
+            },
+          },
+          {
+            id: erroredRollupId,
+            name: 'Errored Rollup',
+            type: FieldType.Rollup,
+            hasError: true,
+            dbFieldName: 'Errored_Rollup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: { expression: 'sum({values})' },
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              linkFieldId: midToSourceLinkId,
+              lookupFieldId: `fld${'0'.repeat(16)}`,
+            },
+          },
+          {
+            id: erroredConditionalRollupId,
+            name: 'Errored Conditional Rollup',
+            type: FieldType.ConditionalRollup,
+            hasError: true,
+            dbFieldName: 'Errored_Conditional_Rollup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            options: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: `fld${'0'.repeat(16)}`,
+              expression: 'sum({values})',
+            },
+          },
+          {
+            id: splitFormulaId,
+            name: 'Split Formula',
+            type: FieldType.Formula,
+            dbFieldName: 'Split_Formula',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 6,
+            createdTime: '2025-10-29T00:00:05.000Z',
+            options: { expression: `TEXTSPLIT(CONCATENATE({${brokenLinkId}}), ", ")` },
+          },
+          {
+            id: scalarFormulaId,
+            name: 'Scalar Formula',
+            type: FieldType.Formula,
+            dbFieldName: 'Scalar_Formula',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            order: 7,
+            createdTime: '2025-10-29T00:00:06.000Z',
+            options: { expression: `CONCATENATE({${brokenLinkId}})` },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: midTableId,
+        name: 'Mid',
+        dbTableName: 'mid',
+        order: 2,
+        views: [],
+        fields: [
+          {
+            id: `fld${'1'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: midToSourceLinkId,
+            name: 'Source Link',
+            type: FieldType.Link,
+            dbFieldName: 'Source_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: sourceTableId,
+              lookupFieldId: `fld${'0'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: numericArrayUniqueId,
+            name: 'Numeric Array Unique',
+            type: FieldType.Rollup,
+            dbFieldName: 'Numeric_Array_Unique',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'number',
+            isMultipleCellValue: true,
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {
+              expression: 'array_unique({values})',
+              formatting: { type: 'decimal', precision: 2 },
+            },
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              linkFieldId: midToSourceLinkId,
+              lookupFieldId: downgradedNumberLookupId,
+            },
+          },
+          {
+            id: stringArrayUniqueId,
+            name: 'String Array Unique',
+            type: FieldType.Rollup,
+            dbFieldName: 'String_Array_Unique',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: {
+              expression: 'array_unique({values})',
+            },
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              linkFieldId: midToSourceLinkId,
+              lookupFieldId: brokenLinkId,
+            },
+          },
+          {
+            id: splitArrayUniqueId,
+            name: 'Split Formula Array Unique',
+            type: FieldType.Rollup,
+            dbFieldName: 'Split_Formula_Array_Unique',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            options: { expression: 'array_unique({values})' },
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              linkFieldId: midToSourceLinkId,
+              lookupFieldId: splitFormulaId,
+            },
+          },
+          {
+            id: splitConditionalArrayCompactId,
+            name: 'Split Formula Conditional Array Compact',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Split_Formula_Conditional_Array_Compact',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 6,
+            createdTime: '2025-10-29T00:00:05.000Z',
+            options: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: splitFormulaId,
+              expression: 'array_compact({values})',
+            },
+          },
+          {
+            id: scalarArrayUniqueId,
+            name: 'Scalar Formula Array Unique',
+            type: FieldType.Rollup,
+            dbFieldName: 'Scalar_Formula_Array_Unique',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 7,
+            createdTime: '2025-10-29T00:00:06.000Z',
+            options: { expression: 'array_unique({values})' },
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              linkFieldId: midToSourceLinkId,
+              lookupFieldId: scalarFormulaId,
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: consumerTableId,
+        name: 'Consumer',
+        dbTableName: 'consumer',
+        order: 3,
+        views: [],
+        fields: [
+          {
+            id: `fld${'2'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: consumerToMidLinkId,
+            name: 'Mid Link',
+            type: FieldType.Link,
+            dbFieldName: 'Mid_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyMany',
+              foreignTableId: midTableId,
+              lookupFieldId: `fld${'1'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: consumerSumOfArrayUniqueId,
+            name: 'Sum Of Array Unique',
+            type: FieldType.Rollup,
+            dbFieldName: 'Sum_Of_Array_Unique',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {
+              expression: 'sum({values})',
+            },
+            lookupOptions: {
+              foreignTableId: midTableId,
+              linkFieldId: consumerToMidLinkId,
+              lookupFieldId: numericArrayUniqueId,
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ]);
+
+    const sourceFields = new Map(normalized[0].fields.map((field) => [field.id, field]));
+    const midFields = new Map(normalized[1].fields.map((field) => [field.id, field]));
+    const consumerFields = new Map(normalized[2].fields.map((field) => [field.id, field]));
+
+    expect(sourceFields.get(erroredRollupId)?.type).toBe(FieldType.SingleLineText);
+    expect(sourceFields.get(erroredRollupId)?.hasError).toBeUndefined();
+    expect(sourceFields.get(erroredConditionalRollupId)?.type).toBe(FieldType.SingleLineText);
+    expect(sourceFields.get(erroredConditionalRollupId)?.hasError).toBeUndefined();
+    expect(midFields.get(numericArrayUniqueId)?.type).toBe(FieldType.SingleLineText);
+    expect(midFields.get(numericArrayUniqueId)?.options).toEqual({});
+    expect(midFields.get(stringArrayUniqueId)?.type).toBe(FieldType.Rollup);
+    expect(sourceFields.get(splitFormulaId)?.type).toBe(FieldType.SingleLineText);
+    expect(sourceFields.get(splitFormulaId)?.isMultipleCellValue).toBeUndefined();
+    expect(sourceFields.get(scalarFormulaId)?.type).toBe(FieldType.SingleLineText);
+    expect(midFields.get(splitArrayUniqueId)?.type).toBe(FieldType.SingleLineText);
+    expect(midFields.get(splitArrayUniqueId)?.lookupOptions).toBeUndefined();
+    expect(midFields.get(splitConditionalArrayCompactId)?.type).toBe(FieldType.SingleLineText);
+    expect(midFields.get(splitConditionalArrayCompactId)?.options).toEqual({});
+    expect(midFields.get(scalarArrayUniqueId)?.type).toBe(FieldType.Rollup);
+    expect(consumerFields.get(consumerSumOfArrayUniqueId)?.type).toBe(FieldType.SingleLineText);
+  });
+
+  it('downgrades conditional fields whose filter predicates become incompatible after field downgrade while preserving valid filters', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const sourceTableId = `tbl${'d'.repeat(16)}`;
+    const hostTableId = `tbl${'e'.repeat(16)}`;
+    const missingTableId = `tbl${'f'.repeat(16)}`;
+    const sourceTitleId = `fld${'0'.repeat(16)}`;
+    const sourceBrokenLinkId = `fld${'a'.repeat(16)}`;
+    const sourceDowngradedNumLookupId = `fld${'b'.repeat(16)}`;
+    const sourceDowngradedTextLookupId = `fld${'c'.repeat(16)}`;
+    const sourceHealthyNumberId = `fld${'d'.repeat(16)}`;
+    const hostBrokenLinkId = `fld${'e'.repeat(16)}`;
+    const hostDowngradedNumLookupId = `fld${'f'.repeat(16)}`;
+    const condRollupInvalidLhsId = `fld${'g'.repeat(16)}`;
+    const condLookupInvalidLhsId = `fld${'h'.repeat(16)}`;
+    const condRollupInvalidRhsId = `fld${'i'.repeat(16)}`;
+    const condRollupValidTextFilterId = `fld${'j'.repeat(16)}`;
+
+    const { tables: normalized } = service.normalizeDisconnectedImportTables([
+      {
+        id: sourceTableId,
+        name: 'Source',
+        dbTableName: 'source',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: sourceTitleId,
+            name: 'Title',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Title',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: sourceBrokenLinkId,
+            name: 'Missing Link',
+            type: FieldType.Link,
+            dbFieldName: 'Missing_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: missingTableId,
+              lookupFieldId: `fld${'9'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: sourceDowngradedNumLookupId,
+            name: 'Score Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Score_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {},
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: sourceBrokenLinkId,
+              lookupFieldId: `fld${'8'.repeat(16)}`,
+            },
+          },
+          {
+            id: sourceDowngradedTextLookupId,
+            name: 'Status Lookup',
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            dbFieldName: 'Status_Lookup',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: {},
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: sourceBrokenLinkId,
+              lookupFieldId: `fld${'7'.repeat(16)}`,
+            },
+          },
+          {
+            id: sourceHealthyNumberId,
+            name: 'Amount',
+            type: FieldType.Number,
+            dbFieldName: 'Amount',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            options: {},
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: hostTableId,
+        name: 'Host',
+        dbTableName: 'host',
+        order: 2,
+        views: [],
+        fields: [
+          {
+            id: `fld${'1'.repeat(16)}`,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+          },
+          {
+            id: hostBrokenLinkId,
+            name: 'Host Missing Link',
+            type: FieldType.Link,
+            dbFieldName: 'Host_Missing_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: 'manyOne',
+              foreignTableId: missingTableId,
+              lookupFieldId: `fld${'6'.repeat(16)}`,
+              isOneWay: true,
+            },
+          },
+          {
+            id: hostDowngradedNumLookupId,
+            name: 'Threshold Lookup',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Threshold_Lookup',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {},
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: hostBrokenLinkId,
+              lookupFieldId: `fld${'5'.repeat(16)}`,
+            },
+          },
+          {
+            id: condRollupInvalidLhsId,
+            name: 'Count High Scores',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Count_High_Scores',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: sourceTitleId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceDowngradedNumLookupId,
+                    operator: 'isGreater',
+                    value: 10,
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: condLookupInvalidLhsId,
+            name: 'High Score Titles',
+            type: FieldType.SingleLineText,
+            isLookup: true,
+            isConditionalLookup: true,
+            dbFieldName: 'High_Score_Titles',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            isMultipleCellValue: true,
+            order: 5,
+            createdTime: '2025-10-29T00:00:04.000Z',
+            options: {},
+            lookupOptions: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: sourceTitleId,
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceDowngradedNumLookupId,
+                    operator: 'isGreater',
+                    value: 10,
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: condRollupInvalidRhsId,
+            name: 'Count Above Threshold',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Count_Above_Threshold',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 6,
+            createdTime: '2025-10-29T00:00:05.000Z',
+            options: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: sourceTitleId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceHealthyNumberId,
+                    operator: 'isGreater',
+                    value: {
+                      type: 'field',
+                      fieldId: hostDowngradedNumLookupId,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: condRollupValidTextFilterId,
+            name: 'Count Active',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Count_Active',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 7,
+            createdTime: '2025-10-29T00:00:06.000Z',
+            options: {
+              foreignTableId: sourceTableId,
+              lookupFieldId: sourceTitleId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: sourceDowngradedTextLookupId,
+                    operator: 'is',
+                    value: 'Active',
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ]);
+
+    const hostFields = new Map(normalized[1].fields.map((field) => [field.id, field]));
+
+    expect(hostFields.get(condRollupInvalidLhsId)?.type).toBe(FieldType.SingleLineText);
+    expect(hostFields.get(condLookupInvalidLhsId)?.type).toBe(FieldType.SingleLineText);
+    expect(hostFields.get(condLookupInvalidLhsId)?.isLookup).toBeUndefined();
+    expect(hostFields.get(condLookupInvalidLhsId)?.isConditionalLookup).toBeUndefined();
+    expect(hostFields.get(condRollupInvalidRhsId)?.type).toBe(FieldType.SingleLineText);
+    expect(hostFields.get(condRollupValidTextFilterId)?.type).toBe(FieldType.ConditionalRollup);
+  });
+
+  it('preserves conditional equality predicate when both operands independently downgrade to text regardless of table order', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const missingTableId = 'tblMissing000000001';
+    const hostTableId = 'tblHost000000000001';
+    const foreignTableId = 'tblForeign000000001';
+
+    const hostTitleId = 'fldHostTitle0000001';
+    const hostBrokenLinkId = 'fldHostBrokenLink01';
+    const hostDowngradedNumLookupId = 'fldHostNumLookup001';
+    const condRollupId = 'fldCondRollupEq0001';
+
+    const foreignTitleId = 'fldForeignTitle0001';
+    const foreignBrokenLinkId = 'fldForeignLink00001';
+    const foreignDowngradedNumLookupId = 'fldForeignNumLkp001';
+
+    const [host, foreign] = [
+      {
+        id: hostTableId,
+        name: 'Host',
+        dbTableName: 'Host',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: hostTitleId,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+            options: {},
+          },
+          {
+            id: condRollupId,
+            name: 'Matching Code Count',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Matching_Code_Count',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              foreignTableId,
+              lookupFieldId: foreignTitleId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignDowngradedNumLookupId,
+                    operator: 'is',
+                    value: {
+                      type: 'field',
+                      fieldId: hostDowngradedNumLookupId,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+          {
+            id: hostBrokenLinkId,
+            name: 'External Link',
+            type: FieldType.Link,
+            dbFieldName: 'External_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: missingTableId,
+              lookupFieldId: 'fldMissingPrimary01',
+              isOneWay: true,
+            },
+          },
+          {
+            id: hostDowngradedNumLookupId,
+            name: 'Host Code',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Host_Code',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: hostBrokenLinkId,
+              lookupFieldId: 'fldMissingCode00001',
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: foreignTableId,
+        name: 'Foreign',
+        dbTableName: 'Foreign',
+        order: 2,
+        views: [],
+        fields: [
+          {
+            id: foreignTitleId,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+            options: {},
+          },
+          {
+            id: foreignBrokenLinkId,
+            name: 'External Link',
+            type: FieldType.Link,
+            dbFieldName: 'External_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: missingTableId,
+              lookupFieldId: 'fldMissingPrimary01',
+              isOneWay: true,
+            },
+          },
+          {
+            id: foreignDowngradedNumLookupId,
+            name: 'Foreign Code',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Foreign_Code',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: foreignBrokenLinkId,
+              lookupFieldId: 'fldMissingCode00002',
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ];
+
+    for (const order of [
+      [host, foreign],
+      [foreign, host],
+    ]) {
+      const { tables } = service.normalizeDisconnectedImportTables(order);
+      const byId = new Map(
+        tables.flatMap((table) => table.fields.map((field) => [field.id, field] as const))
+      );
+      expect(byId.get(hostDowngradedNumLookupId)?.type).toBe(FieldType.SingleLineText);
+      expect(byId.get(foreignDowngradedNumLookupId)?.type).toBe(FieldType.SingleLineText);
+      expect(byId.get(condRollupId)?.type).toBe(FieldType.ConditionalRollup);
+    }
+  });
+
+  it('downgrades conditional fields when an unqualified RHS field reference resolves to a downgraded foreign-table field', () => {
+    const service = Object.create(BaseImportService.prototype) as {
+      normalizeDisconnectedImportTables: (tables: IBaseJson['tables']) => {
+        tables: IBaseJson['tables'];
+        ignoredJunctionArchiveNames: string[];
+      };
+    };
+
+    const missingTableId = 'tblMissing000000002';
+    const foreignTableId = 'tblForeign000000002';
+    const hostTableId = 'tblHost000000000002';
+
+    const foreignTitleId = 'fldForeignTitle0002';
+    const foreignHealthyNumberId = 'fldForeignNum000002';
+    const foreignBrokenLinkId = 'fldForeignLink00002';
+    const foreignDowngradedRhsId = 'fldForeignRhs000002';
+
+    const hostTitleId = 'fldHostTitle0000002';
+    const condRollupForeignRhsId = 'fldCondRollupFRhs02';
+
+    const { tables: normalized } = service.normalizeDisconnectedImportTables([
+      {
+        id: foreignTableId,
+        name: 'Foreign',
+        dbTableName: 'Foreign',
+        order: 1,
+        views: [],
+        fields: [
+          {
+            id: foreignTitleId,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+            options: {},
+          },
+          {
+            id: foreignHealthyNumberId,
+            name: 'Amount',
+            type: FieldType.Number,
+            dbFieldName: 'Amount',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+          },
+          {
+            id: foreignBrokenLinkId,
+            name: 'External Link',
+            type: FieldType.Link,
+            dbFieldName: 'External_Link',
+            dbFieldType: DbFieldType.Json,
+            cellValueType: 'string',
+            order: 3,
+            createdTime: '2025-10-29T00:00:02.000Z',
+            options: {
+              relationship: Relationship.ManyOne,
+              foreignTableId: missingTableId,
+              lookupFieldId: 'fldMissingPrimary02',
+              isOneWay: true,
+            },
+          },
+          {
+            id: foreignDowngradedRhsId,
+            name: 'Foreign Threshold',
+            type: FieldType.Number,
+            isLookup: true,
+            dbFieldName: 'Foreign_Threshold',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 4,
+            createdTime: '2025-10-29T00:00:03.000Z',
+            options: { formatting: { type: 'decimal', precision: 0 } },
+            lookupOptions: {
+              foreignTableId: missingTableId,
+              linkFieldId: foreignBrokenLinkId,
+              lookupFieldId: 'fldMissingThresh002',
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+      {
+        id: hostTableId,
+        name: 'Host',
+        dbTableName: 'Host',
+        order: 2,
+        views: [],
+        fields: [
+          {
+            id: hostTitleId,
+            name: 'Name',
+            type: FieldType.SingleLineText,
+            dbFieldName: 'Name',
+            dbFieldType: DbFieldType.Text,
+            cellValueType: 'string',
+            isPrimary: true,
+            order: 1,
+            createdTime: '2025-10-29T00:00:00.000Z',
+            options: {},
+          },
+          {
+            id: condRollupForeignRhsId,
+            name: 'Above Foreign Threshold',
+            type: FieldType.ConditionalRollup,
+            dbFieldName: 'Above_Foreign_Threshold',
+            dbFieldType: DbFieldType.Real,
+            cellValueType: 'number',
+            order: 2,
+            createdTime: '2025-10-29T00:00:01.000Z',
+            options: {
+              foreignTableId,
+              lookupFieldId: foreignTitleId,
+              expression: 'countall({values})',
+              filter: {
+                conjunction: 'and',
+                filterSet: [
+                  {
+                    fieldId: foreignHealthyNumberId,
+                    operator: 'isGreater',
+                    value: {
+                      type: 'field',
+                      fieldId: foreignDowngradedRhsId,
+                    },
+                  },
+                ],
+              },
+            },
+          },
+        ],
+      } as unknown as IBaseJson['tables'][number],
+    ]);
+
+    const hostFields = new Map(normalized[1].fields.map((field) => [field.id, field]));
+    expect(hostFields.get(condRollupForeignRhsId)?.type).toBe(FieldType.SingleLineText);
   });
 });

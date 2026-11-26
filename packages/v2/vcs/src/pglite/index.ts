@@ -3,8 +3,11 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
+  ActorId,
   NoopSameTxProjectionDispatcher,
+  v2CoreTokens,
   type DomainError,
+  type IDomainWriteTransaction,
   type ICommandBus,
   type IQueryBus,
   type ISameTxProjectionDispatcher,
@@ -46,6 +49,30 @@ export interface IPgliteLocalEngineAdapterOptions {
   readonly runtime?: IVcsPgliteRuntime;
   readonly createRuntime?: VcsPgliteRuntimeFactory;
   readonly actorId?: string;
+}
+
+export function applyPgliteVcsPatchAtomically(
+  runtime: IVcsPgliteRuntime & { readonly container: { resolve<T>(token: symbol): T } },
+  baseId: string,
+  patch: IBaseVcsPatch
+): Promise<Result<void, DomainError>> {
+  const actor = ActorId.create(DEFAULT_ACTOR_ID);
+  if (actor.isErr()) return Promise.resolve(err(actor.error));
+  const transaction = runtime.container.resolve<IDomainWriteTransaction>(
+    v2CoreTokens.domainWriteTransaction
+  );
+  const engine = new V2EngineSyncAdapter({
+    commandBus: runtime.commandBus,
+    queryBus: runtime.queryBus,
+  });
+  return transaction.withBatchTransaction(
+    { actorId: actor.value },
+    async (context) => {
+      const result = await engine.applyPatch(baseId, patch, { context, skipCaptureSnapshot: true });
+      return result.map(() => undefined);
+    },
+    { scope: 'data' }
+  );
 }
 
 const DEFAULT_ACTOR_ID = 'usr_vcs_sync';

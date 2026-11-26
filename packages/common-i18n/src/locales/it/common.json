@@ -1272,6 +1272,7 @@
           "description": "Segreti non impostati o con un valore predefinito pubblico: {{total}}. Potrebbero consentire ad altri di falsificare i token di accesso o decifrare i dati memorizzati. Impostali come variabili d'ambiente e riavvia; il log di avvio spiega ogni voce. Su un'istanza con dati esistenti, fissa prima i valori attuali e poi esegui la rotazione: sostituire direttamente una chiave di cifratura rende illeggibili i dati cifrati con essa.",
           "missing": "Non impostato",
           "publicDefault": "Valore predefinito pubblico",
+          "secretKeyRequired": "Una versione successiva si rifiuterà di avviarsi finché SECRET_KEY non è impostato o ha ancora il valore predefinito pubblico. Imposta un valore privato prima dell’aggiornamento.",
           "docsLink": "Riferimento delle variabili d’ambiente",
           "href": "https://help.teable.ai/en/deploy/env#secrets-and-rotation"
         }
@@ -1407,6 +1408,8 @@
     "addToTrash": "Muovi nel cestino",
     "description": "I dati nel cestino occupano ancora spazio di utilizzo di record e di utilizzo di allegati.",
     "publishedAppsOffline": "App pubblicate che andranno subito offline: {{total}}. Dopo il ripristino dal cestino, dovranno essere ripubblicate.",
+    "publicLinksOffFields": "I link pubblici di {{names}} smetteranno subito di funzionare. Dopo il ripristino, dovranno essere riattivati.",
+    "publicLinksOffAll": "I campi allegato con link pubblici li perdono subito. Dopo il ripristino, dovranno essere riattivati.",
     "spaceDescription": "Ripristina gli spazi eliminati negli ultimi {{retentionDays}} giorni",
     "spaceInnerDescription": "Ripristina i progetti eliminati da questo spazio negli ultimi {{retentionDays}} giorni",
     "baseDescription": "Ripristina le risorse eliminate da questo progetto negli ultimi {{retentionDays}} giorni",
@@ -1689,6 +1692,30 @@
             "released": {
               "title": "Dominio personalizzato dello spazio {{spaceName}} disattivato",
               "message": "Il piano Business dello spazio {{spaceName}} non è stato rinnovato, quindi il dominio personalizzato {{domains}} è stato disattivato e scollegato dalla tua app. Passa a Business per associare di nuovo un dominio personalizzato."
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "Piano dello spazio {{spaceName}} scaduto: i file pubblici verranno eliminati",
+              "message": "Il piano dello spazio {{spaceName}} è scaduto e non include più i link pubblici dei file. Le copie pubblicate dei suoi file verranno eliminate il {{releaseDate}} (UTC) e i loro link pubblici smetteranno di funzionare. Rinnova il piano prima di allora per conservarle."
+            },
+            "withdrawn": {
+              "title": "I link pubblici dei file dello spazio {{spaceName}} non funzionano più",
+              "message": "Il piano dello spazio {{spaceName}} non è stato rinnovato: i link pubblici ai suoi file non funzionano più e le copie pubblicate sono state eliminate."
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "Dominio dei file dello spazio {{spaceName}} rilasciato",
+              "message": "Il piano Business dello spazio {{spaceName}} non è stato rinnovato, quindi il dominio dei file {{hostname}} è stato rilasciato. I file pubblici vengono di nuovo serviti da {{spaceSubdomain}} e i link sotto {{hostname}} hanno smesso di funzionare. Passa a Business per associare di nuovo un dominio dei file."
+            },
+            "notVerified": {
+              "title": "Il dominio file {{hostname}} dello spazio {{spaceName}} non è stato configurato",
+              "message": "Il record DNS di {{hostname}} non è stato verificato entro 7 giorni, quindi il cambio di dominio file è stato annullato. I file pubblici continuano a essere serviti dal dominio attuale. Aggiungi il record CNAME, poi richiedi di nuovo il dominio nelle impostazioni dello spazio."
+            },
+            "failed": {
+              "title": "Impossibile configurare il dominio file {{hostname}} dello spazio {{spaceName}}",
+              "message": "Non è stato possibile convalidare il nome host o il certificato di {{hostname}} ({{error}}), quindi il cambio di dominio file è stato annullato. I file pubblici continuano a essere serviti dal dominio attuale. Controlla i record DNS e CAA del dominio, poi richiedilo di nuovo nelle impostazioni dello spazio."
             }
           }
         },

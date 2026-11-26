@@ -75,7 +75,9 @@
       "downloadSuccess": "下载完成",
       "downloadFailed": "下载失败",
       "downloadCancelled": "下载已取消",
-      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问"
+      "requireHttps": "批量下载需要 HTTPS 环境，请通过 HTTPS 或 localhost 访问",
+      "copyPublicLink": "复制公开链接",
+      "publicLinkCopied": "已复制公开链接"
     },
     "date": {
       "placeholder": "选择日期",
@@ -1832,6 +1834,10 @@
       "endpointChanged": "已保存的密钥只能发往保存时的地址，请重新输入 {{field}}。",
       "reenterForNewAddress": "地址已更改，请先重新填写或清空 {{fields}}。",
       "staleMask": "已保存的 {{field}} 在页面加载后被修改过，请重新输入。"
+    },
+    "publicFile": {
+      "fieldNotFound": "找不到这个字段",
+      "noPublicFields": "空间不存在，或没有开启公开访问的附件字段"
     }
   },
   "usageLimitBanner": {

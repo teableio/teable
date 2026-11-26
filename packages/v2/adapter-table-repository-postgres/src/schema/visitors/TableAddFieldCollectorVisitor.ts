@@ -56,6 +56,7 @@ import type {
   UpdateRatingIconSpec,
   UpdateRatingColorSpec,
   UpdateUserMultiplicitySpec,
+  UpdateAttachmentPublicAccessSpec,
   UpdateUserNotificationSpec,
   UpdateUserDefaultValueSpec,
   UpdateButtonLabelSpec,
@@ -336,6 +337,12 @@ export class TableAddFieldCollectorVisitor implements ITableSpecVisitor<void> {
   // ============ User Update specs ============
 
   visitUpdateUserMultiplicity(_spec: UpdateUserMultiplicitySpec): Result<void, DomainError> {
+    return ok(undefined);
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): Result<void, DomainError> {
     return ok(undefined);
   }
 

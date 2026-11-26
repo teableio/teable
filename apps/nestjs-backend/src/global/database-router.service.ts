@@ -152,6 +152,11 @@ export class DatabaseRouter {
     return prisma.txClient?.() ?? prisma;
   }
 
+  async dataPrismaExecutorForSpaceTransactionRead(spaceId: string): Promise<IDataPrismaQueryExecutor> {
+    const prisma = await this.dataDbClientManager.dataPrismaForSpaceTransactionRead(spaceId);
+    return prisma.txClient();
+  }
+
   private async queryWithCachedPlanRetry<T>(
     prisma: IDataPrismaQueryExecutor,
     query: string,

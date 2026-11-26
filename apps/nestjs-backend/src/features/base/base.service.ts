@@ -633,7 +633,8 @@ export class BaseService {
     await this.assertBaseWritable(baseId);
     const userId = this.cls.get('user.id');
 
-    await this.prismaService.base.update({
+    // in the caller's transaction when there is one, so an edition can add to the move
+    await this.prismaService.txClient().base.update({
       data: {
         deletedTime: new Date(),
         lastModifiedBy: userId,
@@ -1006,7 +1007,7 @@ export class BaseService {
     ignorePermissionCheck: boolean = false,
     options?: {
       skipExternalDataDbCleanup?: boolean;
-      deferColdHistoryCleanup?: (cleanup: () => Promise<void>) => void;
+      deferPostCommitCleanup?: (cleanup: () => Promise<void>) => void;
     }
   ) {
     if (!options?.skipExternalDataDbCleanup) await this.assertBaseWritable(baseId);
@@ -1016,12 +1017,14 @@ export class BaseService {
     }
 
     let purgedTableIds: string[] = [];
+    let purgedSpaceId = '';
     const result = await this.prismaService.$tx(
       async (prisma) => {
         // Keep the Base route available until this purge commits. A competing purge
         // must not reach physical cleanup while the owner holds this row lock.
-        const [lockedBase] = await prisma.$queryRaw<{ id: string }[]>`
-          SELECT "id" FROM "base" WHERE "id" = ${baseId} FOR NO KEY UPDATE SKIP LOCKED
+        const [lockedBase] = await prisma.$queryRaw<{ id: string; spaceId: string }[]>`
+          SELECT "id", "space_id" AS "spaceId" FROM "base" WHERE "id" = ${baseId}
+          FOR NO KEY UPDATE SKIP LOCKED
         `;
         if (!lockedBase) {
           const base = await prisma.base.findUnique({
@@ -1057,6 +1060,7 @@ export class BaseService {
         });
         const tableIds = tables.map(({ id }) => id);
         purgedTableIds = tableIds;
+        purgedSpaceId = lockedBase.spaceId;
 
         if (!skipDataDbCleanup) {
           await this.dropBase(baseId, tableIds);
@@ -1078,10 +1082,14 @@ export class BaseService {
     );
     if (purgedTableIds.length) {
       const cleanup = () =>
-        this.tableLifecycleCleanupService.cleanupColdHistoryPrefixes(purgedTableIds);
+        this.tableLifecycleCleanupService.cleanupAfterPurge({
+          baseId,
+          spaceId: purgedSpaceId,
+          tableIds: purgedTableIds,
+        });
       // Space purges reuse their outer transaction. Only its owner can run this after commit.
-      if (options?.deferColdHistoryCleanup) {
-        options.deferColdHistoryCleanup(cleanup);
+      if (options?.deferPostCommitCleanup) {
+        options.deferPostCommitCleanup(cleanup);
       } else {
         await cleanup();
       }

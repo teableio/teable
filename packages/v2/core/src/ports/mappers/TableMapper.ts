@@ -92,6 +92,10 @@ export type IAutoNumberFieldOptionsDTO = {
   expression?: string;
 };
 
+export type IAttachmentFieldOptionsDTO = {
+  isPublic?: boolean;
+};
+
 export type IUserFieldOptionsDTO = {
   isMultiple?: boolean;
   shouldNotify?: boolean;
@@ -295,7 +299,7 @@ export type ITableFieldPersistenceDTO =
   | (ITableFieldBaseDTO & { type: 'singleSelect'; options: ISelectFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'multipleSelect'; options: ISelectFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'checkbox'; options?: ICheckboxFieldOptionsDTO })
-  | (ITableFieldBaseDTO & { type: 'attachment'; options?: Record<string, never> })
+  | (ITableFieldBaseDTO & { type: 'attachment'; options?: IAttachmentFieldOptionsDTO })
   | (ITableFieldBaseDTO & { type: 'date'; options?: IDateFieldOptionsDTO })
   | (ITableFieldBaseDTO & {
       type: 'createdTime';

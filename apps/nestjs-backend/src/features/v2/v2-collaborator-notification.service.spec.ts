@@ -1,8 +1,13 @@
 import { FieldType } from '@teable/core';
+import type { PrismaService } from '@teable/db-main-prisma';
 import {
   BaseId,
+  domainError,
+  err,
+  ok,
   FieldId,
   FieldName,
+  type ListTableRecordsQuery,
   ListTableRecordsResult,
   NumberFormatting,
   Table,
@@ -12,20 +17,19 @@ import {
   type TableRecordReadModel,
 } from '@teable/v2-core';
 import { describe, expect, it, vi } from 'vitest';
+import { mockDeep } from 'vitest-mock-extended';
+import type { DatabaseRouter } from '../../global/database-router.service';
 
 vi.mock('../notification/notification.service', () => ({
   maxCollaboratorNotifyRecordTitles: 10,
   NotificationService: class NotificationService {},
 }));
 
-vi.mock('../record/record.service', () => ({
-  RecordService: class RecordService {},
-}));
-
 vi.mock('./v2-container.service', () => ({
   V2ContainerService: class V2ContainerService {},
 }));
 
+import { RecordTitleReader } from './record-title-reader';
 import {
   V2CollaboratorNotificationDispatcher,
   V2RecordsBatchCreatedCollaboratorNotificationProjection,
@@ -104,53 +108,54 @@ const createCollaboratorService = () => ({
 const createDispatcher = (recordTitleFixture?: {
   table: V2Table;
   records: TableRecordReadModel[];
+  failedRecordId?: string;
 }) => {
   const { db, service: v2ContainerService } = createV2ContainerService();
   const collaboratorService = createCollaboratorService();
   const notificationService = {
     sendCollaboratorNotify: vi.fn().mockResolvedValue(true),
   };
+  const reader = recordTitleFixture
+    ? new RecordTitleReader(
+        {
+          getContainerForTable: async () => ({
+            resolve: () => ({
+              findOne: async () => ({ isErr: () => false, value: recordTitleFixture.table }),
+              execute: async (_ctx: unknown, query: ListTableRecordsQuery) => {
+                const selected = new Set(query.selectedRecordIds);
+                if (recordTitleFixture.failedRecordId && selected.has(recordTitleFixture.failedRecordId)) {
+                  return err(domainError.infrastructure({ message: 'Title page unavailable' }));
+                }
+                const records = recordTitleFixture.records
+                  .filter(({ id }) => selected.has(id))
+                  .slice(0, query.pagination.limit().toNumber());
+                return {
+                  isErr: () => false,
+                  value: ListTableRecordsResult.create(records, records.length, 0, records.length),
+                };
+              },
+            }),
+          }),
+        } as never,
+        { createContext: async () => ({}) } as never,
+        mockDeep<PrismaService>(),
+        mockDeep<DatabaseRouter>()
+      )
+    : { tryByIds: vi.fn().mockResolvedValue(ok([])) };
   const dispatcher = new V2CollaboratorNotificationDispatcher(
-    {
-      ...v2ContainerService,
-      getContainerForTable: vi.fn().mockResolvedValue({
-        resolve: vi.fn().mockReturnValue(
-          recordTitleFixture
-            ? {
-                findOne: vi.fn().mockResolvedValue({
-                  isErr: () => false,
-                  value: recordTitleFixture.table,
-                }),
-                execute: vi.fn().mockResolvedValue({
-                  isErr: () => false,
-                  value: ListTableRecordsResult.create(
-                    recordTitleFixture.records,
-                    recordTitleFixture.records.length,
-                    0,
-                    recordTitleFixture.records.length
-                  ),
-                }),
-              }
-            : {
-                findOne: vi.fn(),
-                execute: vi.fn(),
-              }
-        ),
-      }),
-    } as never,
+    v2ContainerService as never,
     notificationService as never,
-    { createContext: vi.fn().mockResolvedValue({}) } as never,
+    reader as RecordTitleReader,
     collaboratorService as never
   );
 
-  return { db, dispatcher, notificationService, collaboratorService };
+  return { db, dispatcher, notificationService, collaboratorService, reader };
 };
 
 describe('V2CollaboratorNotificationDispatcher', () => {
-  it('formats record titles through the primary field definition', async () => {
+  it.each([false, true])('delivers available titles across pages (last page fails: %s)', async (failLastPage) => {
     const tableId = `tbl${'t'.repeat(16)}`;
     const primaryFieldId = `fld${'p'.repeat(16)}`;
-    const recordId = `rec${'r'.repeat(16)}`;
     const table = Table.builder()
       .withId(TableId.create(tableId)._unsafeUnwrap())
       .withBaseId(BaseId.create(`bse${'b'.repeat(16)}`)._unsafeUnwrap())
@@ -169,50 +174,59 @@ describe('V2CollaboratorNotificationDispatcher', () => {
       .done()
       .build()
       ._unsafeUnwrap();
+    const records = Array.from({ length: 1002 }, (_, index) => ({
+      id: `rec${String(index).padStart(16, '0')}`,
+      fields: { [primaryFieldId]: index + 0.5 },
+      version: 1,
+      autoNumber: index + 1,
+      createdTime: '2026-01-01T00:00:00.000Z',
+      createdByActorId: null,
+      createdByActorType: null,
+      lastModifiedByActorId: null,
+      lastModifiedByActorType: null,
+    }));
     const { dispatcher, notificationService } = createDispatcher({
       table,
-      records: [
-        {
-          id: recordId,
-          fields: { [primaryFieldId]: 1234.5 },
-          version: 1,
-          autoNumber: 1,
-          createdTime: '2026-01-01T00:00:00.000Z',
-          createdByActorType: null,
-          createdByActorId: null,
-          lastModifiedByActorType: null,
-          lastModifiedByActorId: null,
-        },
-      ],
+      records: [...records].reverse(),
+      failedRecordId: failLastPage ? records[1000]!.id : undefined,
     });
 
     await dispatcher.notifyUserFields({
       actorId: 'usrActor000000001',
       tableId,
-      records: [
-        {
-          id: recordId,
-          fields: {
-            fldAssignee0000001: {
-              id: 'usrTarget00000001',
-              title: 'Target',
-            },
-          },
-        },
-      ],
+      records: records.map(({ id }, index) => ({
+        id,
+        fields: { fldAssignee0000001: { id: `usrTeam${Math.floor(index / 10)}`, title: 'Team' } },
+      })),
     });
 
+    const firstRecipientRecords = records.slice(0, 10);
     expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
       expect.objectContaining({
+        toUserId: 'usrTeam0',
         refRecord: expect.objectContaining({
-          recordTitles: [{ id: recordId, title: '$1,234.50' }],
+          recordIds: firstRecipientRecords.map(({ id }) => id),
+          recordTitles: firstRecipientRecords.map(({ id }, index) => ({ id, title: `$${index}.50` })),
+        }),
+      })
+    );
+    expect(notificationService.sendCollaboratorNotify).toHaveBeenCalledWith(
+      expect.objectContaining({
+        toUserId: 'usrTeam100',
+        refRecord: expect.objectContaining({
+          recordIds: [records[1000]!.id, records[1001]!.id],
+          recordTitles: failLastPage ? [] : [
+            { id: records[1000]!.id, title: '$1,000.50' },
+            { id: records[1001]!.id, title: '$1,001.50' },
+          ],
         }),
       })
     );
   });
 
-  it('sends collaborator notification for v2 created records with notified user fields', async () => {
-    const { dispatcher, notificationService } = createDispatcher();
+  it('delivers v2 created record IDs when the title query returns a domain error', async () => {
+    const { dispatcher, notificationService, reader } = createDispatcher();
+    vi.spyOn(reader, 'tryByIds').mockResolvedValue(err(domainError.notFound({ message: 'Missing table' })));
     const projection = new V2RecordCreatedCollaboratorNotificationProjection(dispatcher);
     const { context, scheduled } = createScheduledContext();
 

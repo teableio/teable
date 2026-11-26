@@ -10,8 +10,8 @@ import {
 } from './sqlIdentifiers';
 
 /**
- * T7251: Lazily created `__row_<viewId>` row-order columns must never be
- * created inside the caller's DB transaction. The pre-fix code ran
+ * T7251: Ordinary lazy preparation of `__row_<viewId>` row-order columns runs
+ * outside the caller's DB transaction. The pre-fix code ran
  * `ALTER TABLE ADD COLUMN` (AccessExclusiveLock, held until commit) plus a
  * full-table backfill `UPDATE` and a plain `CREATE INDEX` on the request
  * transaction — blocking every other session (CN prod incident 2026-09-09).
@@ -165,8 +165,8 @@ const isPgliteEngine = async (db: Kysely<DynamicDB>): Promise<boolean> => {
   return /pglite|emscripten|emcc/i.test(version);
 };
 
-/** Legacy in-transaction creation for tables created by the current transaction. */
-const createRowOrderColumnInTransaction = async (
+/** The caller must own the physical table lock or have created the table in this transaction. */
+export const createRowOrderColumnInTransaction = async (
   txDb: Kysely<DynamicDB>,
   tableName: string,
   viewId: string,

@@ -209,3 +209,7 @@ preparation and policy checks against current state.
   definitions and prepare/install Plugin View integrations around aggregate creation.
 - `ViewManualSortService.ts` - Role: application service; Purpose: execute aggregate-declared
   row-order schema preparation and stream stable row-order updates through record repositories.
+- `applyAttachmentPublicLinks.ts` - Role: read-path presentation helper; Purpose: put the public links
+  of a field with public links on beside the signed URLs, by cell (record, field, item id), through
+  the optional `IAttachmentUrlSignerService.publicLinks`. Links are never stored: each pass replaces
+  what the items carried.

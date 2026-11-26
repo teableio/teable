@@ -233,19 +233,33 @@ describe('Table actor enable API (real PostgreSQL)', () => {
     }
   });
 
-  it('real registered worker completes capability and repeated POST returns ready', async () => {
-    const accepted = await axios.post(enablePath(), {});
+  const claimAcceptedOperation = async (operationId: string, workerId: string) => {
+    const prisma = app.get(PrismaService);
+    const operation = await prisma.schemaOperation.findUniqueOrThrow({ where: { id: operationId } });
+    expect(operation.status).toBe('pending');
+    expect(operation.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
+
+    // Only this fixture is due at the claim clock, even if other suites left pending work.
+    const now = new Date(0);
+    await prisma.schemaOperation.update({ where: { id: operationId }, data: { nextRunAt: now } });
     const container = await app.get(V2ContainerService).getContainerForBase(baseId);
     const runner = container.resolve<SchemaOperationRunnerService>(
       v2CoreTokens.schemaOperationRunnerService
     );
     const context: IExecutionContext = { actorId: ActorId.create('system')._unsafeUnwrap() };
-    const claimed = (
-      await runner.claimNext(context, { workerId: 'api-enable-consumer' })
-    )._unsafeUnwrap();
+    const claimed = (await runner.claimNext(context, { workerId, now }))._unsafeUnwrap();
     if (claimed.status !== 'claimed') throw new Error('Enable should be immediately claimable');
-    expect(claimed.operation.id).toBe(accepted.data.operation.id);
-    expect((await runner.runOperation(context, claimed.operation))._unsafeUnwrap().status).toBe(
+    expect(claimed.operation.id).toBe(operationId);
+    return { runner, context, operation: claimed.operation };
+  };
+
+  it('real registered worker completes capability and repeated POST returns ready', async () => {
+    const accepted = await axios.post(enablePath(), {});
+    const { runner, context, operation } = await claimAcceptedOperation(
+      accepted.data.operation.id,
+      'api-enable-consumer'
+    );
+    expect((await runner.runOperation(context, operation))._unsafeUnwrap().status).toBe(
       'completed'
     );
     expect((await axios.get(statusPath())).data).toMatchObject({
@@ -262,20 +276,15 @@ describe('Table actor enable API (real PostgreSQL)', () => {
 
   it('ready GET retries failed metadata OT delivery without rerunning DDL or changing ready operation', async () => {
     const accepted = await axios.post(enablePath(), {});
-    const container = await app.get(V2ContainerService).getContainerForBase(baseId);
-    const runner = container.resolve<SchemaOperationRunnerService>(
-      v2CoreTokens.schemaOperationRunnerService
+    const { runner, context, operation } = await claimAcceptedOperation(
+      accepted.data.operation.id,
+      'api-notification-consumer'
     );
-    const context: IExecutionContext = { actorId: ActorId.create('system')._unsafeUnwrap() };
-    const claimed = (
-      await runner.claimNext(context, { workerId: 'api-notification-consumer' })
-    )._unsafeUnwrap();
-    if (claimed.status !== 'claimed') throw new Error('Enable should be immediately claimable');
     const publish = vi
       .spyOn(app.get(ShareDbService), 'publishOpsMap')
       .mockRejectedValueOnce(new Error('Injected metadata transport failure'));
     try {
-      expect((await runner.runOperation(context, claimed.operation))._unsafeUnwrap().status).toBe(
+      expect((await runner.runOperation(context, operation))._unsafeUnwrap().status).toBe(
         'completed'
       );
       const prisma = app.get(PrismaService);

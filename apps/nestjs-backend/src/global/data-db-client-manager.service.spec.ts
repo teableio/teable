@@ -766,7 +766,7 @@ describe('DataDbClientManager', () => {
     expect(migration.ensureConnectionMigrated).not.toHaveBeenCalled();
   });
 
-  it('returns unknown routing evidence for a stale preview database without migration writes', async () => {
+  it('leaves stale routing unknown for preview and awaits migration for a transaction read', async () => {
     const migration = {
       getLatestSchemaVersion: vi.fn().mockReturnValue('schema-current'),
       ensureConnectionMigrated: vi.fn(),
@@ -799,6 +799,21 @@ describe('DataDbClientManager', () => {
 
     await expect(manager.getDataDatabaseForTablePreviewReadOnly('tblxxx')).resolves.toBeNull();
     expect(migration.ensureConnectionMigrated).not.toHaveBeenCalled();
+
+    const failure = new Error('tenant schema migration failed');
+    migration.ensureConnectionMigrated.mockRejectedValueOnce(failure);
+    await expect(manager.dataPrismaForSpaceTransactionRead('spcxxx')).rejects.toBe(failure);
+    const client = await manager.dataPrismaForSpaceTransactionRead('spcxxx');
+    try {
+      expect(client).not.toBe(prismaService);
+      expect(migration.ensureConnectionMigrated).toHaveBeenLastCalledWith({
+        connectionId,
+        internalSchema,
+        url: dataUrl,
+      });
+    } finally {
+      await manager.invalidateConnection(connectionId);
+    }
   });
 
   it('ensures the BYODB internal schema is migrated before returning a scoped URL', async () => {

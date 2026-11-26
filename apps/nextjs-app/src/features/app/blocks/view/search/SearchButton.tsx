@@ -10,9 +10,13 @@ import {
   DEFAULT_MAX_SEARCH_FIELD_COUNT,
 } from '@teable/openapi';
 import { LocalStorageKeys, useView } from '@teable/sdk';
+import { ShareViewContext } from '@teable/sdk/context';
 import {
+  useBase,
   useBaseId,
   useFields,
+  useIsAnonymous,
+  useIsReadOnlyPreview,
   useRowCount,
   useSearch,
   useTableId,
@@ -42,12 +46,18 @@ import {
 } from '@teable/ui-lib/shadcn';
 import { isEqual } from 'lodash';
 import { useTranslation } from 'next-i18next';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useHotkeys } from 'react-hotkeys-hook';
 import { useDebounce, useLocalStorage } from 'react-use';
+import { useShareUrlPrefix } from '@/features/app/context/ShareContext';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import { canShowSearchAccelerationSettings } from '../../base/base-side-bar/BaseNodeMore.utils';
 import { useGridSearchStore } from '../grid/useGridSearchStore';
 import { ToolBarButton } from '../tool-bar/ToolBarButton';
+import {
+  GridMemberSearchAccelerationEntry,
+  ShareSearchAccelerationEntry,
+} from './SearchAccelerationEntry';
 import type { ISearchCommandRef } from './SearchCommand';
 import { SearchCommand } from './SearchCommand';
 import type { ISearchCountPaginationRef } from './SearchCountPagination';
@@ -78,6 +88,25 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const queryClient = useQueryClient();
   const permission = useTablePermission();
   const hasTableUpdatePermission = Boolean(permission['table|update']);
+  const base = useBase();
+  const share = useContext(ShareViewContext);
+  const shareUrlPrefix = useShareUrlPrefix();
+  const anonymous = useIsAnonymous();
+  const readOnlyPreview = useIsReadOnlyPreview();
+  const memberAcceleration =
+    view?.type === ViewType.Grid &&
+    canShowSearchAccelerationSettings({
+      base,
+      forceV2All: env.forceV2All,
+      canRead: permission['table|read'],
+      isShared: shareView || Boolean(shareUrlPrefix),
+      anonymous,
+      readOnlyPreview,
+    });
+  const shareAcceleration =
+    shareView && view?.type === ViewType.Grid && share.searchAccelerationStatusEnabled;
+  const legacyIndex =
+    !shareView && !shareUrlPrefix && !anonymous && !readOnlyPreview && !memberAcceleration;
 
   const [inputValue, setInputValue] = useState(value);
   const [isFocused, setIsFocused] = useState(false);
@@ -130,7 +159,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
   const { data: tableActivatedIndex } = useQuery({
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
-    enabled: !shareView,
+    enabled: legacyIndex,
   });
 
   const enabledSearchIndex = tableActivatedIndex?.includes(TableIndex.search);
@@ -139,7 +168,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
     queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
     queryFn: () =>
       getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
-    enabled: Boolean(enabledSearchIndex && !shareView),
+    enabled: Boolean(enabledSearchIndex && legacyIndex),
   });
 
   const { mutateAsync: repairIndexFn, isPending: repairIndexLoading } = useMutation({
@@ -335,6 +364,8 @@ export const SearchButton = (props: ISearchButtonProps) => {
         'start-6 top-60 flex h-7 shrink-0 items-center gap-1 overflow-hidden rounded-xl bg-background p-0 pe-[7px] text-xs border outline-muted-foreground w-80',
         {
           outline: isFocused,
+          'absolute inset-x-1 top-auto z-20 w-auto @3xl/toolbar:static @3xl/toolbar:w-[26rem]':
+            memberAcceleration || shareAcceleration,
         }
       )}
     >
@@ -345,11 +376,11 @@ export const SearchButton = (props: ISearchButtonProps) => {
               <Button
                 variant="ghost"
                 size={'xs'}
-                className="flex shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-e px-2"
+                className="flex max-w-20 shrink-0 items-center justify-center overflow-hidden truncate rounded-none border-e px-2"
                 ref={commandTrigger}
               >
                 <TooltipTrigger>
-                  <div className="flex items-center gap-1">
+                  <div className="flex min-w-0 items-center gap-1">
                     {showAlert && <AlertCircle className="size-3 shrink-0" />}
 
                     <span className="truncate" title={searchHeader}>
@@ -376,7 +407,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
                   value={fieldId}
                   hideNotMatchRow={hideNotMatchRow}
                   onChange={onFieldChangeHandler}
-                  shareView={shareView}
+                  legacyIndex={legacyIndex}
                   ref={searchCommandRef}
                   onHideSwitchChange={(checked) => {
                     setLsHideNotMatchRow(checked);
@@ -393,7 +424,7 @@ export const SearchButton = (props: ISearchButtonProps) => {
         <input
           key={inputKey}
           ref={ref}
-          className="placeholder:text-muted-foregrounds min-w-0 grow rounded-md bg-transparent px-1 outline-none"
+          className="placeholder:text-muted-foregrounds w-0 min-w-12 grow rounded-md bg-transparent px-1 outline-none"
           placeholder={t('actions.search')}
           autoComplete="off"
           autoCorrect="off"
@@ -413,14 +444,14 @@ export const SearchButton = (props: ISearchButtonProps) => {
               rowCount &&
               rowCount > RecommendedIndexRow &&
               shouldAlert &&
-              !shareView &&
+              legacyIndex &&
               !tableActivatedIndex?.includes(TableIndex.search) &&
               e.target.value
             ) {
               setAlertVisible(true);
               return;
             }
-            if (hasTableUpdatePermission && searchAbnormalIndex.length) {
+            if (legacyIndex && hasTableUpdatePermission && searchAbnormalIndex.length) {
               setAlertVisible(true);
             }
             setInputValue(e.target.value);
@@ -449,6 +480,10 @@ export const SearchButton = (props: ISearchButtonProps) => {
             <SearchCountPagination shareView={shareView} ref={searchPaginationRef} />
           )}
 
+          {memberAcceleration && base && (
+            <GridMemberSearchAccelerationEntry baseId={base.id} spaceId={base.spaceId} />
+          )}
+          {shareAcceleration && <ShareSearchAccelerationEntry shareId={share.shareId} />}
           <X
             className="hover:text-primary-foregrounds size-4 shrink-0 cursor-pointer font-light"
             onClick={() => {
@@ -460,7 +495,10 @@ export const SearchButton = (props: ISearchButtonProps) => {
         </div>
       </div>
 
-      <AlertDialog open={hasTableUpdatePermission && alertVisible} onOpenChange={setAlertVisible}>
+      <AlertDialog
+        open={legacyIndex && hasTableUpdatePermission && alertVisible}
+        onOpenChange={setAlertVisible}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>

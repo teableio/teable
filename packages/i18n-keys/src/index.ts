@@ -117,6 +117,7 @@ export type SdkErrorI18nKey =
   | 'httpErrors.integrity.linkTargetTableMissing'
   | 'httpErrors.record.fieldValueInvalid'
   | 'httpErrors.record.linkedRecordNotExist'
+  | 'httpErrors.selection.exceedMaxPasteCells'
   | 'httpErrors.selection.linkAutoCreateComputedPrimaryUnsupported'
   | 'httpErrors.selection.linkAutoCreateMissingRequiredFields'
   | 'httpErrors.selection.linkAutoCreateRequiresPrimaryLookup'

@@ -262,6 +262,7 @@ export class PermissionService {
       // OAuth apps broader read access than the scopes they were approved for.
       return {
         scopes,
+        clientId,
         spaceIds: spaceIdsByOAuth,
         baseIds: baseIdsByOAuth,
       };

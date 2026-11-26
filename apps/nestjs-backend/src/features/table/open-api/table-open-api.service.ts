@@ -608,7 +608,7 @@ export class TableOpenApiService {
         timeout: this.thresholdConfig.bigTransactionTimeout,
       }
     );
-    await this.tableLifecycleCleanup.cleanupColdHistoryPrefixes(tableIds);
+    await this.tableLifecycleCleanup.cleanupAfterPurge({ baseId, tableIds });
     return result;
   }
 

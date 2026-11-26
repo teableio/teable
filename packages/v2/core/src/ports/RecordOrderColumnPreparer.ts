@@ -21,10 +21,14 @@ export interface IRecordOrderColumnPreparer {
    * may skip its legacy pre-transaction preparation. The no-op default resolves
    * `false`, keeping the legacy path for hosts that only implement
    * `IRecordOrderCalculator`.
+   * For a view being introduced by the transaction, use `inTransaction` to
+   * publish its order column atomically with the view. The caller must hold
+   * the physical table lock required for the schema change.
    */
   prepareOrderColumn(
     context: IExecutionContext,
     table: Table,
-    viewId: ViewId
+    viewId: ViewId,
+    options?: { readonly inTransaction: true }
   ): Promise<Result<boolean, DomainError>>;
 }

@@ -1,8 +1,10 @@
 import { err, ok } from 'neverthrow';
+import type { Result } from 'neverthrow';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { BaseId } from '../../domain/base/BaseId';
 import { ActorId } from '../../domain/shared/ActorId';
+import type { DomainError } from '../../domain/shared/DomainError';
 import { domainError } from '../../domain/shared/DomainError';
 import { FieldCreated } from '../../domain/table/events/FieldCreated';
 import { FieldDeleted } from '../../domain/table/events/FieldDeleted';
@@ -57,7 +59,10 @@ import { ViewId } from '../../domain/table/views/ViewId';
 import { ViewName } from '../../domain/table/views/ViewName';
 import { ViewOrder } from '../../domain/table/views/ViewOrder';
 import type { ViewSourceFilterDTO } from '../../domain/table/views/ViewSourceFilter';
-import type { IAttachmentUrlSignerService } from '../../ports/AttachmentUrlSignerService';
+import type {
+  AttachmentPublicLinks,
+  IAttachmentUrlSignerService,
+} from '../../ports/AttachmentUrlSignerService';
 import { NoopTableRecordQueryRepository } from '../../ports/defaults/NoopTableRecordQueryRepository';
 import { createEventDispatchScope } from '../../ports/EventHandler';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
@@ -335,6 +340,12 @@ class FakeAttachmentUrlSignerService implements IAttachmentUrlSignerService {
   async invalidatePreview(tokens: ReadonlyArray<string>) {
     this.invalidatedTokens.push(...tokens);
     return ok(undefined);
+  }
+
+  async publicLinks(
+    cells: ReadonlyArray<unknown>
+  ): Promise<Result<ReadonlyArray<AttachmentPublicLinks | undefined>, DomainError>> {
+    return ok(cells.map(() => undefined));
   }
 }
 
@@ -701,6 +712,66 @@ describe('Realtime projections', () => {
       },
       ...Object.entries(unknownActors).map(([key, value]) => ({ type: 'set', path: [key], value })),
     ]);
+  });
+
+  it('asks for the public links of a batch once, then signs each cell', async () => {
+    const table = buildTable('w', 'x', 'y');
+    const attachmentFieldId = `fld${'q'.repeat(16)}`;
+    const signer = new FakeAttachmentUrlSignerService();
+    const publicLinks = vi
+      .spyOn(signer, 'publicLinks')
+      .mockImplementation(async (cells) =>
+        ok(cells.map(() => ({ publicUrl: 'https://pub/file' })))
+      );
+    const engine = new FakeRealtimeEngine();
+    const projection = new RecordsBatchUpdatedRealtimeProjection(
+      engine,
+      new FakeTableRepository(table),
+      new FakeActorRecordRepository(),
+      new AttachmentValueDecoratorService(signer)
+    );
+    const attachment = (token: string) => ({
+      id: `act-${token}`,
+      name: 'a.png',
+      token,
+      path: `table/${token}`,
+      size: 1,
+      mimetype: 'image/png',
+    });
+
+    const event = RecordsBatchUpdated.create({
+      baseId: table.baseId(),
+      tableId: table.id(),
+      source: 'user',
+      updates: ['1', '2'].map((suffix) => ({
+        recordId: `rec${suffix.repeat(16)}`,
+        oldVersion: 1,
+        newVersion: 2,
+        changes: [
+          { fieldId: attachmentFieldId, oldValue: [], newValue: [attachment(`tok${suffix}`)] },
+        ],
+      })),
+    });
+
+    const tasks = captureRealtimeTasks();
+    (await projection.handle(createContext(), event))._unsafeUnwrap();
+    for (const task of tasks) await task();
+
+    expect(publicLinks).toHaveBeenCalledTimes(1);
+    expect(publicLinks.mock.calls[0]![0]).toHaveLength(2);
+    // each change also carries the actor fields; the attachment op is the one checked
+    const linked = (token: string) =>
+      expect.arrayContaining([
+        expect.objectContaining({
+          value: [
+            expect.objectContaining({
+              publicUrl: 'https://pub/file',
+              presignedUrl: `/preview/${token}`,
+            }),
+          ],
+        }),
+      ]);
+    expect(engine.changes.map(({ change }) => change)).toEqual([linked('tok1'), linked('tok2')]);
   });
 
   it('projects batch record updates', async () => {

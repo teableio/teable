@@ -7,6 +7,7 @@ import { domainError } from '../domain/shared/DomainError';
 import type { Table } from '../domain/table/Table';
 import type { BaseDataBulkCopyPlan, BaseDataBulkCopyProgress } from '../ports/BaseDataBulkCopier';
 import type { IExecutionContext } from '../ports/ExecutionContext';
+import { DefaultTableMapper } from '../ports/mappers/defaults/DefaultTableMapper';
 import type { RecordRestoreSystemValues } from '../ports/TableRecordRepository';
 import type { UnitOfWorkOperation, IUnitOfWorkOptions } from '../ports/UnitOfWork';
 import { DuplicateBaseCommand } from './DuplicateBaseCommand';
@@ -983,6 +984,45 @@ describe('DuplicateBaseHandler', () => {
       modelKey: 'test-e2e',
       sourceFieldId: fieldIdMap[sourcePrimaryFieldId],
     });
+  });
+
+  it('builds a copied attachment field private', () => {
+    const tableMapper = new DefaultTableMapper();
+    const handler = createHandler({ tableMapper });
+    const built = (
+      handler as unknown as {
+        buildTableFromSnapshot: (
+          snapshot: unknown,
+          params: unknown
+        ) => Result<{ table: Table }, unknown>;
+      }
+    ).buildTableFromSnapshot(
+      {
+        id: 'tblSource',
+        baseId: 'bseSource',
+        name: 'Files',
+        primaryFieldId: 'fldPrimary',
+        fields: [
+          { id: 'fldPrimary', name: 'Name', type: 'singleLineText' },
+          { id: 'fldFiles', name: 'Files', type: 'attachment', options: { isPublic: true } },
+        ],
+        views: [{ id: 'viwGrid', type: 'grid', name: 'Grid', columnMeta: {} }],
+      },
+      {
+        baseId: BaseId.create(baseId)._unsafeUnwrap(),
+        tableId: `tbl${'c'.repeat(16)}`,
+        tableName: 'Files',
+        replacements: new Map([
+          ['fldPrimary', `fld${'p'.repeat(16)}`],
+          ['fldFiles', `fld${'f'.repeat(16)}`],
+          ['viwGrid', `viw${'g'.repeat(16)}`],
+        ]),
+      }
+    );
+
+    const dto = tableMapper.toDTO(built._unsafeUnwrap().table)._unsafeUnwrap();
+    const files = dto.fields.find(({ type }) => type === 'attachment');
+    expect(files?.options).toEqual({});
   });
 
   it.each(['bulk', 'stream'])(

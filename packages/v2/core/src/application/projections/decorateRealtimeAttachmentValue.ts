@@ -2,6 +2,7 @@ import { ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
+import type { AttachmentCellLocation } from '../services/applyAttachmentPublicLinks';
 import type { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 
 type PartialAttachmentItem = {
@@ -78,4 +79,31 @@ export const decorateRealtimeAttachmentValue = async (
     return ok(value);
   }
   return decorator.decorateAttachmentValue(value, oldValue);
+};
+
+/** A cell value on its way to realtime; the host decides whether its field gives public links. */
+export interface RealtimeCellValue extends AttachmentCellLocation {
+  value: unknown;
+  oldValue?: unknown;
+}
+
+/**
+ * The public links of an event's cells, in one call before each cell is signed. Values already
+ * decorated by the write path are left as they are.
+ */
+export const linkRealtimeAttachmentValues = async (
+  decorator: AttachmentValueDecoratorService,
+  cells: ReadonlyArray<RealtimeCellValue>
+): Promise<Result<unknown[], DomainError>> => {
+  const pending = cells.flatMap(({ value, oldValue, ...location }, index) =>
+    needsDecoration(value, oldValue) ? [{ index, location, value }] : []
+  );
+  const values = cells.map(({ value }) => value);
+  if (!pending.length) return ok(values);
+  return (await decorator.linkCells(pending)).map((linked) => {
+    pending.forEach(({ index }, i) => {
+      values[index] = linked[i];
+    });
+    return values;
+  });
 };

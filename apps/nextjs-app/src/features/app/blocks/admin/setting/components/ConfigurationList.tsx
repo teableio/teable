@@ -42,8 +42,15 @@ export interface IList {
 
 type IInsecureSecret = NonNullable<ISettingVo['insecureSecrets']>[number];
 
+// The one secret a later version refuses to start without, in production mode: its entry
+// carries that notice there. Development builds run without it and are not told.
+const SECRET_KEY_ENV_KEY = 'SECRET_KEY';
+
 const InsecureSecretsList = ({ secrets }: { secrets: IInsecureSecret[] }) => {
   const { t } = useTranslation('common');
+  const announcesStartupRefusal =
+    process.env.NODE_ENV === 'production' &&
+    secrets.some((secret) => secret.envKey === SECRET_KEY_ENV_KEY);
   return (
     <div className="space-y-1.5 pb-2 pe-2 ps-9 text-xs">
       {(['missing', 'publicDefault'] as const).map((reason) => {
@@ -64,6 +71,11 @@ const InsecureSecretsList = ({ secrets }: { secrets: IInsecureSecret[] }) => {
           </div>
         );
       })}
+      {announcesStartupRefusal && (
+        <div className="text-foreground">
+          {t('admin.configuration.list.secrets.secretKeyRequired')}
+        </div>
+      )}
       <a
         className="inline-block text-blue-500 hover:underline"
         href={t('admin.configuration.list.secrets.href')}

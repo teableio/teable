@@ -39,6 +39,19 @@ export class V2ExecutionContextFactory {
     private readonly i18n: I18nService<I18nTranslations>
   ) {}
 
+  requireActorId(): ActorId {
+    const userId = this.cls.get('user.id');
+    if (!userId) {
+      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
+    }
+
+    const actorIdResult = ActorId.create(userId);
+    if (actorIdResult.isErr()) {
+      throw new HttpException(actorIdResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
+    }
+    return actorIdResult.value;
+  }
+
   /**
    * Creates a complete execution context with actorId, tracer, and requestId.
    * Request abort signals are opt-in for streaming endpoints so synchronous
@@ -58,18 +71,10 @@ export class V2ExecutionContextFactory {
       v2CoreTokens.formulaSourceBudget
     );
 
-    const userId = this.cls.get('user.id');
-    if (!userId) {
-      throw new HttpException('User not authenticated', HttpStatus.UNAUTHORIZED);
-    }
+    const actorId = this.requireActorId();
 
     const userName = this.cls.get('user.name');
     const userEmail = this.cls.get('user.email');
-
-    const actorIdResult = ActorId.create(userId);
-    if (actorIdResult.isErr()) {
-      throw new HttpException(actorIdResult.error.message, HttpStatus.INTERNAL_SERVER_ERROR);
-    }
 
     // Use CLS ID as requestId for ShareDB src matching (consistent with V1 batch.service)
     // This ensures the client that initiated the request can identify its own ops
@@ -102,7 +107,7 @@ export class V2ExecutionContextFactory {
       }) as string;
 
     const context: IExecutionContext = {
-      actorId: actorIdResult.value,
+      actorId,
       initiator: this.cls.get('recordInitiator'),
       requireActorStorage: this.cls.get('requireActorStorage'),
       operationAttribution: {

@@ -1,10 +1,13 @@
 import type { IAttachmentItem } from '@teable/core';
 import { FilePreviewProvider } from '@teable/ui-lib';
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import copy from 'copy-to-clipboard';
 import { noop } from 'lodash';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createAppContext } from '../../../../context/__tests__/createAppContext';
 import AttachmentItem from './AttachmentItem';
+
+vi.mock('copy-to-clipboard', () => ({ default: vi.fn() }));
 
 const wrapper = createAppContext();
 
@@ -21,7 +24,8 @@ const attachment = (id: string, name: string): IAttachmentItem => ({
 const renderList = (
   attachments: IAttachmentItem[],
   onDelete: (id: string) => void,
-  readonly?: boolean
+  readonly?: boolean,
+  publicUrls?: Record<string, string>
 ) => (
   <FilePreviewProvider>
     {attachments.map((item) => (
@@ -32,6 +36,7 @@ const renderList = (
         onRename={noop}
         downloadFile={noop}
         readonly={readonly}
+        publicUrl={publicUrls?.[item.id]}
       />
     ))}
   </FilePreviewProvider>
@@ -61,6 +66,31 @@ describe('AttachmentItem preview', () => {
     vi.spyOn(HTMLImageElement.prototype, 'complete', 'get').mockReturnValue(false);
   });
   afterEach(() => vi.restoreAllMocks());
+
+  it('copies the public link from the preview, for public files only', () => {
+    const files = [attachment('att1', 'one.zip'), attachment('att2', 'two.zip')];
+    render(renderList(files, noop, false, { att1: 'https://spc.example.com/files/t/f/p.zip' }), {
+      wrapper,
+    });
+
+    openPreviewOf(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Copy link' }));
+    expect(copy).toHaveBeenCalledWith('https://spc.example.com/files/t/f/p.zip');
+
+    fireEvent.click(screen.getByRole('button', { name: /next/i }));
+    expect(screen.getByRole('heading', { name: 'two.zip' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Copy link' })).not.toBeInTheDocument();
+  });
+
+  it('makes the hover bar compact only for a file with the copy link button', () => {
+    const files = [attachment('att1', 'one.zip'), attachment('att2', 'two.zip')];
+    render(renderList(files, noop, false, { att1: 'https://spc.example.com/files/t/f/p.zip' }), {
+      wrapper,
+    });
+    const [publicSize, privateSize] = screen.getAllByTitle('1.0B');
+    expect(publicSize).toHaveClass('text-[11px]');
+    expect(privateSize).toHaveClass('text-xs');
+  });
 
   it('deletes from the preview and keeps the preview on the next file', () => {
     const onDelete = vi.fn();

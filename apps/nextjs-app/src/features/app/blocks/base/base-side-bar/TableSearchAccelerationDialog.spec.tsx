@@ -15,6 +15,9 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   ...(await importOriginal<typeof OpenApi>()),
   ...api,
 }));
+vi.mock('next-i18next', () => ({
+  useTranslation: () => ({ t: (key: string) => key, i18n: { language: 'en' } }),
+}));
 
 const largeTableMessage = 'Confirmation is required for tables with 50000 or more records';
 const status = (
@@ -53,7 +56,7 @@ describe('table search acceleration settings', () => {
         expect(screen.queryByText('table:searchAcceleration.enable')).toBeNull();
         expect(screen.queryByText('table:searchAcceleration.disable')).toBeNull();
       }
-      expect(api.getTableSearchAccelerationStatus).toHaveBeenCalledWith('bse1', 'tbl1');
+      expect(api.getTableSearchAccelerationStatus).toHaveBeenCalledWith('bse1', 'tbl1', 'summary');
       expect(api.getTablePermission).toHaveBeenCalledWith('bse1', 'tbl1');
       expect(api.setTableSearchAcceleration).not.toHaveBeenCalled();
     }
@@ -133,11 +136,45 @@ describe('table search acceleration settings', () => {
     });
   });
 
+  it('shows the limit, current usage and additional rows for an over-quota enable', async () => {
+    api.setTableSearchAcceleration.mockRejectedValue(
+      new HttpError('Payment required', 402, {
+        feature: 'searchAcceleration',
+        reason: 'quota_exceeded',
+        limit: 100000,
+        current: 95000,
+        increment: 11000,
+      })
+    );
+    open();
+    await userEvent.click(await screen.findByText('table:searchAcceleration.enable'));
+    const alert = await screen.findByRole('alert');
+    expect(alert).toHaveTextContent('table:searchAcceleration.quotaExceeded');
+    expect(alert).toHaveTextContent(/quotaLimit\s*100,000/);
+    expect(alert).toHaveTextContent(/quotaCurrent\s*95,000/);
+    expect(alert).toHaveTextContent(/quotaIncrement\s*11,000/);
+    expect(api.setTableSearchAcceleration).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets the user retry when the switch is temporarily unavailable', async () => {
+    api.setTableSearchAcceleration.mockRejectedValueOnce(new HttpError('Unavailable', 503));
+    api.setTableSearchAcceleration.mockResolvedValue({ data: { intentState: 'preparing' } });
+    open();
+    await userEvent.click(await screen.findByText('table:searchAcceleration.enable'));
+    expect(await screen.findByText('table:searchAcceleration.unavailable')).toBeVisible();
+    expect(api.setTableSearchAcceleration).toHaveBeenCalledTimes(1);
+    api.getTableSearchAccelerationStatus.mockResolvedValue(status('preparing'));
+    await userEvent.click(screen.getByText('table:searchAcceleration.enable'));
+    expect(await screen.findByText('table:searchAcceleration.state.preparing')).toBeVisible();
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(api.setTableSearchAcceleration).toHaveBeenCalledTimes(2);
+  });
+
   it.each([
     [409, 'Another table maintenance task is in progress'],
     [409, largeTableMessage],
     [403, largeTableMessage],
-    [503, 'Search acceleration worker is unavailable'],
+    [402, 'Payment required'],
   ] as const)('handles other write errors without confirmation (%s)', async (code, message) => {
     api.setTableSearchAcceleration.mockRejectedValue(new HttpError(message, code));
     open();

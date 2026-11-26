@@ -112,8 +112,8 @@ export class FieldOptionsDtoVisitor implements IFieldVisitor<unknown> {
     return ok(options);
   }
 
-  visitAttachmentField(_field: AttachmentField): Result<unknown, DomainError> {
-    return ok({});
+  visitAttachmentField(field: AttachmentField): Result<unknown, DomainError> {
+    return ok(field.publicAccess().toBoolean() ? { isPublic: true } : {});
   }
 
   visitDateField(field: DateField): Result<unknown, DomainError> {

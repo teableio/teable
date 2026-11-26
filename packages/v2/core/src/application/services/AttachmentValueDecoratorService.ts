@@ -12,6 +12,8 @@ import type {
   AttachmentSignRequest,
 } from '../../ports/AttachmentUrlSignerService';
 import { v2CoreTokens } from '../../ports/tokens';
+import type { AttachmentCellLocation } from './applyAttachmentPublicLinks';
+import { isPublicAttachmentField, applyAttachmentPublicLinks } from './applyAttachmentPublicLinks';
 import type { IRecordChangedValueDecoratorService } from './RecordChangedValueDecoratorService';
 
 /**
@@ -103,6 +105,7 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
 
   async decorateChangedFields(
     table: Table,
+    recordId: string,
     changedFields?: ReadonlyMap<string, unknown>,
     previousFields?: Record<string, unknown>
   ): Promise<Result<ReadonlyMap<string, unknown> | undefined, DomainError>> {
@@ -113,6 +116,8 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
       }
 
       const decorated = new Map<string, unknown>();
+      const publicFieldIds: string[] = [];
+      const signedForLinks = new Map<string, AttachmentSignedUrls>();
       for (const [fieldId, value] of changedFields) {
         const fieldResult = table.getField((candidate) => candidate.id().toString() === fieldId);
         if (fieldResult.isErr() || !fieldResult.value.type().equals(FieldType.attachment())) {
@@ -120,9 +125,21 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
           continue;
         }
         const oldValue = previousFields?.[fieldId];
-        decorated.set(fieldId, yield* await service.decorateAttachmentValue(value, oldValue));
+        const { value: signedValue, signed } = yield* await service.signValue(value, oldValue);
+        decorated.set(fieldId, signedValue);
+        if (!isPublicAttachmentField(table, fieldId)) continue;
+        publicFieldIds.push(fieldId);
+        for (const [token, urls] of signed) signedForLinks.set(token, urls);
       }
 
+      const linked = yield* await service.linkCells(
+        publicFieldIds.map((fieldId) => ({
+          location: { tableId: table.id().toString(), recordId, fieldId },
+          value: decorated.get(fieldId),
+        })),
+        signedForLinks
+      );
+      publicFieldIds.forEach((fieldId, index) => decorated.set(fieldId, linked[index]));
       return ok(decorated);
     });
   }
@@ -182,12 +199,28 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
             ? yield* await service.signer.signItems(signRequests)
             : new Map<string, AttachmentSignedUrls>();
 
-        for (const { recordId, fieldId, items } of attachmentValues) {
-          const fields = decorated.get(recordId);
+        const signedValues = attachmentValues.map(({ recordId, fieldId, items }) => ({
+          location: { tableId: table.id().toString(), recordId, fieldId },
+          items: decorateItemsWithSignedUrls(items, signed),
+        }));
+        const publicIndexes = signedValues.flatMap(({ location }, index) =>
+          isPublicAttachmentField(table, location.fieldId) ? [index] : []
+        );
+        const linked = yield* await applyAttachmentPublicLinks(
+          publicIndexes.map((index) => signedValues[index]!),
+          service.signer,
+          signed
+        );
+        publicIndexes.forEach((index, i) => {
+          signedValues[index] = { ...signedValues[index]!, items: linked[i]! };
+        });
+
+        for (const { location, items } of signedValues) {
+          const fields = decorated.get(location.recordId);
           if (!fields) continue;
           const nextFields = new Map(fields);
-          nextFields.set(fieldId, decorateItemsWithSignedUrls(items, signed));
-          decorated.set(recordId, nextFields);
+          nextFields.set(location.fieldId, items);
+          decorated.set(location.recordId, nextFields);
         }
 
         return ok(decorated);
@@ -199,10 +232,21 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
     value: unknown,
     oldValue?: unknown
   ): Promise<Result<unknown, DomainError>> {
+    return (await this.signValue(value, oldValue)).map(({ value: signed }) => signed);
+  }
+
+  /** The value with signed URLs, and the signer's result for its items. */
+  private async signValue(
+    value: unknown,
+    oldValue?: unknown
+  ): Promise<
+    Result<{ value: unknown; signed: ReadonlyMap<string, AttachmentSignedUrls> }, DomainError>
+  > {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
-    return safeTry<unknown, DomainError>(async function* () {
+    return safeTry(async function* () {
+      const none = new Map<string, AttachmentSignedUrls>();
       const items = asPartialItems(value);
-      if (!items) return ok(value);
+      if (!items) return ok({ value, signed: none });
 
       const renamedTokens = collectRenamedTokens(items, oldValue);
       if (renamedTokens.length > 0) {
@@ -210,10 +254,38 @@ export class AttachmentValueDecoratorService implements IRecordChangedValueDecor
       }
 
       const requests = extractSignRequests(items);
-      if (requests.length === 0) return ok(items);
+      if (requests.length === 0) return ok({ value: items, signed: none });
 
       const signed = yield* await service.signer.signItems(requests);
-      return ok(decorateItemsWithSignedUrls(items, signed));
+      return ok({ value: decorateItemsWithSignedUrls(items, signed), signed });
+    });
+  }
+
+  /**
+   * Sets the public links of the cells' attachments in one call to the signer; a value that holds
+   * no attachments comes back as it is. `signed`, when the items were just signed, saves the host
+   * reading their files again.
+   */
+  async linkCells(
+    cells: ReadonlyArray<{ location: AttachmentCellLocation; value: unknown }>,
+    signed?: ReadonlyMap<string, AttachmentSignedUrls>
+  ): Promise<Result<unknown[], DomainError>> {
+    const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
+    return safeTry<unknown[], DomainError>(async function* () {
+      const values = cells.map(({ value }) => value);
+      const attachmentCells = cells.flatMap(({ location, value }, index) => {
+        const items = asPartialItems(value);
+        return items ? [{ index, location, items }] : [];
+      });
+      const linked = yield* await applyAttachmentPublicLinks(
+        attachmentCells,
+        service.signer,
+        signed
+      );
+      attachmentCells.forEach(({ index }, i) => {
+        values[index] = linked[i];
+      });
+      return ok(values);
     });
   }
 }

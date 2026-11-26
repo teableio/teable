@@ -87,6 +87,7 @@ describe('TableSchemaUpdateVisitor coverage', () => {
       'visitUpdateRatingColor',
       'visitUpdateUserNotification',
       'visitUpdateUserDefaultValue',
+      'visitUpdateAttachmentPublicAccess',
       'visitUpdateButtonLabel',
       'visitUpdateButtonColor',
       'visitUpdateButtonMaxCount',

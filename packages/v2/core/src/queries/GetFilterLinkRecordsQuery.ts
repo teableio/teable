@@ -3,26 +3,45 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import type { FilterLinkReferenceGroup } from '../domain/table/methods/viewFilterLinkReferences';
 import { TableId } from '../domain/table/TableId';
-import {
-  viewSourceFilterSchema,
-  type ViewSourceFilterDTO,
-} from '../domain/table/views/ViewSourceFilter';
+
+// Candidate reads only collect literal IDs. Filter operands are not evaluated.
+const filterLinkReferenceGroupSchema: z.ZodType<FilterLinkReferenceGroup> = z.object({
+  conjunction: z.enum(['and', 'or']),
+  filterSet: z.array(
+    z.lazy(() =>
+      z.union([
+        filterLinkReferenceGroupSchema,
+        z.object({ fieldId: z.string(), value: z.unknown().optional() }),
+      ])
+    )
+  ),
+});
 
 export const getFilterLinkRecordsInputSchema = z.object({
   tableId: z.string(),
-  filter: viewSourceFilterSchema.optional(),
+  filter: filterLinkReferenceGroupSchema.nullish(),
 });
 
 export type IGetFilterLinkRecordsQueryInput = z.input<typeof getFilterLinkRecordsInputSchema>;
 
+interface IGetFilterLinkRecordsQueryOptions {
+  /** Omit related tables denied by the record read guard after the source table is authorized. */
+  readonly omitForbiddenGroups?: boolean;
+}
+
 export class GetFilterLinkRecordsQuery {
   private constructor(
     readonly tableId: TableId,
-    readonly filter: ViewSourceFilterDTO | null
+    readonly filter: FilterLinkReferenceGroup | null,
+    readonly options?: IGetFilterLinkRecordsQueryOptions
   ) {}
 
-  static create(raw: unknown): Result<GetFilterLinkRecordsQuery, DomainError> {
+  static create(
+    raw: unknown,
+    options?: IGetFilterLinkRecordsQueryOptions
+  ): Result<GetFilterLinkRecordsQuery, DomainError> {
     const parsed = getFilterLinkRecordsInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -33,7 +52,7 @@ export class GetFilterLinkRecordsQuery {
       );
     }
     return TableId.create(parsed.data.tableId).map(
-      (tableId) => new GetFilterLinkRecordsQuery(tableId, parsed.data.filter ?? null)
+      (tableId) => new GetFilterLinkRecordsQuery(tableId, parsed.data.filter ?? null, options)
     );
   }
 }

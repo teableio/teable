@@ -2685,6 +2685,7 @@ describe('Table.createRecordsStream', () => {
     const selfLinkBackFieldId = createFieldId('d')._unsafeUnwrap();
     const lookupFieldId = createFieldId('e')._unsafeUnwrap();
     const buttonFieldId = createFieldId('f')._unsafeUnwrap();
+    const attachmentFieldId = createFieldId('g')._unsafeUnwrap();
     const externalLookupFieldId = createFieldId('y')._unsafeUnwrap();
 
     const defaultViewId = createViewId('a')._unsafeUnwrap();
@@ -2786,6 +2787,12 @@ describe('Table.createRecordsStream', () => {
               isActive: true,
             },
           },
+        },
+        {
+          id: attachmentFieldId.toString(),
+          name: 'Files',
+          type: 'attachment',
+          options: { isPublic: true },
         },
       ],
       views: [
@@ -2902,6 +2909,11 @@ describe('Table.createRecordsStream', () => {
     if (duplicatedButtonField?.type === 'button') {
       expect(duplicatedButtonField.options?.workflow).toBeUndefined();
     }
+    // The copy starts private, like its views start unshared.
+    const duplicatedAttachmentField = duplicatedDto.fields.find(
+      (field) => field.id === duplicated.fieldIdMap.get(attachmentFieldId.toString())
+    );
+    expect(duplicatedAttachmentField?.options).toEqual({});
 
     expect(duplicatedDto.views).toHaveLength(1);
     expect(duplicatedDto.views[0]?.id).toBe(duplicatedViewId);

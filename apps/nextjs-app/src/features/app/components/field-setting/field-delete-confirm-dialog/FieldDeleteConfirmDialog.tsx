@@ -27,6 +27,10 @@ import {
   useOperationPreview,
 } from '@/features/app/components/operation-preview';
 import { useEnv } from '@/features/app/hooks/useEnv';
+import {
+  isPublicAttachmentField,
+  usePublicFileEnabled,
+} from '@/features/app/hooks/usePublicFileEnabled';
 import { FieldDeleteImpact, useFieldImpactConfirmation } from '@overridable/FieldDeleteImpact';
 import { useBaseNodeContext } from '../../../blocks/base/base-node/hooks/useBaseNodeContext';
 import { LoginAppWarning } from '../../../components/LoginAppWarning';
@@ -299,6 +303,13 @@ const FieldDeleteDialogBody = ({
   references: FieldDeleteDialogReferences;
 }) => {
   const { t } = useTranslation(['common', 'table']);
+  const publicFileEnabled = usePublicFileEnabled();
+  const deleting = selection.isMultiField
+    ? selection.targetFields.filter((field) => selection.checkedFieldIds.has(field.id))
+    : selection.targetFields;
+  const publicFieldNames = publicFileEnabled
+    ? deleting.filter(isPublicAttachmentField).map((field) => field.name)
+    : [];
 
   if (references.hasError) {
     return (
@@ -313,6 +324,13 @@ const FieldDeleteDialogBody = ({
 
   return (
     <>
+      {publicFieldNames.length > 0 && (
+        <p className="text-sm">
+          {t('common:trash.publicLinksOffFields', {
+            names: publicFieldNames.join(t('common:operationPreview.coverageSeparator')),
+          })}
+        </p>
+      )}
       {selection.isMultiField ? (
         <MultiFieldContent
           tableId={tableId}

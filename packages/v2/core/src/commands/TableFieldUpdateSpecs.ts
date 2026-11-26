@@ -12,6 +12,7 @@ import type { Field } from '../domain/table/fields/Field';
 import { FieldId } from '../domain/table/fields/FieldId';
 import { FieldName } from '../domain/table/fields/FieldName';
 import { AttachmentField } from '../domain/table/fields/types/AttachmentField';
+import { AttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
 import { AutoNumberField } from '../domain/table/fields/types/AutoNumberField';
 import { ButtonConfirm } from '../domain/table/fields/types/ButtonConfirm';
 import { ButtonField } from '../domain/table/fields/types/ButtonField';
@@ -117,6 +118,7 @@ import {
   UpdateUserDefaultValueSpec,
   UpdateUserMultiplicitySpec,
   UpdateUserNotificationSpec,
+  UpdateAttachmentPublicAccessSpec,
 } from '../domain/table/specs/field-updates';
 import { adoptPreviousSelectOptionIds } from '../domain/table/specs/field-updates/reconcileSelectDefaultAfterOptionRewrite';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
@@ -1161,19 +1163,25 @@ class UpdateCheckboxFieldSpec implements IUpdateTableFieldSpec {
 class UpdateAttachmentFieldSpec implements IUpdateTableFieldSpec {
   private constructor(
     private readonly nameValue: FieldName | undefined,
+    private readonly publicAccessValue: AttachmentPublicAccess | undefined,
     private readonly notNullValue: FieldNotNull | undefined,
     private readonly uniqueValue: FieldUnique | undefined
   ) {}
 
   static create(input: {
     name?: string;
+    options?: {
+      isPublic?: unknown;
+    };
     notNull?: unknown;
     unique?: unknown;
   }): Result<UpdateAttachmentFieldSpec, DomainError> {
     return optional(input.name, FieldName.create).andThen((name) =>
-      optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
-        optional(input.unique, FieldUnique.create).map(
-          (unique) => new UpdateAttachmentFieldSpec(name, notNull, unique)
+      optional(input.options?.isPublic, AttachmentPublicAccess.create).andThen((publicAccess) =>
+        optional(input.notNull, FieldNotNull.create).andThen((notNull) =>
+          optional(input.unique, FieldUnique.create).map(
+            (unique) => new UpdateAttachmentFieldSpec(name, publicAccess, notNull, unique)
+          )
         )
       )
     );
@@ -1192,6 +1200,19 @@ class UpdateAttachmentFieldSpec implements IUpdateTableFieldSpec {
       specs.push(
         TableUpdateFieldNameSpec.create(currentField.id(), currentField.name(), this.nameValue)
       );
+    }
+
+    if (this.publicAccessValue !== undefined) {
+      const currentPublicAccess = currentField.publicAccess();
+      if (!this.publicAccessValue.equals(currentPublicAccess)) {
+        specs.push(
+          UpdateAttachmentPublicAccessSpec.create(
+            currentField.id(),
+            currentPublicAccess,
+            this.publicAccessValue
+          )
+        );
+      }
     }
 
     const constraintsSpec = buildConstraintsSpec(currentField, this.notNullValue, this.uniqueValue);

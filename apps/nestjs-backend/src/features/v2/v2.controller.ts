@@ -26,6 +26,7 @@ import {
   executeComplexityAssessMatrixEndpoint,
   executeOperationPreviewCapabilitiesEndpoint,
   executeOperationPreviewEndpoint,
+  executePasteEndpoint,
   executeDuplicateBaseEndpoint,
 } from '@teable/v2-contract-http-implementation/handlers';
 import { createV2OrpcRouter } from '@teable/v2-contract-http-implementation';
@@ -47,6 +48,11 @@ import type {
 };
 import type { DependencyContainer } from '@teable/v2-di';
 import { ClsService } from 'nestjs-cls';
+import {
+  IThresholdConfig,
+  resolveMaxPasteCells,
+  ThresholdConfig,
+} from '../../configs/threshold.config';
 import { DisabledPermission } from '../auth/decorators/disabled-permission.decorator';
 import { TokenAccess } from '../auth/decorators/token.decorator';
 import { PermissionService } from '../auth/permission.service';
@@ -119,6 +125,7 @@ export class V2Controller {
     private readonly baseOrder: BasePersonalOrderService,
     private readonly cache: CacheService,
     private readonly workflows: V2WorkflowService,
+    @ThresholdConfig() private readonly thresholdConfig: IThresholdConfig,
     private readonly moduleRef?: ModuleRef
   ) {}
 
@@ -183,7 +190,20 @@ export class V2Controller {
     return bind(os.router({
       bases: router.bases,
       workflows: router.workflows,
-      tables: router.tables,
+      tables: {
+        ...router.tables,
+        paste: os.tables.paste.handler(async ({ input }) => {
+          const { container, context } = this.publicProcedures.current();
+          const result = await executePasteEndpoint(
+            context,
+            input,
+            container.resolve<ICommandBus>(v2CoreTokens.commandBus),
+            resolveMaxPasteCells(this.thresholdConfig.maxPasteCells)
+          );
+          if (result.status === 200) return result.body;
+          throwOrpcErrorByStatus(result.status, result.body.error);
+        }),
+      },
       operations: { preview: this.operationPreview(), capabilities: this.operationPreviewCapabilities() },
       complexity: { assess: this.complexityAssess(), assessMatrix: this.complexityAssessMatrix() },
     }));

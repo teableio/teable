@@ -75,7 +75,9 @@
       "downloadSuccess": "İndirme tamamlandı",
       "downloadFailed": "İndirme başarısız",
       "downloadCancelled": "İndirme iptal edildi",
-      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin"
+      "requireHttps": "Toplu indirme HTTPS gerektirir. Lütfen HTTPS veya localhost üzerinden erişin",
+      "copyPublicLink": "Herkese açık bağlantıyı kopyala",
+      "publicLinkCopied": "Herkese açık bağlantı kopyalandı"
     },
     "date": {
       "placeholder": "Bir tarih seçin",
@@ -1836,6 +1838,10 @@
       "endpointChanged": "Kaydedilmiş bir gizli anahtar yalnızca kaydedildiği adrese gönderilebilir. {{field}} değerini yeniden girin.",
       "reenterForNewAddress": "Adres değişti. Önce {{fields}} değerlerini yeniden girin veya temizleyin.",
       "staleMask": "Kaydedilmiş {{field}} sayfa yüklendikten sonra değişti. Yeniden girin."
+    },
+    "publicFile": {
+      "fieldNotFound": "Alan bulunamadı",
+      "noPublicFields": "Çalışma alanı yok ya da herkese açık erişimi açık ek alanı yok"
     }
   },
   "usageLimitBanner": {

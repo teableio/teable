@@ -226,9 +226,15 @@ describe('public .tea relationship integrity (e2e)', () => {
         app.get(BaseImportCsvQueueProcessor).queue,
         `import_csv_${notify.path}_${actorId}`
       );
-      const hasLinks = fixture.structure.tables.some((table) =>
-        table.fields.some((field) => field.type === FieldType.Link && !field.isLookup)
-      );
+      // Only surviving links schedule a junction job in the legacy importer.
+      const hasLinks = await app.get(PrismaService).field.findFirst({
+        where: {
+          tableId: { in: Object.values(result.tableIdMap) },
+          type: FieldType.Link,
+          OR: [{ isLookup: null }, { isLookup: false }],
+        },
+        select: { id: true },
+      });
       if (hasLinks) {
         await waitForQueue(
           app.get(BaseImportJunctionCsvQueueProcessor).queue,
@@ -372,6 +378,78 @@ describe('public .tea relationship integrity (e2e)', () => {
       expect(record.fields[importedReverse.id] ?? null).toEqual(row.reverse);
     }
   }, 60_000);
+
+  it('preserves cached formulas downstream of a disconnected rollup on V1 import', async () => {
+    const source = await newBase('Disconnected formula source');
+    const targets = await createTable(source.id, {
+      name: 'Scores',
+      fields: [
+        { name: 'Name', type: FieldType.SingleLineText },
+        { name: 'Score', type: FieldType.Number },
+      ],
+      records: [{ fields: { Name: 'First', Score: 11 } }],
+    });
+    const hosts = await createTable(source.id, {
+      name: 'Totals',
+      fields: [{ name: 'Name', type: FieldType.SingleLineText }],
+      records: [{ fields: { Name: 'First' } }],
+    });
+    const link = await createField(hosts.id, {
+      name: 'Related',
+      type: FieldType.Link,
+      options: { foreignTableId: targets.id, relationship: Relationship.ManyMany, isOneWay: true },
+    });
+    await updateRecordByApi(hosts.id, hosts.records[0].id, link.id, [{ id: targets.records[0].id }]);
+    const total = await createField(hosts.id, {
+      name: 'Total',
+      type: FieldType.Rollup,
+      options: { expression: 'sum({values})' },
+      lookupOptions: {
+        foreignTableId: targets.id,
+        lookupFieldId: named(targets.fields, 'Score').id,
+        linkFieldId: link.id,
+      },
+    });
+    const next = await createField(hosts.id, {
+      name: 'Next',
+      type: FieldType.Formula,
+      options: { expression: `{${total.id}} + 1` },
+    });
+    const chained = await createField(hosts.id, {
+      name: 'Chained',
+      type: FieldType.Formula,
+      options: { expression: `{${next.id}} + 8` },
+    });
+    await createField(hosts.id, {
+      name: 'Independent',
+      type: FieldType.Formula,
+      options: { expression: '2 + 3' },
+    });
+    const fixture = await exportFixture(source.id);
+    const host = named(fixture.structure.tables, hosts.name);
+    expect(readCsv(fixture, host).rows[0]).toMatchObject({
+      [total.dbFieldName]: '11',
+      [next.dbFieldName]: '12',
+      [chained.dbFieldName]: '20',
+    });
+    fixture.structure.tables = [host];
+    fixture.structure.nodes = fixture.structure.nodes.filter(
+      (node) => node.resourceId !== targets.id
+    );
+    fixture.entries.delete(`tables/${targets.id}.csv`);
+
+    const imported = await importFixture(fixture, 'v1');
+    const tableId = imported.tableIdMap[hosts.id];
+    const fields = (await getFields(tableId)).data;
+    for (const name of ['Total', 'Next', 'Chained']) {
+      expect(named(fields, name).type).toBe(FieldType.SingleLineText);
+    }
+    expect(named(fields, 'Independent').type).toBe(FieldType.Formula);
+    const rows = await getRecords(tableId, { fieldKeyType: FieldKeyType.Name });
+    expect(rows.records.map((row) => row.fields)).toMatchObject([
+      { Name: 'First', Total: '11', Next: '12', Chained: '20', Independent: 5 },
+    ]);
+  }, 120_000);
 
   it('counts every V2 table-only manyMany source cell in either table order while retaining V1 edges and rollups', async () => {
     const source = await newBase('V2 relationship source', 'v2');
@@ -566,9 +644,13 @@ describe('public .tea relationship integrity (e2e)', () => {
     }
   }, 120_000);
 
-  it.each(['v1', 'v2'] as const)(
-    'keeps rows and legal edges while clearing dangling targets during %s import',
-    async (engine) => {
+  it.each([
+    { engine: 'v1', missingPointer: false },
+    { engine: 'v1', missingPointer: true },
+    { engine: 'v2', missingPointer: false },
+  ] as const)(
+    'keeps rows and legal edges while clearing dangling targets during $engine import (missing symmetric pointer: $missingPointer)',
+    async ({ engine, missingPointer }) => {
       const source = await newBase('Dangling relation source');
       const targets = await createTable(source.id, {
         name: 'Dangling targets',
@@ -625,6 +707,11 @@ describe('public .tea relationship integrity (e2e)', () => {
         { id: removed.id, title: 'Removed target' },
       ]);
 
+      if (missingPointer) {
+        const archivedHosts = named(fixture.structure.tables, hosts.name);
+        const related = named(archivedHosts.fields, many.name);
+        delete (related.options as ILinkFieldOptions).symmetricFieldId;
+      }
       const result = await importFixture(fixture, engine);
       const tables = (await getTableList(result.base.id)).data;
       const importedHosts = named(tables, hosts.name);

@@ -50,7 +50,7 @@ export const Toolbar = () => {
   }
 
   return (
-    <div className="flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
+    <div className="relative flex w-full items-center justify-between gap-2 border-b px-4 py-2 @container/toolbar">
       {canCreate && (
         <CreateRecordModal>
           <Button size="xs" variant="outline">

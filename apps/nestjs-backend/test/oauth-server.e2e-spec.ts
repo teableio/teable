@@ -1069,6 +1069,81 @@ describe('OpenAPI OAuthController (e2e)', () => {
       };
     };
 
+    it('requires consent for the new default history scope without widening existing CLI tokens', async () => {
+      const redirectUri = 'http://127.0.0.1:51234/callback';
+      const authorizeCli = async (scope?: string) => {
+        const verifier = generateCodeVerifier();
+        const res = await axios.get('/oauth/authorize', {
+          params: {
+            response_type: 'code',
+            client_id: cliOAuthApp.clientId,
+            redirect_uri: redirectUri,
+            code_challenge: generateCodeChallenge(verifier),
+            code_challenge_method: 'S256',
+            scope,
+          },
+          maxRedirects: 0,
+        });
+        const url = new URL(res.headers.location, cliOAuthApp.homepage);
+        expect(url.searchParams.get('code')).toBeNull();
+        const transactionId = url.searchParams.get('transaction_id');
+        expect(transactionId).toBeTruthy();
+        return { verifier, transactionId: transactionId! };
+      };
+      const approveCli = async (grant: { transactionId: string; verifier: string }) => {
+        const approved = await decision(axios, grant.transactionId);
+        const code = new URL(approved.headers.location).searchParams.get('code');
+        expect(code).toBeTruthy();
+        const token = await anonymousAxios.post(
+          '/oauth/access_token',
+          new URLSearchParams({
+            grant_type: 'authorization_code',
+            code: code!,
+            client_id: cliOAuthApp.clientId,
+            code_verifier: grant.verifier,
+            redirect_uri: redirectUri,
+          })
+        );
+        return token.data;
+      };
+
+      const oldScopes = cliOAuthApp.scopes.filter((scope) => scope !== 'table_record_history|read');
+      const oldTokens = await approveCli(await authorizeCli(oldScopes.join(' ')));
+      expect(oldTokens.scopes).toEqual(oldScopes);
+
+      const cliDefault = await authorizeCli();
+      const consent = await axios.get(`/oauth/decision/${cliDefault.transactionId}`);
+      expect(consent.data.scopes).toContain('table_record_history|read');
+      const newTokens = await approveCli(cliDefault);
+      expect(newTokens.scopes).toEqual(consent.data.scopes);
+
+      const refreshed = await anonymousAxios.post(
+        '/oauth/access_token',
+        new URLSearchParams({
+          grant_type: 'refresh_token',
+          client_id: cliOAuthApp.clientId,
+          refresh_token: oldTokens.refresh_token,
+        })
+      );
+      expect(refreshed.data.scopes).toEqual(oldScopes);
+    });
+
+    it('rejects a user-created client asking for the CLI history scope', async () => {
+      const updateError = await getError(() =>
+        oauthUpdate(oauth.clientId, { ...oauthData, scopes: ['table_record_history|read'] })
+      );
+      expect(updateError?.status).toBe(400);
+
+      const error = await getError(() =>
+        getAuthorizeWithPkce(
+          axios,
+          { ...oauth, scopes: ['table_record_history|read'] },
+          generateCodeChallenge(generateCodeVerifier())
+        )
+      );
+      expect(error?.status).toBe(400);
+    });
+
     it('/api/oauth/authorize (GET) - with PKCE params', async () => {
       const codeVerifier = generateCodeVerifier();
       const codeChallenge = generateCodeChallenge(codeVerifier);
@@ -1650,7 +1725,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
       // The approval page accepts the code the way people type it.
       const appInfo = await axios.get(`/oauth/device/${user_code.toLowerCase().replace('-', '')}`);
       expect(appInfo.data).toMatchObject({ name: cliOAuthApp.name });
-      expect(appInfo.data.scopes.length).toBeGreaterThan(0);
+      expect(appInfo.data.scopes).toContain('table_record_history|read');
 
       await axios.post('/oauth/device/decision', { userCode: user_code, approve: true });
 
@@ -1663,6 +1738,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         access_token: expect.any(String),
         // eslint-disable-next-line @typescript-eslint/naming-convention
         refresh_token: expect.any(String),
+        scopes: appInfo.data.scopes,
       });
 
       // The token belongs to whoever approved in the browser.
@@ -1729,6 +1805,14 @@ describe('OpenAPI OAuthController (e2e)', () => {
         scope: 'not|granted',
       });
       expect(badScope.data.error).toBe('invalid_scope');
+
+      await oauthUpdate(oauth.clientId, { ...oauthData, allowDeviceFlow: true });
+      const userClientScope = await requestDeviceCode({
+        // eslint-disable-next-line @typescript-eslint/naming-convention
+        client_id: oauth.clientId,
+        scope: 'table_record_history|read',
+      });
+      expect(userClientScope.data.error).toBe('invalid_scope');
     });
 
     it('refuses the approval page for a code nobody issued', async () => {
@@ -1765,6 +1849,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
         'cursor://anysphere.cursor/oauth',
       ]);
       expect(res.data.scope).toBe(mcpOAuthScopes.join(' '));
+      expect(res.data.scope.split(' ')).not.toContain('table_record_history|read');
       expect(typeof res.data.client_id_issued_at).toBe('number');
     });
 
@@ -1794,6 +1879,14 @@ describe('OpenAPI OAuthController (e2e)', () => {
             client_name: clientName,
             redirect_uris: ['https://app.example/cb'],
             scope: 'base|read nope|read',
+          },
+          'invalid_client_metadata',
+        ],
+        [
+          {
+            client_name: clientName,
+            redirect_uris: ['https://app.example/cb'],
+            scope: 'table_record_history|read',
           },
           'invalid_client_metadata',
         ],
@@ -1854,6 +1947,7 @@ describe('OpenAPI OAuthController (e2e)', () => {
       expect((await authorize('base|read automation|read')).status).toBe(302);
       // Not a scope this server knows at all: still rejected.
       expect((await authorize('base|read nope|read')).status).toBe(400);
+      expect((await authorize('base|read table_record_history|read')).status).toBe(400);
       // User-level scopes (stored integration credentials, notifications) are
       // never available to a self-registered client, whatever it asks for.
       expect((await authorize('base|read user|integrations')).status).toBe(400);

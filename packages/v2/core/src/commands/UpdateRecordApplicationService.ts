@@ -515,6 +515,7 @@ export class UpdateRecordApplicationService {
             const updatedFieldValues =
               yield* await handler.recordChangedValueDecoratorService.decorateChangedFields(
                 tableForUpdate,
+                command.recordId.toString(),
                 changedFieldValues.size > 0 ? changedFieldValues : undefined,
                 previousFieldValues
               );

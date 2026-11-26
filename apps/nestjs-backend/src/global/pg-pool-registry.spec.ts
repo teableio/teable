@@ -1,13 +1,17 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
 import { Logger } from '@nestjs/common';
+import { createScopedDataPrismaClient } from '@teable/db-data-prisma';
 import type { PgPoolObserver } from '@teable/db-main-prisma';
 import {
   installPgPoolObserver,
+  MetaPrismaService,
   PgPoolQueueSaturatedError,
   PgPoolQueueTimeoutError,
   PgPoolRegistry,
   pgPoolObserverFacade,
 } from '@teable/db-main-prisma';
-import type { Pool, PoolConfig } from 'pg';
+import { ClsService } from 'nestjs-cls';
+import { Pool, type PoolConfig } from 'pg';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 const createPoolFactory = () => {
@@ -106,6 +110,51 @@ describe('PgPoolRegistry', () => {
     await data.release();
     expect(pools[0]!.end).toHaveBeenCalledOnce();
     expect(registry.snapshot()).toEqual([]);
+  });
+
+  it('returns the scoped schema when both clients use the same pool before checkout', async () => {
+    const registry = new PgPoolRegistry((config) => new Pool(config));
+    const metaLease = registry.acquire(
+      'postgresql://teable:secret@db.example.com/teable?schema=public'
+    );
+    const checkout = vi.spyOn(metaLease.pool, 'connect');
+    const cls: ConstructorParameters<typeof MetaPrismaService>[0] = new ClsService(
+      new AsyncLocalStorage()
+    );
+    const meta = new MetaPrismaService(cls, metaLease, 'public');
+    const shared = createScopedDataPrismaClient(
+      registry.acquire('postgres://teable:secret@db.example.com:5432/teable?schema=bound'),
+      'bound'
+    );
+    const otherUser = createScopedDataPrismaClient(
+      registry.acquire('postgresql://reader:secret@db.example.com/teable'),
+      'bound'
+    );
+    const otherRole = createScopedDataPrismaClient(
+      registry.acquire('postgresql://teable:secret@db.example.com/teable?options=-c%20role%3Dreader'),
+      'bound'
+    );
+    const otherPool = createScopedDataPrismaClient(
+      registry.acquire('postgresql://teable:secret@db.example.com/teable', { poolName: 'data' }),
+      'bound'
+    );
+
+    try {
+      expect('getSharedPoolSchema' in shared).toBe(true);
+      expect(shared.getSharedPoolSchema(meta)).toBe('bound');
+      expect(otherUser.getSharedPoolSchema(meta)).toBeUndefined();
+      expect(otherRole.getSharedPoolSchema(meta)).toBeUndefined();
+      expect(otherPool.getSharedPoolSchema(meta)).toBeUndefined();
+      expect(checkout).not.toHaveBeenCalled();
+    } finally {
+      await Promise.all([
+        shared.$disconnect(),
+        otherUser.$disconnect(),
+        otherRole.$disconnect(),
+        otherPool.$disconnect(),
+      ]);
+      await meta.onModuleDestroy();
+    }
   });
 
   it('shares one physical pool for the same database and pool name', async () => {

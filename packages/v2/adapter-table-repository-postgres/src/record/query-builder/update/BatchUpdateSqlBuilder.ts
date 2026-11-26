@@ -697,7 +697,10 @@ function rebaseSqlPlaceholders(sqlText: string, placeholderOffset: number): stri
     return sqlText;
   }
 
-  return sqlText.replace(/\$(\d+)/g, (_, index) => `$${Number(index) + placeholderOffset}`);
+  // A generated expression can contain $1 inside a quoted column name or text literal.
+  return sqlText.replace(/'(?:[^']|'')*'|"(?:[^"]|"")*"|\$(\d+)/g, (token, index) =>
+    index === undefined ? token : `$${Number(index) + placeholderOffset}`
+  );
 }
 
 /**

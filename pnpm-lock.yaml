@@ -297,6 +297,9 @@ importers:
       '@teable/v2-adapter-realtime-sharedb':
         specifier: workspace:*
         version: link:../../packages/v2/adapter-realtime-sharedb
+      '@teable/v2-adapter-repository-postgres':
+        specifier: workspace:*
+        version: link:../../packages/v2/adapter-repository-postgres
       '@teable/v2-adapter-table-query-ops-postgres':
         specifier: workspace:^
         version: link:../../packages/v2/adapter-table-query-ops-postgres

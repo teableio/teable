@@ -12,6 +12,7 @@ import {
   TimeFormatting,
   formatDateToString,
   isMeTag,
+  omitAttachmentPublic,
   parseClipboardText,
   stringifyClipboardText,
   type IAttachmentItem,
@@ -105,9 +106,12 @@ import {
   ListTableRecordsQuery,
   PasteStreamCommand,
   type PastePreparationService,
-  MAX_PASTE_CELLS,
   ResetButtonCommand,
   presignAttachmentFieldMaps,
+  presignAttachmentFieldMapsWithSigned,
+  isPublicAttachment,
+  applyAttachmentPublicLinks,
+  normalizeAttachmentCellValue,
   RecordQueryOperationKind,
   RecordId,
   resolveTableDataSafetyLimits,
@@ -117,6 +121,7 @@ import {
   TemporaryPasteCommand,
   type TemporaryPasteResult,
   type ViewId,
+  validatePasteExpansion,
   v2CoreTokens,
   type ClearRecordTarget,
   type ClearResult,
@@ -125,6 +130,7 @@ import {
   type DeleteByRangeStreamResult,
   type DuplicateRecordsStreamResult,
   type IArchiveRecordsCommandOptions,
+  type AttachmentSignedUrls,
   type IAttachmentUrlSignerService,
   type ICommandBus,
   type IExecutionContext,
@@ -165,7 +171,11 @@ import type { DependencyContainer } from '@teable/v2-di';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../cache/cache.service';
 import type { ICacheStore } from '../../../cache/types';
-import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
+import {
+  IThresholdConfig,
+  resolveMaxPasteCells,
+  ThresholdConfig,
+} from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import { Span } from '../../../tracing/decorators/span';
@@ -246,6 +256,12 @@ const maxGroupPoints =
     : defaultMaxGroupPoints;
 const describeTraceError = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+/** A column a paste creates runs no workflow and publishes no files of the one it was copied from. */
+const pasteSourceOptions = (field: Pick<IFieldVo, 'type' | 'options'>): Record<string, unknown> => {
+  const options: Record<string, unknown> = { ...omitAttachmentPublic(field).options };
+  if (field.type === FieldType.Button) delete options.workflow;
+  return options;
+};
 const v1SymbolOperatorMap: Record<string, string> = {
   '=': 'is',
   '!=': 'isNot',
@@ -315,6 +331,10 @@ export class RecordOpenApiV2Service {
     @Optional()
     private readonly tableQuerySearchVectorRuntimeService?: TableQuerySearchVectorRuntimeService
   ) {}
+
+  get maxPasteCells(): number {
+    return resolveMaxPasteCells(this.thresholdConfig.maxPasteCells);
+  }
 
   private async assertTableRecordWritable(tableId: string): Promise<void> {
     await this.spaceDataDbMigrationGuard.assertTableRecordWritable(tableId);
@@ -1651,7 +1671,7 @@ export class RecordOpenApiV2Service {
     const signer = container.resolve<IAttachmentUrlSignerService>(
       v2CoreTokens.attachmentUrlSignerService
     );
-    const signedFieldsResult = await presignAttachmentFieldMaps(
+    const signedFieldsResult = await presignAttachmentFieldMapsWithSigned(
       records.map((record) => record.fields),
       attachmentFieldKeys,
       signer
@@ -1661,11 +1681,54 @@ export class RecordOpenApiV2Service {
       return records;
     }
 
-    const signedFieldMaps = signedFieldsResult.value;
+    const signedFieldMaps = await this.applyPublicLinks(
+      table,
+      records,
+      signedFieldsResult.value.fieldMaps,
+      fieldKeyType,
+      signer,
+      signedFieldsResult.value.signed
+    );
     return records.map((record, index) => ({
       ...record,
       fields: signedFieldMaps[index] ?? record.fields,
     }));
+  }
+
+  /** The public links of attachments in fields with public links on, beside their signed URLs. */
+  private async applyPublicLinks(
+    table: Table,
+    records: IRecord[],
+    fieldMaps: ReadonlyArray<Record<string, unknown>>,
+    fieldKeyType: FieldKeyType,
+    signer: IAttachmentUrlSignerService,
+    signed: ReadonlyMap<string, AttachmentSignedUrls>
+  ): Promise<ReadonlyArray<Record<string, unknown>>> {
+    const tableId = table.id().toString();
+    const publicFields = table.getFields().flatMap((field) => {
+      const fieldId = field.id().toString();
+      return isPublicAttachment(field)
+        ? [{ fieldId, key: this.resolveResponseFieldKey(table, fieldId, fieldKeyType) }]
+        : [];
+    });
+    if (!publicFields.length) return fieldMaps;
+
+    const cells = fieldMaps.flatMap((fields, index) =>
+      publicFields.flatMap(({ fieldId, key }) => {
+        const items = normalizeAttachmentCellValue(fields[key]);
+        const recordId = records[index]?.id;
+        if (!items?.length || !recordId) return [];
+        return [{ index, key, location: { tableId, recordId, fieldId }, items }];
+      })
+    );
+    const linked = await applyAttachmentPublicLinks(cells, signer, signed);
+    // Fail closed on presentation, as signing does: the cells keep their signed URLs.
+    if (linked.isErr()) return fieldMaps;
+    const linkedMaps = fieldMaps.map((fields) => ({ ...fields }));
+    cells.forEach(({ index, key }, i) => {
+      linkedMaps[index]![key] = linked.value[i];
+    });
+    return linkedMaps;
   }
 
   private isAttachmentValueField(field: V2Field): boolean {
@@ -3488,10 +3551,7 @@ export class RecordOpenApiV2Service {
     if (columnsToExpand && canCreateFields) {
       const sourceFields = Array.from({ length: columnsToExpand }, (_, index) => {
         const field = pasteRo.header?.[pasteRo.header.length - columnsToExpand + index];
-        if (!field) return {};
-        const fieldOptions: Record<string, unknown> = { ...field.options };
-        if (field.type === FieldType.Button) delete fieldOptions.workflow;
-        return { ...field, options: fieldOptions };
+        return field ? { ...field, options: pasteSourceOptions(field) } : {};
       });
       const preparation = container.resolve<PastePreparationService>(
         v2CoreTokens.pastePreparationService
@@ -3551,20 +3611,32 @@ export class RecordOpenApiV2Service {
         )
       : content;
     const header = pasteRo.header;
-    const converted = header?.length
-      ? this.convertPasteContentWithSourceFields(
-          tableData,
-          fields,
-          fields.map((_, index) => header[index % header.length]!)
-        )
-      : tableData;
+    let converted = tableData;
+    if (header?.length) {
+      let fieldsToConvert = fields;
+      if (!canTile) {
+        let submittedCols = 0;
+        for (const row of tableData) {
+          submittedCols = Math.max(submittedCols, row.length);
+          if (submittedCols >= fields.length) break;
+        }
+        if (submittedCols < fields.length) fieldsToConvert = fields.slice(0, submittedCols);
+      }
+      converted = this.convertPasteContentWithSourceFields(
+        tableData,
+        fieldsToConvert,
+        fieldsToConvert.map((_, index) => header[index % header.length]!)
+      );
+    }
     const clipboardRecords = converted.map((row) => {
       const values: IRecord['fields'] = {};
-      fields.forEach((field, index) => {
+      const writeCols = canTile ? fields.length : Math.min(fields.length, row.length);
+      for (let index = 0; index < writeCols; index++) {
+        const field = fields[index]!;
         if (!field.computed().toBoolean() && !field.isProvisionPending()) {
           values[field.id().toString()] = row[index] ?? null;
         }
-      });
+      }
       return { fields: values };
     });
     const existingRecords = options.recordLoader
@@ -3628,7 +3700,12 @@ export class RecordOpenApiV2Service {
     const commandBus = container.resolve<ICommandBus>(v2CoreTokens.commandBus);
     const context = await this.v2ContextFactory.createContext(container);
     const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
-    const result = await executePasteEndpoint(context, preparedPaste.commandInput, commandBus);
+    const result = await executePasteEndpoint(
+      context,
+      preparedPaste.commandInput,
+      commandBus,
+      this.maxPasteCells
+    );
 
     if (result.status === 200 && result.body.ok) {
       await this.clearUndoRedoEnginePreference(tableId);
@@ -3699,7 +3776,7 @@ export class RecordOpenApiV2Service {
     const context = await this.v2ContextFactory.createContext(container);
 
     const preparedPaste = await this.preparePasteCommandInput(tableId, pasteRo, options);
-    const commandResult = PasteStreamCommand.create(preparedPaste.commandInput);
+    const commandResult = PasteStreamCommand.create(preparedPaste.commandInput, this.maxPasteCells);
     if (commandResult.isErr()) {
       throwV2Error(
         mapDomainErrorToHttpError(commandResult.error),
@@ -3747,12 +3824,15 @@ export class RecordOpenApiV2Service {
     const context = await this.v2ContextFactory.createContext(container);
 
     const preparedPaste = await this.preparePasteCommandInput(tableId, syntheticPasteRo, options);
-    const commandResult = PasteStreamCommand.create({
-      ...preparedPaste.commandInput,
-      targetRecordIds: recordIds,
-      excludedTargetRecordIds: this.resolveExcludedRecordIds(pasteRo.selection),
-      targetFieldIds: fieldIds,
-    });
+    const commandResult = PasteStreamCommand.create(
+      {
+        ...preparedPaste.commandInput,
+        targetRecordIds: recordIds,
+        excludedTargetRecordIds: this.resolveExcludedRecordIds(pasteRo.selection),
+        targetFieldIds: fieldIds,
+      },
+      this.maxPasteCells
+    );
     if (commandResult.isErr()) {
       throwV2Error(
         mapDomainErrorToHttpError(commandResult.error),
@@ -4178,7 +4258,7 @@ export class RecordOpenApiV2Service {
           isComputed: field.isComputed,
           isLookup: field.isLookup,
           isMultipleCellValue: field.isMultipleCellValue,
-          options: field.options,
+          options: pasteSourceOptions(field),
         }));
         const normalizedFilter = options?.previewReadOnly
           ? this.normalizeFilterForV2FromTable(table, queryRo.filter)
@@ -4266,34 +4346,12 @@ export class RecordOpenApiV2Service {
     targetRows: number,
     targetCols: number
   ): void {
-    const configuredMax = this.thresholdConfig.maxPasteCells;
-    const maxPasteCells =
-      Number.isSafeInteger(configuredMax) && configuredMax > 0
-        ? Math.min(configuredMax, MAX_PASTE_CELLS)
-        : MAX_PASTE_CELLS;
-    const exceedsTarget =
-      !Number.isSafeInteger(targetRows) ||
-      !Number.isSafeInteger(targetCols) ||
-      (targetRows > 0 &&
-        targetCols > 0 &&
-        (targetRows > maxPasteCells || targetCols > Math.floor(maxPasteCells / targetRows)));
-    let submittedCells = 0;
-    let exceedsContent = false;
-    for (const row of content) {
-      if (row.length > maxPasteCells - submittedCells) {
-        exceedsContent = true;
-        break;
-      }
-      submittedCells += row.length;
-    }
-    if (!exceedsTarget && !exceedsContent) return;
+    const validation = validatePasteExpansion(content, targetRows, targetCols, this.maxPasteCells);
+    if (validation.isOk()) return;
 
-    throw new CustomHttpException(
-      `Exceed max paste cells ${maxPasteCells}`,
-      HttpErrorCode.VALIDATION_ERROR,
-      {
-        localization: { i18nKey: 'httpErrors.selection.exceedMaxPasteCells' },
-      }
+    throwV2Error(
+      mapDomainErrorToHttpError(validation.error),
+      mapDomainErrorToHttpStatus(validation.error)
     );
   }
 

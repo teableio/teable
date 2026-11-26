@@ -1725,7 +1725,14 @@ export class DataDbClientManager {
   async getDataDatabaseForSpacePreviewReadOnly(
     spaceId: string
   ): Promise<IResolvedDataDatabase | null> {
-    const binding = await this.findSpaceDataDbBinding(spaceId);
+    return this.getReadyDataDatabaseForSpace(spaceId);
+  }
+
+  private async getReadyDataDatabaseForSpace(
+    spaceId: string,
+    options?: IDataDbRoutingOptions
+  ): Promise<IResolvedDataDatabase | null> {
+    const binding = await this.findSpaceDataDbBinding(spaceId, options);
     if (!isBoundToDataDb(binding)) return this.toResolvedDataDatabase({ isMetaFallback: true });
 
     const connection = binding.dataDbConnection;
@@ -1759,6 +1766,19 @@ export class DataDbClientManager {
   async dataPrismaForBasePreviewReadOnly(baseId: string) {
     const route = await this.getDataDatabaseForBasePreviewReadOnly(baseId);
     if (!route) return null;
+    return this.dataPrismaForReadyRoute(route);
+  }
+
+  /** Acquire the bound route using the caller's metadata snapshot, including migration on demand. */
+  async dataPrismaForSpaceTransactionRead(spaceId: string) {
+    const binding = await this.findSpaceDataDbBinding(spaceId, { useTransaction: true });
+    const route = await this.getDataDatabaseFromRoutingSnapshot({ spaceId, binding });
+    const client = await this.dataPrismaForReadyRoute(route);
+    if (!client) throw new DataDbBindingNotReadyError(spaceId);
+    return client;
+  }
+
+  private async dataPrismaForReadyRoute(route: IResolvedDataDatabase) {
     if (route.isMetaFallback) return this.metaFallbackDataPrismaService;
     const { connectionId, connectionUrl, internalSchema } = route;
     if (!connectionId || !connectionUrl || !internalSchema) return null;

@@ -75,7 +75,9 @@
       "downloadSuccess": "Download completato",
       "downloadFailed": "Download non riuscito",
       "downloadCancelled": "Download annullato",
-      "requireHttps": "Il download in blocco richiede HTTPS. Accedi tramite HTTPS o localhost"
+      "requireHttps": "Il download in blocco richiede HTTPS. Accedi tramite HTTPS o localhost",
+      "copyPublicLink": "Copia link pubblico",
+      "publicLinkCopied": "Link pubblico copiato"
     },
     "date": {
       "placeholder": "Seleziona una data",
@@ -1840,6 +1842,10 @@
       "endpointChanged": "Un segreto salvato può essere inviato solo all'indirizzo per cui è stato salvato. Inserisci di nuovo {{field}}.",
       "reenterForNewAddress": "L'indirizzo è cambiato. Inserisci di nuovo o cancella prima {{fields}}.",
       "staleMask": "Il {{field}} salvato è cambiato dopo il caricamento della pagina. Inseriscilo di nuovo."
+    },
+    "publicFile": {
+      "fieldNotFound": "Campo non trovato",
+      "noPublicFields": "Lo spazio non esiste o non ha campi allegato con accesso pubblico attivo"
     }
   },
   "usageLimitBanner": {

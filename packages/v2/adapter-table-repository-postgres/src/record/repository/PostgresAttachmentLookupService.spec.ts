@@ -39,6 +39,14 @@ describe('PostgresAttachmentLookupService', () => {
         height: 480,
         thumbnailPath: JSON.stringify({ sm: 'thumb/sm.png', lg: 'thumb/lg.png' }),
       },
+      {
+        id: 2,
+        token: 'tok_2',
+        path: '/tmp/file-2.png',
+        size: 7,
+        mimetype: 'image/png',
+        deletedTime: new Date(),
+      },
     ]);
     const where = vi.fn((_column: string, _op: string, values: unknown[]) => {
       expect(values).toEqual(['tok_1', 'tok_2']);
@@ -63,6 +71,7 @@ describe('PostgresAttachmentLookupService', () => {
         height: 480,
         thumbnailPath: { sm: 'thumb/sm.png', lg: 'thumb/lg.png' },
       },
+      expect.objectContaining({ token: 'tok_2', deleted: true }),
     ]);
   });
 

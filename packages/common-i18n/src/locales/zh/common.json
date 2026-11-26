@@ -1254,6 +1254,7 @@
           "description": "有 {{total}} 个密钥未设置或仍在使用公开的默认值，他人可能借此伪造登录凭据或解密已存储的数据。请通过环境变量设置后重启，启动日志中有逐项说明。已有数据的实例请先固定当前值再轮换，直接替换加密密钥会导致已存储的数据无法解密。",
           "missing": "未设置",
           "publicDefault": "使用公开默认值",
+          "secretKeyRequired": "后续版本在 SECRET_KEY 未设置或仍为公开默认值时将拒绝启动，请在升级前设置为私有值。",
           "docsLink": "查看环境变量说明",
           "href": "https://help.teable.ai/zh/deploy/env#密钥与轮换"
         }
@@ -1385,6 +1386,8 @@
     "addToTrash": "移到回收站",
     "description": "回收站中的数据依然会占用记录用量和附件用量。",
     "publishedAppsOffline": "{{total}} 个已发布的应用会立即下线，从回收站恢复后需要重新发布。",
+    "publicLinksOffFields": "{{names}} 的公开链接会立即失效，恢复后需要重新开启。",
+    "publicLinksOffAll": "如有开启公开链接的附件字段，其链接会立即失效，恢复后需要重新开启。",
     "spaceDescription": "恢复过去{{retentionDays}}天内删除的空间",
     "spaceInnerDescription": "恢复过去{{retentionDays}}天内从该空间中删除的项目",
     "baseDescription": "恢复过去{{retentionDays}}天内从该项目中删除的资源",
@@ -1675,6 +1678,30 @@
             "released": {
               "title": "空间 {{spaceName}} 的自定义域名已关闭解析",
               "message": "空间 {{spaceName}} 的商业版到期后未续费，自定义域名 {{domains}} 已停止解析并从应用解绑。升级到商业版后可重新绑定自定义域名。"
+            }
+          },
+          "publicFile": {
+            "expired": {
+              "title": "空间 {{spaceName}} 的套餐已到期，公开文件即将删除",
+              "message": "空间 {{spaceName}} 的套餐已到期，当前套餐不再包含公开文件链接。该空间公开文件的副本将于 {{releaseDate}}（UTC）删除，公开链接随之失效。请在此之前续费以保留它们。"
+            },
+            "withdrawn": {
+              "title": "空间 {{spaceName}} 的公开文件链接已失效",
+              "message": "空间 {{spaceName}} 的套餐到期后未续费，该空间文件的公开链接已失效，公开的副本已删除。"
+            }
+          },
+          "publicFileDomain": {
+            "released": {
+              "title": "空间 {{spaceName}} 的文件域名已解绑",
+              "message": "空间 {{spaceName}} 的商业版到期后未续费，文件域名 {{hostname}} 已解绑。公开文件已改回从 {{spaceSubdomain}} 访问，{{hostname}} 下的链接已失效。升级到商业版后可重新绑定文件域名。"
+            },
+            "notVerified": {
+              "title": "空间 {{spaceName}} 的文件域名 {{hostname}} 未生效",
+              "message": "{{hostname}} 的 DNS 记录 7 天内未通过验证，本次文件域名更换已取消，公开文件仍从当前域名访问。请添加 CNAME 记录后，在空间设置中重新提交该域名。"
+            },
+            "failed": {
+              "title": "空间 {{spaceName}} 的文件域名 {{hostname}} 无法生效",
+              "message": "{{hostname}} 的域名或证书验证失败（{{error}}），本次文件域名更换已取消，公开文件仍从当前域名访问。请检查该域名的 DNS 和 CAA 记录后，在空间设置中重新提交。"
             }
           }
         },

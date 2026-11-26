@@ -13,7 +13,10 @@ import * as RecordQueryRepositoryPort from '../../ports/TableRecordQueryReposito
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
-import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
+import {
+  decorateRealtimeAttachmentValue,
+  linkRealtimeAttachmentValues,
+} from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import {
@@ -61,9 +64,17 @@ export class RecordCreatedRealtimeProjection implements IEventHandler<RecordCrea
 
       // Convert fieldValues array to flat map
       const fields: Record<string, unknown> = {};
-      for (const fieldValue of event.fieldValues) {
+      const tableId = event.tableId.toString();
+      const recordId = event.recordId.toString();
+      const linked = yield* (
+        await linkRealtimeAttachmentValues(
+          attachmentValueDecoratorService,
+          event.fieldValues.map(({ fieldId, value }) => ({ tableId, recordId, fieldId, value }))
+        )
+      ).safeUnwrap();
+      for (const [index, fieldValue] of event.fieldValues.entries()) {
         fields[fieldValue.fieldId] = yield* (
-          await decorateRealtimeAttachmentValue(attachmentValueDecoratorService, fieldValue.value)
+          await decorateRealtimeAttachmentValue(attachmentValueDecoratorService, linked[index])
         ).safeUnwrap();
       }
 

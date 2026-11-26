@@ -56,6 +56,7 @@ import {
   type UpdateRatingIconSpec,
   type UpdateRatingColorSpec,
   type UpdateUserMultiplicitySpec,
+  type UpdateAttachmentPublicAccessSpec,
   type UpdateUserNotificationSpec,
   type UpdateUserDefaultValueSpec,
   type UpdateButtonLabelSpec,
@@ -637,6 +638,16 @@ export class TableWhereVisitor
     return err(
       domainError.validation({
         message: 'UpdateUserMultiplicitySpec is not supported for table filters',
+      })
+    );
+  }
+
+  visitUpdateAttachmentPublicAccess(
+    _spec: UpdateAttachmentPublicAccessSpec
+  ): Result<ITableMetaWhere, DomainError> {
+    return err(
+      domainError.validation({
+        message: 'UpdateAttachmentPublicAccessSpec is not supported for table filters',
       })
     );
   }

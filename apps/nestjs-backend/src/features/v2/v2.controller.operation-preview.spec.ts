@@ -177,6 +177,7 @@ const createController = (
     {} as never,
     {} as never,
     {} as never,
+    { maxPasteCells: 50_000 } as never,
     modules as never
   );
   return {

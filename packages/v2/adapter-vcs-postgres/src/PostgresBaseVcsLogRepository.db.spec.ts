@@ -465,7 +465,7 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     expect(widenedPage.cursor.scopeTag).toBe(computeVcsTableScopeTag(['tbl_alpha', 'tbl_beta']));
   });
 
-  it('compares changed chunks, follows both merge parents and preserves complete checkpoints', async () => {
+  it('selects checkpoint rows, compares changed chunks, and follows both merge parents', async () => {
     const repo = new PostgresBaseVcsLogRepository(dataDb, unitOfWork);
     const ctx = createContext();
     const baseId = BaseId.generate()._unsafeUnwrap();
@@ -547,6 +547,72 @@ describe('PostgresBaseVcsLogRepository (real PostgreSQL)', () => {
     expect((await repo.readHistoricalSnapshot(ctx, baseId, 1))._unsafeUnwrap()).toEqual(
       snapshot(1)
     );
+
+    const manifests = [encodeCheckpointTable(table), encodeCheckpointTable(other)];
+    const [requested] = table.records;
+    const requestedChunk = [...manifests[0].objects].find(
+      ([hash, payload]) =>
+        hash !== manifests[0].hash &&
+        (JSON.parse(payload) as Array<{ id: string }>).some(({ id }) => id === requested.id)
+    )?.[0];
+    expect(requestedChunk).toBeDefined();
+    const manifestHashes = manifests.map(({ hash }) => hash).sort();
+    (
+      await unitOfWork.withTransaction(
+        ctx,
+        async (tx) => {
+          const executor = resolvePostgresDbOrTx(dataDb, tx, 'data').getExecutor();
+          const executeQuery = executor.executeQuery.bind(executor);
+          const objectReads: Array<{ hashes: string[]; ids?: string[] }> = [];
+          const spy = vi.spyOn(executor, 'executeQuery').mockImplementation((query) => {
+            if (query.sql.includes('SELECT hash, payload FROM base_vcs_object')) {
+              objectReads.push({ hashes: [...(query.parameters[1] as string[])].sort() });
+            } else if (query.sql.includes('FROM base_vcs_object')) {
+              objectReads.push({
+                hashes: [...(query.parameters[2] as string[])].sort(),
+                ids: [...(query.parameters[0] as string[])].sort(),
+              });
+            }
+            return executeQuery(query);
+          });
+          const checkpoint = snapshot(0);
+          const schemaOnly = {
+            ...checkpoint,
+            tables: checkpoint.tables.map((entry) => ({ ...entry, records: [] })),
+          };
+          try {
+            expect((await repo.readHistoricalSelection(tx, baseId, 0))._unsafeUnwrap()).toEqual(
+              schemaOnly
+            );
+            expect(objectReads).toEqual([{ hashes: manifestHashes }]);
+
+            objectReads.length = 0;
+            const selected = await repo.readHistoricalSelection(tx, baseId, 0, (schema) => {
+              expect(schema).toEqual(schemaOnly);
+              return ok(
+                new Map([
+                  [table.id, new Set([requested.id])],
+                  [other.id, new Set(['recAbsent'])],
+                ])
+              );
+            });
+            expect(selected._unsafeUnwrap()).toEqual({
+              ...schemaOnly,
+              tables: [{ ...schemaOnly.tables[0], records: [requested] }, schemaOnly.tables[1]],
+            });
+            expect(objectReads).toEqual([
+              { hashes: manifestHashes },
+              { hashes: [requestedChunk], ids: [requested.id] },
+            ]);
+            return ok(undefined);
+          } finally {
+            spy.mockRestore();
+          }
+        },
+        { scope: 'data' }
+      )
+    )._unsafeUnwrap();
+
     const compare = async (from: number, to: number) =>
       (await repo.compareHistoricalRevisions(ctx, baseId, from, to))._unsafeUnwrap();
     expect(await compare(1, 2)).toMatchObject({ mergeBase: 0, containsForeignReferences: true });

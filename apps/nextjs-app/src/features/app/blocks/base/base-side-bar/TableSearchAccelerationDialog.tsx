@@ -3,6 +3,7 @@ import { HttpError, Role } from '@teable/core';
 import type { ITableSearchAccelerationSwitchRo } from '@teable/openapi';
 import {
   SEARCH_ACCELERATION_LARGE_TABLE_CONFIRMATION_REQUIRED,
+  SEARCH_ACCELERATION_QUOTA_EXCEEDED,
   getSpaceById,
   getTablePermission,
   getTableSearchAccelerationStatus,
@@ -19,6 +20,7 @@ import {
   DialogTitle,
 } from '@teable/ui-lib/shadcn';
 import { useTranslation } from 'next-i18next';
+import { z } from 'zod';
 import { tableConfig } from '@/features/i18n/table.config';
 
 interface IProps {
@@ -29,7 +31,47 @@ interface IProps {
   onOpenChange: (open: boolean) => void;
 }
 
-function useAccelerationPermissions(baseId: string, tableId: string, spaceId: string) {
+const quotaExceededSchema = z.object({
+  feature: z.literal('searchAcceleration'),
+  reason: z.literal(SEARCH_ACCELERATION_QUOTA_EXCEEDED),
+  limit: z.number(),
+  current: z.number(),
+  increment: z.number(),
+});
+
+function SwitchError({ error }: { error: unknown }) {
+  const { t, i18n } = useTranslation(tableConfig.i18nNamespaces);
+  if (error instanceof HttpError && error.status === 402) {
+    const quota = quotaExceededSchema.safeParse(error.data);
+    if (quota.success) {
+      const rows = new Intl.NumberFormat(i18n.language);
+      return (
+        <div role="alert" className="space-y-2">
+          <p>{t('table:searchAcceleration.quotaExceeded')}</p>
+          <dl className="grid grid-cols-[1fr_auto] gap-x-4 tabular-nums">
+            <dt>{t('table:searchAcceleration.quotaLimit')}</dt>
+            <dd className="text-end">{rows.format(quota.data.limit)}</dd>
+            <dt>{t('table:searchAcceleration.quotaCurrent')}</dt>
+            <dd className="text-end">{rows.format(quota.data.current)}</dd>
+            <dt>{t('table:searchAcceleration.quotaIncrement')}</dt>
+            <dd className="text-end">{rows.format(quota.data.increment)}</dd>
+          </dl>
+        </div>
+      );
+    }
+  }
+  return (
+    <p role="alert">
+      {t(
+        error instanceof HttpError && error.status === 503
+          ? 'table:searchAcceleration.unavailable'
+          : 'table:searchAcceleration.changeError'
+      )}
+    </p>
+  );
+}
+
+export function useAccelerationPermissions(baseId: string, tableId: string, spaceId: string) {
   const permission = useQuery({
     queryKey: ReactQueryKeys.getTablePermission(baseId, tableId),
     queryFn: () => getTablePermission(baseId, tableId).then((res) => res.data),
@@ -59,6 +101,28 @@ function useAccelerationPermissions(baseId: string, tableId: string, spaceId: st
   return { canManage, readOnly, accessError, retryAccess: accessLookup.refetch };
 }
 
+const accelerationKey = (baseId: string, tableId: string) => [
+  'table-search-acceleration',
+  baseId,
+  tableId,
+];
+
+export function useAccelerationStatus(baseId: string, tableId: string) {
+  return useQuery({
+    queryKey: accelerationKey(baseId, tableId),
+    queryFn: () =>
+      getTableSearchAccelerationStatus(baseId, tableId, 'summary').then((res) => res.data),
+    retry: false,
+    staleTime: 10_000,
+    gcTime: 10_000,
+    refetchInterval: ({ state }) => {
+      const intent = state.data?.intentState;
+      return intent === 'preparing' || intent === 'disabling' ? 5000 : false;
+    },
+    meta: { preventGlobalError: true },
+  });
+}
+
 export const TableSearchAccelerationDialog = ({
   baseId,
   tableId,
@@ -73,23 +137,12 @@ export const TableSearchAccelerationDialog = ({
     tableId,
     spaceId
   );
-  const queryKey = ['table-search-acceleration', baseId, tableId];
-  const status = useQuery({
-    queryKey,
-    queryFn: () => getTableSearchAccelerationStatus(baseId, tableId).then((res) => res.data),
-    retry: false,
-    gcTime: 0,
-    refetchInterval: ({ state }) => {
-      const intent = state.data?.intentState;
-      return intent === 'preparing' || intent === 'disabling' ? 5000 : false;
-    },
-    meta: { preventGlobalError: true },
-  });
+  const status = useAccelerationStatus(baseId, tableId);
   const change = useMutation({
     mutationFn: (request: ITableSearchAccelerationSwitchRo) =>
       setTableSearchAcceleration(baseId, tableId, request),
     retry: false,
-    onSettled: () => client.invalidateQueries({ queryKey }),
+    onSettled: () => client.invalidateQueries({ queryKey: accelerationKey(baseId, tableId) }),
     meta: { preventGlobalError: true },
   });
 
@@ -147,7 +200,7 @@ export const TableSearchAccelerationDialog = ({
               <p>{t('table:searchAcceleration.confirmDetail')}</p>
             </div>
           ) : (
-            change.isError && <p role="alert">{t('table:searchAcceleration.changeError')}</p>
+            change.isError && <SwitchError error={change.error} />
           )}
         </div>
         <DialogFooter>

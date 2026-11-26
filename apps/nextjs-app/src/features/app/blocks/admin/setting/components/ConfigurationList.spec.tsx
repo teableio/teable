@@ -36,6 +36,10 @@ const SIGNUP_TITLE = 'admin.configuration.list.signupVerification.title';
 const SECRETS_TITLE = 'admin.configuration.list.secrets.title';
 
 describe('ConfigurationList security items', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
   it('lists the security group before the others', () => {
     render(<Harness insecureSecrets={[missing('SECRET_KEY')]} />);
     const groups = screen
@@ -81,6 +85,28 @@ describe('ConfigurationList security items', () => {
       'href',
       'admin.configuration.list.secrets.href'
     );
+  });
+
+  it('says a later version will not start, in production while SECRET_KEY is at risk', () => {
+    const notice = 'admin.configuration.list.secrets.secretKeyRequired';
+    // The refusal will apply in production mode only, so a development build says nothing.
+    const development = render(<Harness insecureSecrets={[missing('SECRET_KEY')]} />);
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
+    development.unmount();
+
+    vi.stubEnv('NODE_ENV', 'production');
+    const { unmount } = render(<Harness insecureSecrets={[missing('SECRET_KEY')]} />);
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    unmount();
+
+    const pinned = render(
+      <Harness insecureSecrets={[{ envKey: 'SECRET_KEY', reason: 'publicDefault' }]} />
+    );
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    pinned.unmount();
+
+    render(<Harness insecureSecrets={[missing('SANDBOX_JWT_SECRET')]} />);
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
   });
 
   it('hides the secrets entry once every secret is configured', () => {

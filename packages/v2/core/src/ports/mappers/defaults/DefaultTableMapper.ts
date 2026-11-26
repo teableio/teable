@@ -16,6 +16,7 @@ import {
   toRegularLookupFormulaOptions,
 } from '../../../domain/table/fields/lookupFormulaOptions';
 import { AttachmentField } from '../../../domain/table/fields/types/AttachmentField';
+import { AttachmentPublicAccess } from '../../../domain/table/fields/types/AttachmentPublicAccess';
 import { AutoNumberField } from '../../../domain/table/fields/types/AutoNumberField';
 import { ButtonConfirm } from '../../../domain/table/fields/types/ButtonConfirm';
 import { ButtonField } from '../../../domain/table/fields/types/ButtonField';
@@ -529,7 +530,7 @@ class FieldToPersistenceVisitor implements IFieldVisitor<ITableFieldPersistenceD
     return ok({
       ...this.baseField(field),
       type: 'attachment',
-      options: {},
+      options: field.publicAccess().toBoolean() ? { isPublic: true } : {},
     });
   }
 
@@ -1215,7 +1216,9 @@ export class DefaultTableMapper implements ITableMapper {
           name: dto.name,
           type: unwrapped.innerType as ITableFieldPersistenceDTO['type'],
           options: unwrapped.innerOptions as never,
-          ...(typeof dto.cellValueType === 'string' ? { cellValueType: dto.cellValueType } : {}),
+          ...(typeof dto.cellValueType === 'string'
+            ? { cellValueType: dto.cellValueType }
+            : {}),
           ...(typeof dto.isMultipleCellValue === 'boolean'
             ? { isMultipleCellValue: dto.isMultipleCellValue }
             : {}),
@@ -1274,7 +1277,7 @@ export class DefaultTableMapper implements ITableMapper {
               );
             })
             .with({ type: 'formula' }, (dto) => {
-              const options = dto.options;
+              const options = dto.options ?? ({} as IFormulaFieldOptionsDTO);
               return FormulaExpression.create(options.expression).andThen((expression) =>
                 optional(options.timeZone, TimeZone.create).andThen((timeZone) =>
                   parseFormulaFormatting(options.formatting).andThen((formatting) =>
@@ -1409,7 +1412,11 @@ export class DefaultTableMapper implements ITableMapper {
                 (defaultValue) => CheckboxField.create({ id, name, defaultValue })
               );
             })
-            .with({ type: 'attachment' }, () => AttachmentField.create({ id, name }))
+            .with({ type: 'attachment' }, (dto) =>
+              optional(dto.options?.isPublic, AttachmentPublicAccess.create).andThen((isPublic) =>
+                AttachmentField.create({ id, name, isPublic })
+              )
+            )
             .with({ type: 'date' }, (dto) => {
               const options = dto.options ?? {};
               return optional(options.formatting, DateTimeFormatting.create).andThen((formatting) =>
@@ -1503,7 +1510,7 @@ export class DefaultTableMapper implements ITableMapper {
               )
             )
             .with({ type: 'conditionalRollup' }, (dto) => {
-              const options = dto.options;
+              const options = dto.options ?? ({} as IConditionalRollupFieldOptionsDTO);
               const configRaw = dto.config;
               return ConditionalRollupConfig.create(configRaw).andThen((config) =>
                 RollupExpression.create(options.expression).andThen((expression) =>

@@ -23,6 +23,10 @@ Declaration: If the folder I belong to changes, please update me, especially cor
 ## Files
 
 - `ARCHITECTURE.md` - Role: folder architecture note; Purpose: explain port boundaries and implementations.
+- `AttachmentUrlSignerService.ts` - Role: attachment presentation port; Purpose: sign preview and
+  thumbnail URLs by file token, and give the public links of an attachment field with public
+  links on (`AttachmentField.publicAccess`) by cell, since a public link belongs to the cell, not
+  the file. A host without public files returns none.
 - `ButtonClickWorkflowService.ts` - Table Button-field workflow port. Prepares the workflow once, exposes its record filter before the write, and runs the prepared workflow after commit.
 - `CommandBus.ts` - Role: port interface; Purpose: define ICommandBus + middleware contract.
 - `CsvParser.ts` - Role: lazy CSV source contract; Purpose: support bounded parsing without promising

@@ -29,6 +29,7 @@ describe('RecordModifySharedService', () => {
       {} as never,
       {} as never,
       {} as never,
+      {} as never,
       {
         maxSelectChoiceNameLength:
           DEFAULT_TABLE_DATA_SAFETY_LIMITS.fieldOptions.maxSelectChoiceNameLength,

@@ -9,6 +9,7 @@ export * from './domain/errors';
 export * from './domain/fastForwardSafety';
 export * from './domain/fieldClassification';
 export * from './domain/liveCas';
+export * from './domain/promotionPatch';
 export * from './domain/resolveConflicts';
 export * from './domain/reverseReplay';
 export * from './domain/threeWayMerge';

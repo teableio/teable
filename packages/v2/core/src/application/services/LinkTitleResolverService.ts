@@ -11,10 +11,14 @@ import type { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldType } from '../../domain/table/fields/FieldType';
 import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValueMultiplicity';
 import { CellValueType } from '../../domain/table/fields/types/CellValueType';
+import { NumberField } from '../../domain/table/fields/types/NumberField';
+import { NumberFormattingType } from '../../domain/table/fields/types/NumberFormatting';
 import type { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
 import { FieldValueTypeVisitor } from '../../domain/table/fields/visitors/FieldValueTypeVisitor';
 import { titleKeyForPrimaryField } from '../../domain/table/fields/visitors/normalizeSingleLineTextCellValue';
+import { RecordId } from '../../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../../domain/table/records/specs/ITableRecordConditionSpecVisitor';
+import { RecordByIdsSpec } from '../../domain/table/records/specs/RecordByIdsSpec';
 import { RecordConditionLiteralValue } from '../../domain/table/records/specs/RecordConditionValues';
 import type { ClearFieldValueSpec } from '../../domain/table/records/specs/values/ClearFieldValueSpec';
 import type {
@@ -55,7 +59,8 @@ export type LinkTitleRecordReader = (
   context: IExecutionContext,
   table: Table,
   titleField: Field,
-  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined
+  spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
+  recordIds?: ReadonlyArray<string>
 ) => Promise<Result<TableRecordQueryRepositoryPort.ITableRecordQueryResult, DomainError>>;
 
 export interface LinkTitleResolveRequest {
@@ -64,12 +69,90 @@ export interface LinkTitleResolveRequest {
   /** Link display field. Defaults to the foreign primary field when absent. */
   readonly lookupFieldId?: FieldId;
   readonly titles: ReadonlyArray<string>;
+  /** Interpret generated IDs and existing legacy IDs in a typecast string list. */
+  readonly resolveRecordIds?: boolean;
 }
 
 export interface LinkTitleResolveResult {
   readonly fieldId: FieldId;
-  readonly resolvedIds: ReadonlyArray<{ id: string; title: string }>;
+  readonly resolvedIds: LinkItem[];
 }
+
+type TitleNormalization = {
+  readonly keyByTitle: ReadonlyMap<string, string>;
+  readonly matchOrderByTitle: ReadonlyMap<string, number>;
+};
+
+type TitleLookupResult = {
+  readonly idsByTitle: ReadonlyMap<string, string>;
+  readonly normalization?: TitleNormalization;
+};
+
+const emptyTitleLookup: TitleLookupResult = { idsByTitle: new Map() };
+
+function findCellFallbackTitles(
+  titles: ReadonlyArray<string>,
+  normalization: TitleNormalization,
+  idMatches: ReadonlyMap<string, LinkItem> | undefined
+): ReadonlyMap<string, string> | undefined {
+  let fallbacks: Map<string, string> | undefined;
+  for (const title of titles) {
+    if (idMatches?.has(title)) continue;
+    const key = normalization.keyByTitle.get(title);
+    if (!key || key === title) continue;
+    const order = normalization.matchOrderByTitle.get(title);
+    if (order === undefined) continue;
+
+    // Only the canonical spelling and exact legacy spellings from this cell
+    // are eligible. Keep the first match returned by the repository.
+    const previousTitle = fallbacks?.get(key) ?? key;
+    const previousOrder = normalization.matchOrderByTitle.get(previousTitle);
+    if (previousOrder === undefined || order < previousOrder) {
+      (fallbacks ??= new Map()).set(key, title);
+    }
+  }
+  return fallbacks;
+}
+
+const LINK_ID_LOOKUP_BATCH_SIZE = 500;
+// Bound the depth of the SQL disjunction and its number of parameters.
+const LINK_TITLE_LOOKUP_BATCH_SIZE = 250;
+
+/** Match round(float8::numeric, precision)::text in the link title fill. */
+const formatCurrencyTitleNumber = (value: number, precision: number): string => {
+  if (!Number.isFinite(value)) return String(value);
+
+  // PostgreSQL casts float8 with %.15g before applying decimal rounding.
+  const magnitude = Math.abs(value);
+  const [mantissa, power] = magnitude.toExponential(14).split('e');
+  let digits = mantissa!.replace('.', '');
+  const exponent = Number(power);
+  const scaledWidth = exponent + 1 + precision;
+
+  // %.15g uses ties-to-even, while toExponential rounds an exact tie up.
+  // For exponents above 16, a 16-digit decimal midpoint cannot fit in float8.
+  if (
+    scaledWidth >= 0 &&
+    exponent <= 16 &&
+    Number(digits.at(-1)) % 2 === 1 &&
+    /^50+e/.test(magnitude.toExponential(100).slice(16))
+  ) {
+    digits = String(Number(digits) - 1);
+  }
+
+  let units = '0';
+  if (scaledWidth >= digits.length) {
+    units = digits.padEnd(scaledWidth, '0');
+  } else if (scaledWidth >= 0) {
+    const truncated = Number(digits.slice(0, scaledWidth));
+    units = String(truncated + (digits[scaledWidth]! >= '5' ? 1 : 0));
+  }
+
+  const sign = value < 0 && units !== '0' ? '-' : '';
+  if (precision === 0) return `${sign}${units}`;
+  const fixed = units.padStart(precision + 1, '0');
+  return `${sign}${fixed.slice(0, -precision)}.${fixed.slice(-precision)}`;
+};
 
 /**
  * Comparable numeric form of a pasted title or a stored numeric cell value.
@@ -264,30 +347,98 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           }
           const titleField = titleFieldResult.value;
 
-          const allTitles = new Set<string>();
-          for (const entry of fieldRequests) {
-            for (const title of entry.request.titles) {
-              if (title) allTitles.add(title);
+          // An existing record takes precedence over a title with the same text.
+          // Unmatched generated IDs still use the normal ID write path.
+          let candidateIds: Map<string, RecordId> | undefined;
+          for (const { request } of fieldRequests) {
+            if (!request.resolveRecordIds) continue;
+            for (const token of request.titles) {
+              if (!token.startsWith('rec') || candidateIds?.has(token)) continue;
+              const id = RecordId.forLookup(token);
+              if (id.isOk()) (candidateIds ??= new Map()).set(token, id.value);
+            }
+          }
+          let linksById: Map<string, LinkItem> | undefined;
+          if (candidateIds) {
+            linksById = new Map();
+            const formatting =
+              !readRecords && titleField instanceof NumberField
+                ? titleField.formatting()
+                : undefined;
+            const currency =
+              formatting?.type() === NumberFormattingType.Currency ? formatting : undefined;
+            const currencyPrecision = currency?.precision().toNumber();
+            const currencySymbol = currency?.symbol() ?? '';
+            const ids = [...candidateIds.values()];
+            for (let offset = 0; offset < ids.length; offset += LINK_ID_LOOKUP_BATCH_SIZE) {
+              const batch = ids.slice(offset, offset + LINK_ID_LOOKUP_BATCH_SIZE);
+              const spec = RecordByIdsSpec.create(batch);
+              const matches = yield* await (readRecords
+                ? readRecords(context, foreignTable, titleField, spec, batch.map(String))
+                : service.recordQueryRepository.find(context, foreignTable, spec, {
+                    mode: 'stored',
+                    projectionFieldIds: [titleFieldId],
+                    includeTotal: false,
+                  }));
+              for (const { id, fields } of matches.records) {
+                const title = fields[titleFieldKey];
+                if (currencyPrecision !== undefined && typeof title === 'number') {
+                  linksById.set(id, {
+                    id,
+                    title: `${currencySymbol}${formatCurrencyTitleNumber(title, currencyPrecision)}`,
+                  });
+                  continue;
+                }
+                linksById.set(
+                  id,
+                  typeof title === 'string' || typeof title === 'number' || typeof title === 'boolean'
+                    ? { id, title: String(title) }
+                    : { id }
+                );
+              }
             }
           }
 
-          let titleToId = new Map<string, string>();
-          if (allTitles.size > 0) {
-            titleToId = yield* await service.queryRecordsByTitles(
-              context,
-              foreignTable,
-              titleField,
-              [...allTitles],
-              readRecords
-            );
+          const allTitles = new Set<string>();
+          for (const entry of fieldRequests) {
+            for (const title of entry.request.titles) {
+              if (title && !(entry.request.resolveRecordIds && linksById?.has(title))) {
+                allTitles.add(title);
+              }
+            }
           }
 
+          const titleLookup = yield* await service.queryRecordsByTitles(
+            context,
+            foreignTable,
+            titleField,
+            allTitles,
+            readRecords
+          );
+
           for (const entry of fieldRequests) {
-            const resolvedIds: Array<{ id: string; title: string }> = [];
+            const idMatches = entry.request.resolveRecordIds ? linksById : undefined;
+            const { idsByTitle, normalization } = titleLookup;
+            const fallbacks =
+              normalization && entry.request.titles.length > 1
+                ? findCellFallbackTitles(entry.request.titles, normalization, idMatches)
+                : undefined;
+            const resolvedIds: LinkItem[] = [];
             for (const title of entry.request.titles) {
-              const recordId = titleToId.get(title);
+              const link = idMatches?.get(title);
+              if (link) {
+                resolvedIds.push(link);
+                continue;
+              }
+              let recordId = idsByTitle.get(title);
+              if (recordId === undefined) {
+                const key = normalization?.keyByTitle.get(title);
+                if (key) recordId = idsByTitle.get(fallbacks?.get(key) ?? key);
+              }
               if (recordId) {
                 resolvedIds.push({ id: recordId, title });
+              } else if (entry.request.resolveRecordIds && RecordId.isCanonical(title)) {
+                resolvedIds.push({ id: title });
               }
             }
             results[entry.index] = {
@@ -313,18 +464,18 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     context: IExecutionContext,
     table: Table,
     titleField: Field,
-    titles: ReadonlyArray<string>,
+    titles: ReadonlySet<string>,
     readRecords?: LinkTitleRecordReader
-  ): Promise<Result<Map<string, string>, DomainError>> {
+  ): Promise<Result<TitleLookupResult, DomainError>> {
     const service = this; // NOSONAR typescript:S7740 -- generator functions cannot be arrow functions, so `this` must be captured
 
-    return safeTry<Map<string, string>, DomainError>(async function* () {
+    return safeTry<TitleLookupResult, DomainError>(async function* () {
+      if (titles.size === 0) return ok(emptyTitleLookup);
       const valueTypeResult = titleField.accept(new FieldValueTypeVisitor());
       if (valueTypeResult.isErr()) {
         return err(valueTypeResult.error);
       }
       const { cellValueType, isMultipleCellValue } = valueTypeResult.value;
-      const titleFieldKey = titleField.id().toString();
       const fieldType = titleField.type();
 
       // The read model renders a checkbox display column with the foreign
@@ -351,14 +502,14 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
       // single pasted token; leave those titles unresolved instead of failing
       // the surrounding write.
       if (!isMultipleCellValue.equals(CellValueMultiplicity.single())) {
-        return ok(new Map());
+        return ok(emptyTitleLookup);
       }
       if (
         fieldType.equals(FieldType.user()) ||
         fieldType.equals(FieldType.createdBy()) ||
         fieldType.equals(FieldType.lastModifiedBy())
       ) {
-        return ok(new Map());
+        return ok(emptyTitleLookup);
       }
 
       if (cellValueType.equals(CellValueType.number())) {
@@ -371,32 +522,34 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           queryValues.add(value);
         }
         if (queryValues.size === 0) {
-          return ok(new Map());
+          return ok(emptyTitleLookup);
         }
-
-        const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
-        const queryResult = yield* await (readRecords
-          ? readRecords(context, table, titleField, querySpec)
-          : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
 
         const valueToId = new Map<string, string>();
-        for (const record of queryResult.records) {
-          const stored = numericTitleValue(record.fields[titleFieldKey]);
-          if (stored === null) continue;
-          const key = String(stored);
-          if (!valueToId.has(key)) valueToId.set(key, record.id);
-        }
+        yield* await service.forEachTitleMatch(
+          context,
+          table,
+          titleField,
+          queryValues,
+          readRecords,
+          (id, value) => {
+            const stored = numericTitleValue(value);
+            if (stored === null) return;
+            const key = String(stored);
+            if (!valueToId.has(key)) valueToId.set(key, id);
+          }
+        );
 
         const titleToId = new Map<string, string>();
         for (const [title, value] of requestedNumbers) {
           const recordId = valueToId.get(String(value));
           if (recordId) titleToId.set(title, recordId);
         }
-        return ok(titleToId);
+        return ok({ idsByTitle: titleToId });
       }
 
       if (!cellValueType.equals(CellValueType.string())) {
-        return ok(new Map());
+        return ok(emptyTitleLookup);
       }
 
       if (fieldType.equals(FieldType.singleSelect())) {
@@ -429,20 +582,21 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
           }
         }
         if (queryValues.size === 0) {
-          return ok(new Map());
+          return ok(emptyTitleLookup);
         }
-        const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryValues]);
-        const queryResult = yield* await (readRecords
-          ? readRecords(context, table, titleField, querySpec)
-          : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
-
         const valueToId = new Map<string, string>();
-        for (const record of queryResult.records) {
-          const stored = record.fields[titleFieldKey];
-          if (stored === null || stored === undefined) continue;
-          const key = String(stored);
-          if (!valueToId.has(key)) valueToId.set(key, record.id);
-        }
+        yield* await service.forEachTitleMatch(
+          context,
+          table,
+          titleField,
+          queryValues,
+          readRecords,
+          (id, value) => {
+            if (value == null) return;
+            const key = String(value);
+            if (!valueToId.has(key)) valueToId.set(key, id);
+          }
+        );
 
         const titleToId = new Map<string, string>();
         for (const [title, keys] of titleToKeys) {
@@ -454,87 +608,85 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
             }
           }
         }
-        return ok(titleToId);
+        return ok({ idsByTitle: titleToId });
       }
 
       const queryTitles = new Set<string>();
-      const requestedTitles: string[] = [];
+      const normalization = fieldType.equals(FieldType.singleLineText())
+        ? { keyByTitle: new Map<string, string>(), matchOrderByTitle: new Map<string, number>() }
+        : undefined;
       for (const title of titles) {
         if (!title) continue;
-        requestedTitles.push(title);
         // A nonempty original title stays eligible for an exact match, even when
         // normalization yields nothing (for example a tab-only primary).
         queryTitles.add(title);
-        const key = titleKeyForPrimaryField(titleField, title);
-        if (key) queryTitles.add(key);
+        if (normalization) {
+          const key = titleKeyForPrimaryField(titleField, title);
+          if (key) {
+            queryTitles.add(key);
+            normalization.keyByTitle.set(title, key);
+          }
+        }
       }
       if (queryTitles.size === 0) {
-        return ok(new Map());
+        return ok(emptyTitleLookup);
       }
-
-      const querySpec = yield* service.buildTitleQuerySpec(titleField, [...queryTitles]);
-      const queryResult = yield* await (readRecords
-        ? readRecords(context, table, titleField, querySpec)
-        : service.recordQueryRepository.find(context, table, querySpec, { mode: 'stored' }));
 
       const exactRecordId = new Map<string, string>();
-      const normalizedRecordId = new Map<string, string>();
-      for (const record of queryResult.records) {
-        const titleValue = record.fields[titleFieldKey];
-        if (titleValue === null || titleValue === undefined) continue;
-        const stored = String(titleValue);
-        if (!exactRecordId.has(stored)) exactRecordId.set(stored, record.id);
-        const key = titleKeyForPrimaryField(titleField, stored);
-        if (key && !normalizedRecordId.has(key)) normalizedRecordId.set(key, record.id);
-      }
-
-      const titleToId = new Map<string, string>();
-      for (const title of requestedTitles) {
-        const exact = exactRecordId.get(title);
-        if (exact) {
-          titleToId.set(title, exact);
-          continue;
+      yield* await service.forEachTitleMatch(
+        context,
+        table,
+        titleField,
+        queryTitles,
+        readRecords,
+        (id, value) => {
+          if (value == null) return;
+          const stored = String(value);
+          if (exactRecordId.has(stored)) return;
+          normalization?.matchOrderByTitle.set(stored, exactRecordId.size);
+          exactRecordId.set(stored, id);
         }
-        const key = titleKeyForPrimaryField(titleField, title);
-        const normalized = key ? normalizedRecordId.get(key) : undefined;
-        if (normalized) titleToId.set(title, normalized);
-      }
+      );
 
-      return ok(titleToId);
+      return ok({ idsByTitle: exactRecordId, normalization });
     });
   }
 
-  private buildTitleQuerySpec(
+  private async forEachTitleMatch(
+    context: IExecutionContext,
+    table: Table,
     titleField: Field,
-    titles: ReadonlyArray<string | number>
-  ): Result<
-    ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined,
-    DomainError
-  > {
-    const uniqueTitles = [...new Set(titles)].filter((title) => title !== '');
-    if (uniqueTitles.length === 0) {
-      return ok(undefined);
-    }
-
-    let querySpec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
-    for (const title of uniqueTitles) {
-      const titleValue = RecordConditionLiteralValue.create(title);
-      if (titleValue.isErr()) {
-        return err(titleValue.error);
-      }
-
-      const titleSpec = titleField.spec().create({
-        operator: 'is',
-        value: titleValue.value,
+    titles: ReadonlySet<string | number>,
+    readRecords: LinkTitleRecordReader | undefined,
+    visit: (id: string, value: unknown) => void
+  ): Promise<Result<void, DomainError>> {
+    const titleFieldKey = titleField.id().toString();
+    const readBatch = async (spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>) => {
+      const result = await (readRecords
+        ? readRecords(context, table, titleField, spec)
+        : this.recordQueryRepository.find(context, table, spec, { mode: 'stored' }));
+      return result.map(({ records }) => {
+        for (const { id, fields } of records) visit(id, fields[titleFieldKey]);
       });
-      if (titleSpec.isErr()) {
-        return err(titleSpec.error);
+    };
+
+    return safeTry(async function* () {
+      let spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor> | undefined;
+      let size = 0;
+      for (const title of titles) {
+        if (title === '') continue;
+        const value = yield* RecordConditionLiteralValue.create(title);
+        const predicate = yield* titleField.spec().create({ operator: 'is', value });
+        spec = spec ? new OrSpec(spec, predicate) : predicate;
+        if (++size === LINK_TITLE_LOOKUP_BATCH_SIZE) {
+          yield* await readBatch(spec);
+          spec = undefined;
+          size = 0;
+        }
       }
-
-      querySpec = querySpec ? new OrSpec(querySpec, titleSpec.value) : titleSpec.value;
-    }
-
-    return ok(querySpec);
+      if (spec) yield* await readBatch(spec);
+      return ok(undefined);
+    });
   }
 
   needsResolution(spec: ICellValueSpec): boolean {
@@ -569,6 +721,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
             foreignTableId: spec.foreignTableId,
             lookupFieldId: spec.lookupFieldId,
             titles: spec.titles,
+            resolveRecordIds: spec.resolveRecordIds,
           },
         });
       }
@@ -626,6 +779,7 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
             foreignTableId: titleSpec.foreignTableId,
             lookupFieldId: titleSpec.lookupFieldId,
             titles: titleSpec.titles,
+            resolveRecordIds: titleSpec.resolveRecordIds,
           },
         });
       }
@@ -673,12 +827,10 @@ function toResolvedLinkValueSpec(
     return new SetLinkValueSpec(spec.fieldId, CellValue.fromValidated<LinkItem[]>(null));
   }
 
-  const linkItems: LinkItem[] = resolved.resolvedIds.map((entry) => ({
-    id: entry.id,
-    title: entry.title,
-  }));
+  const { resolvedIds: linkItems } = resolved;
   return new SetLinkValueSpec(
     spec.fieldId,
-    CellValue.fromValidated(spec.isMultiple ? linkItems : linkItems[0])
+    CellValue.fromValidated(spec.isMultiple ? linkItems : linkItems[0]),
+    spec.foreignTableId
   );
 }

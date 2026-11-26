@@ -24,6 +24,7 @@ import type { ISpecification } from '../../domain/shared/specification/ISpecific
 import type { Field } from '../../domain/table/fields/Field';
 import type { FieldId } from '../../domain/table/fields/FieldId';
 import { FieldType } from '../../domain/table/fields/FieldType';
+import { withoutAttachmentPublicAccess } from '../../domain/table/fields/types/AttachmentPublicAccess';
 import { DateTimeFormatting } from '../../domain/table/fields/types/DateTimeFormatting';
 import { NumberFormatting } from '../../domain/table/fields/types/NumberFormatting';
 import { RecordWriteSideEffectVisitor } from '../../domain/table/fields/visitors/RecordWriteSideEffectVisitor';
@@ -96,6 +97,7 @@ export type PastePreparationCommand = {
   readonly sort: ReadonlyArray<PastePreparationSort> | undefined;
   readonly groupBy: ReadonlyArray<PastePreparationGroup> | undefined;
   readonly ignoreViewQuery: boolean;
+  readonly maxPasteCells: number;
   normalizeRanges(totalRows: number, totalCols: number): NormalizedRanges;
 };
 
@@ -291,7 +293,12 @@ export class PastePreparationService {
       );
       const targetRangeCols = endCol - startCol + 1;
       const targetRangeRows = endRow - startRow + 1;
-      yield* validatePasteExpansion(command.content, targetRangeRows, targetRangeCols);
+      yield* validatePasteExpansion(
+        command.content,
+        targetRangeRows,
+        targetRangeCols,
+        command.maxPasteCells
+      );
       const expandedContent = expandPasteContent(command.content, targetRangeRows, targetRangeCols);
       const submittedCells = command.content.reduce((sum, row) => sum + row.length, 0);
 
@@ -695,7 +702,8 @@ export class PastePreparationService {
       } = baseField.options;
       baseField.options = options;
     }
-    return baseField as ITableFieldInput;
+    // a column a paste creates publishes no files of the one it was copied from
+    return withoutAttachmentPublicAccess(baseField) as ITableFieldInput;
   }
 
   private optionsRoToVoByCellValueType(

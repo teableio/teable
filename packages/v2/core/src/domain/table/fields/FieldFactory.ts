@@ -10,6 +10,7 @@ import type { Field } from './Field';
 import type { FieldId } from './FieldId';
 import type { FieldName } from './FieldName';
 import { AttachmentField } from './types/AttachmentField';
+import type { AttachmentPublicAccess } from './types/AttachmentPublicAccess';
 import { AutoNumberField } from './types/AutoNumberField';
 import { ButtonField } from './types/ButtonField';
 import type { ButtonConfirm } from './types/ButtonConfirm';
@@ -226,6 +227,7 @@ export const createCheckboxField = (params: {
 export const createAttachmentField = (params: {
   id: FieldId;
   name: FieldName;
+  isPublic?: AttachmentPublicAccess;
   notNull?: FieldNotNull;
   unique?: FieldUnique;
 }): Result<Field, DomainError> =>

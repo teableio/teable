@@ -14,6 +14,7 @@ import type { FieldConvertingService } from '../field/field-calculate/field-conv
 import type { IFieldInstance } from '../field/model/factory';
 import type { SingleSelectFieldDto } from '../field/model/field-dto/single-select-field.dto';
 import type { UserFieldDto } from '../field/model/field-dto/user-field.dto';
+import type { RecordTitleReader } from '../v2/record-title-reader';
 import type { CrossBaseLinkAccessService } from './cross-base-link-access.service';
 import type { RecordService } from './record.service';
 import { TypeCastAndValidate } from './typecast.validate';
@@ -29,6 +30,7 @@ describe('TypeCastAndValidate', () => {
   const prismaService = mockDeep<PrismaService>();
   const fieldConvertingService = mockDeep<FieldConvertingService>();
   const recordService = mockDeep<RecordService>();
+  const recordTitles = mockDeep<RecordTitleReader>();
   const attachmentsStorageService = mockDeep<AttachmentsStorageService>();
   const collaboratorService = mockDeep<CollaboratorService>();
   const dataLoaderService = mockDeep<DataLoaderService>();
@@ -39,6 +41,7 @@ describe('TypeCastAndValidate', () => {
     prismaService,
     fieldConvertingService,
     recordService,
+    recordTitles,
     attachmentsStorageService,
     collaboratorService,
     dataLoaderService,
@@ -50,6 +53,7 @@ describe('TypeCastAndValidate', () => {
     mockReset(fieldConvertingService);
     mockReset(prismaService);
     mockReset(recordService);
+    mockReset(recordTitles);
     mockReset(collaboratorService);
     mockReset(dataLoaderService);
   });

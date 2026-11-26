@@ -318,4 +318,7 @@ export const ReactQueryKeys = {
   getApp: (baseId: string, appId: string) => ['app', baseId, appId] as const,
 
   getUserIntegrations: () => ['user-integrations-list'] as const,
+
+  publicFileStatus: (tableId: string, fieldId: string) =>
+    ['public-file-status', tableId, fieldId] as const,
 };

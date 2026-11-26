@@ -49,7 +49,7 @@ describe('TrashService trusted stream creator provenance', () => {
           snapshot: JSON.stringify([knownId, unknownId]),
           createdTime: time,
         }),
-        delete: vi.fn(),
+        deleteMany: vi.fn(),
       },
       recordTrash: { findMany: async () => rows, deleteMany: vi.fn() },
     };

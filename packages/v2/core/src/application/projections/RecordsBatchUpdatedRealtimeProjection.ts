@@ -16,7 +16,10 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { teableSpanName } from '../../ports/Tracer';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
-import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
+import {
+  decorateRealtimeAttachmentValue,
+  linkRealtimeAttachmentValues,
+} from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { runRealtimeTasks } from './runRealtimeTasks';
@@ -91,8 +94,26 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
       // return is Promise<Result<undefined, _>> (the async wraps ResultAsync).
       const tasksByRecord = new Map<string, () => Promise<Result<undefined, DomainError>>>();
       const docIds = new Map<string, RealtimeDocId>();
+      const tableId = event.tableId.toString();
+      const linked = yield* (
+        await linkRealtimeAttachmentValues(
+          attachmentValueDecoratorService,
+          event.updates.flatMap(({ recordId, changes }) =>
+            changes.map(({ fieldId, newValue, oldValue }) => ({
+              tableId,
+              recordId,
+              fieldId,
+              value: newValue,
+              oldValue,
+            }))
+          )
+        )
+      ).safeUnwrap();
+      let offset = 0;
 
       for (const update of event.updates) {
+        const start = offset;
+        offset += update.changes.length;
         let docId = docIds.get(update.recordId);
         if (!docId) {
           docId = yield* RealtimeDocId.fromParts(collection, update.recordId).safeUnwrap();
@@ -113,11 +134,11 @@ export class RecordsBatchUpdatedRealtimeProjection implements IEventHandler<Reco
             // The record already exists in the client, so we should NOT call ensure()
             // which would broadcast a create op with empty fields and overwrite client data.
             const batchedChanges: RealtimeChange[] = [];
-            for (const change of update.changes) {
+            for (const [index, change] of update.changes.entries()) {
               const newValue = yield* (
                 await decorateRealtimeAttachmentValue(
                   attachmentValueDecoratorService,
-                  change.newValue,
+                  linked[start + index],
                   change.oldValue
                 )
               ).safeUnwrap();

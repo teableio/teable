@@ -199,4 +199,22 @@ describe('toRestoreFieldCreateInput', () => {
       isMultipleCellValue: true,
     });
   });
+
+  it('restores an attachment field private', () => {
+    const result = toRestoreFieldCreateInput({
+      id: 'fldFiles0000000000',
+      name: 'Files',
+      type: 'attachment',
+      options: { isPublic: true },
+      dbFieldName: 'fld_files',
+    });
+
+    expect(result._unsafeUnwrap()).toEqual({
+      id: 'fldFiles0000000000',
+      name: 'Files',
+      type: 'attachment',
+      dbFieldName: 'fld_files',
+      options: {},
+    });
+  });
 });

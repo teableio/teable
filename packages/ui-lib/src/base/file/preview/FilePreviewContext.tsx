@@ -9,6 +9,8 @@ export interface IFileItemBase {
   downloadUrl?: string;
   /** Deletes the underlying file. The preview shows a delete action only when provided. */
   onDelete?: () => void;
+  /** Copies a link to the file. The preview shows a copy link action only when provided. */
+  onCopyLink?: () => void;
 }
 
 export type IFileId = number | string;

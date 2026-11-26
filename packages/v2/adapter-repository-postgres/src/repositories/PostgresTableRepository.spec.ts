@@ -30,6 +30,7 @@ import type {
 } from '@teable/v2-core';
 import {
   ActorId,
+  AttachmentPublicAccess,
   BaseId,
   DbFieldName,
   DbTableName,
@@ -2016,6 +2017,68 @@ describe('PostgresTableRepository (pg)', () => {
       const loaded = (await repo.findOne(context, spec))._unsafeUnwrap();
       const loadedAiField = loaded.getFields().find((field) => field.id().equals(aiField.id()));
       expect(loadedAiField?.aiConfig()).toEqual(aiConfig);
+    } finally {
+      await db.destroy();
+    }
+  });
+
+  it('rehydrates the public access of an attachment field', async () => {
+    const c = createRepositoryContainer();
+    const db = await createPgDb(pgContainer.getConnectionUri());
+    await registerV2PostgresStateAdapter(c, {
+      db,
+      ensureSchema: true,
+    });
+    const repo = c.resolve<ITableRepository>(v2CoreTokens.tableRepository);
+
+    try {
+      const baseId = BaseId.create(`bse${'p'.repeat(16)}`)._unsafeUnwrap();
+      const actorId = ActorId.create('system')._unsafeUnwrap();
+      const context = { actorId };
+      const spaceId = `spc${getRandomString(16)}`;
+
+      await db
+        .insertInto('space')
+        .values({ id: spaceId, name: 'Files Space', created_by: actorId.toString() })
+        .execute();
+      await db
+        .insertInto('base')
+        .values({
+          id: baseId.toString(),
+          space_id: spaceId,
+          name: 'Files Base',
+          order: 1,
+          created_by: actorId.toString(),
+        })
+        .execute();
+
+      const filesName = FieldName.create('Files')._unsafeUnwrap();
+      const builder = Table.builder()
+        .withBaseId(baseId)
+        .withName(TableName.create('Files Table')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .attachment()
+        .withName(filesName)
+        .withPublicAccess(AttachmentPublicAccess.enabled())
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+
+      (await repo.insert(context, table))._unsafeUnwrap();
+
+      const spec = Table.specs(baseId).byId(table.id()).build()._unsafeUnwrap();
+      const loaded = (await repo.findOne(context, spec))._unsafeUnwrap();
+      const files = loaded.getFields().find((field) => field.name().equals(filesName)) as
+        | AttachmentField
+        | undefined;
+      expect(files?.publicAccess().toBoolean()).toBe(true);
     } finally {
       await db.destroy();
     }

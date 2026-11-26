@@ -82,11 +82,14 @@ describe('decryptThirdPartyCredential', () => {
 
 describe('encryptThirdPartyCredential', () => {
   const rootEnvKey = 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET';
+  const storedRootEnvKey = 'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET';
 
   beforeEach(() => {
     // An empty value counts as unset, whatever the shell running the tests exports.
     vi.stubEnv(rootEnvKey, '');
     vi.stubEnv(`${rootEnvKey}_OLD`, '');
+    vi.stubEnv(storedRootEnvKey, '');
+    vi.stubEnv(`${storedRootEnvKey}_OLD`, '');
     vi.stubEnv('SECRET_KEY', '');
   });
 
@@ -101,9 +104,24 @@ describe('encryptThirdPartyCredential', () => {
     // pinning the public default explicitly changes nothing
     vi.stubEnv(rootEnvKey, 'defaultSecretKey');
     expect(encryptThirdPartyCredential('xoxb-123')).toBe('xoxb-123');
+    vi.stubEnv(rootEnvKey, '');
+    vi.stubEnv(storedRootEnvKey, 'defaultSecretKey');
+    expect(encryptThirdPartyCredential('xoxb-123')).toBe('xoxb-123');
   });
 
-  it.each([rootEnvKey, 'SECRET_KEY'])(
+  it('moving the root from its superseded var to the stored credential root rewrites nothing', () => {
+    vi.stubEnv(rootEnvKey, 'cloud-root');
+    const stored = encryptThirdPartyCredential('xoxb-123');
+
+    // the same value under the new name, then the old name removed
+    vi.stubEnv(storedRootEnvKey, 'cloud-root');
+    expect(getThirdPartyCredentialCodec().isCurrentValue(stored)).toBe(true);
+    vi.stubEnv(rootEnvKey, '');
+    expect(getThirdPartyCredentialCodec().isCurrentValue(stored)).toBe(true);
+    expect(decryptThirdPartyCredential(stored)).toBe('xoxb-123');
+  });
+
+  it.each([rootEnvKey, storedRootEnvKey, 'SECRET_KEY'])(
     'encrypts once %s gives the instance a private root',
     (envKey) => {
       vi.stubEnv(envKey, 'private-root');

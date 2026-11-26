@@ -433,6 +433,9 @@ export interface InsertOptions {
    */
   cleanupTrashRecordIds?: ReadonlyArray<string>;
 
+  /** IDs rejected by the delete-undo purge guard whose stale indexes must be removed. */
+  discardedTrashIndexRecordIds?: ReadonlyArray<string>;
+
   /**
    * Optional record ids whose attachments_table reference rows must be deleted
    * BEFORE the insert writes new ones (restore of archived records: archiving kept

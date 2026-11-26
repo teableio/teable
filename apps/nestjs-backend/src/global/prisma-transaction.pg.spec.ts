@@ -1,4 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
+import { withDataSchemaSearchPath } from '@teable/db-data-prisma';
 import {
   DataPrismaService,
   MetaPrismaService,
@@ -142,4 +143,38 @@ describeWithPostgres('Prisma transaction COMMIT failures', () => {
       if (cleanupErrors.length) throw cleanupErrors[0];
     }
   );
+});
+
+describeWithPostgres('Scoped data search path', () => {
+  it('restores the metadata search path after a read succeeds or fails', async () => {
+    const registry = new PgPoolRegistry((config) => new Pool(config));
+    const lease = registry.acquire(databaseUrl!, { max: 1 });
+    const cls = new ClsService<ITxStore>(new AsyncLocalStorage());
+    const service = new MetaPrismaService(cls, lease);
+
+    try {
+      await service.$transaction(async (tx) => {
+        await tx.$executeRaw`SET LOCAL search_path = pg_catalog`;
+        const readSearchPath = async () => {
+          const [row] = await tx.$queryRawUnsafe<[{ search_path: string }]>(
+            `SELECT pg_catalog.current_setting('search_path') AS search_path`
+          );
+          return row.search_path;
+        };
+
+        const scopedPath = await withDataSchemaSearchPath(tx, 'BoundSchema', readSearchPath);
+        expect(scopedPath).toMatch(/^"BoundSchema", public(?:,|$)/);
+        expect(await readSearchPath()).toBe('pg_catalog');
+
+        await expect(
+          withDataSchemaSearchPath(tx, 'BoundSchema', async () => {
+            await tx.$queryRaw`SELECT 1 / 0`;
+          })
+        ).rejects.toThrow('division by zero');
+        expect(await readSearchPath()).toBe('pg_catalog');
+      });
+    } finally {
+      await service.onModuleDestroy();
+    }
+  });
 });

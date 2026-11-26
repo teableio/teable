@@ -38,6 +38,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
       disabled,
       onUpload,
       onCancelUpload,
+      showPublicLinks,
     } = props;
     const triggerCellDownload = useDownloadAttachmentsStore((state) => state.triggerCellDownload);
     const [sortData, setSortData] = useState<IAttachmentCellValue>(attachments);
@@ -220,6 +221,7 @@ export const UploadAttachmentView = forwardRef<UploadAttachmentViewRef, UploadAt
                             onRename={onRename}
                             downloadFile={downloadFile}
                             readonly={readonly}
+                            publicUrl={showPublicLinks ? attachment.publicUrl : undefined}
                           />
                         ))}
                       </SortableContext>

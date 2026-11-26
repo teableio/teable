@@ -42,10 +42,7 @@ import {
 } from '@teable/openapi';
 import { AuthConfig, IAuthConfig } from '../../../configs/auth.config';
 import { IMailConfig, MailConfig } from '../../../configs/mail.config';
-import {
-  findInsecureSecrets,
-  isSecretAdminToolsEnabled,
-} from '../../../configs/secrets/secrets-policy';
+import { findInsecureSecrets } from '../../../configs/secrets/secrets-policy';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { CustomHttpException } from '../../../custom.exception';
 import { resolveBuildVersion } from '../../../utils/build-version';
@@ -98,7 +95,7 @@ export class SettingOpenApiController {
     return maskSettingsSecrets({
       ...setting,
       ...(aiChatTierCreditRatio ? { aiChatTierCreditRatio } : {}),
-      ...(isSecretAdminToolsEnabled() ? { insecureSecrets: findInsecureSecrets() } : {}),
+      insecureSecrets: findInsecureSecrets(),
     });
   }
 

@@ -10,6 +10,7 @@ import { V2Module } from '../v2/v2.module';
 import { CrossSpaceLinkCleanupService } from './cross-space-link-cleanup.service';
 import { PairConversionRecoveryModule } from './pair-conversion-recovery.module';
 import { TableLifecycleCleanupService } from './table-lifecycle-cleanup.service';
+import { TablePurgeHookRegistry } from './table-purge.hook';
 import { TrustedRetentionContextService } from './trusted-retention-context.service';
 
 @Module({
@@ -26,11 +27,13 @@ import { TrustedRetentionContextService } from './trusted-retention-context.serv
   ],
   providers: [
     TableLifecycleCleanupService,
+    TablePurgeHookRegistry,
     CrossSpaceLinkCleanupService,
     TrustedRetentionContextService,
   ],
   exports: [
     TableLifecycleCleanupService,
+    TablePurgeHookRegistry,
     CrossSpaceLinkCleanupService,
     TrustedRetentionContextService,
   ],

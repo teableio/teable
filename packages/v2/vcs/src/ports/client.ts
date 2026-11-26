@@ -102,6 +102,7 @@ export interface IVcsStateRepository {
   writeConfig(config: IVcsWorkspaceConfig): Promise<Result<void, DomainError>>;
   readBaseSnapshot(): Promise<Result<IBaseVcsSnapshot | null, DomainError>>;
   writeBaseSnapshot(snapshot: IBaseVcsSnapshot): Promise<Result<void, DomainError>>;
+  writePromotionSnapshot?(snapshot: IBaseVcsSnapshot): Promise<Result<void, DomainError>>;
   readBaseSchemaSnapshot?(): Promise<Result<IVcsBaseSchemaSummary | null, DomainError>>;
   writeBaseSchemaSnapshot?(schemaSnapshot: IBaseVcsSnapshot): Promise<Result<void, DomainError>>;
   readBaseRecordsByIds?(

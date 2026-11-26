@@ -6,7 +6,7 @@ import { AttachmentsTableModule } from '../features/attachments/attachments-tabl
 import { CollaboratorModule } from '../features/collaborator/collaborator.module';
 import { MailSenderModule } from '../features/mail-sender/mail-sender.module';
 import { NotificationModule } from '../features/notification/notification.module';
-import { RecordModule } from '../features/record/record.module';
+import { V2Module } from '../features/v2/v2.module';
 import { ShareDbModule } from '../share-db/share-db.module';
 import { EventEmitterService } from './event-emitter.service';
 import { ActionTriggerListener } from './listeners/action-trigger.listener';
@@ -41,7 +41,7 @@ export class EventEmitterModule extends EventEmitterModuleClass {
         CollaboratorModule,
         NotificationModule,
         AttachmentsTableModule,
-        RecordModule,
+        V2Module,
         MailSenderModule.register(),
       ],
       module: EventEmitterModule,

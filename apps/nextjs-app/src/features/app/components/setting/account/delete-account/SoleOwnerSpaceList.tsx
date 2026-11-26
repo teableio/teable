@@ -4,6 +4,7 @@ import { Badge, Button, cn } from '@teable/ui-lib/shadcn';
 import { X } from 'lucide-react';
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
+import { usePublicFileEnabled } from '@/features/app/hooks/usePublicFileEnabled';
 import type { ISpaceMember } from './SpaceMemberCombobox';
 import { SpaceMemberCombobox } from './SpaceMemberCombobox';
 
@@ -120,6 +121,7 @@ export const SoleOwnerSpaceList = ({
   onTransfersChange,
 }: ISoleOwnerSpaceListProps) => {
   const { t } = useTranslation(['common']);
+  const publicFileEnabled = usePublicFileEnabled();
 
   return (
     <section className="min-w-0 rounded-md border bg-muted/30 p-3 text-[13px]">
@@ -127,6 +129,9 @@ export const SoleOwnerSpaceList = ({
       <p className="mt-1 text-muted-foreground">
         {t('settings.account.deleteAccount.spaces.body')}
       </p>
+      {publicFileEnabled && (
+        <p className="mt-1 text-muted-foreground">{t('trash.publicLinksOffAll')}</p>
+      )}
       <ul className="mt-2 flex w-full min-w-0 flex-col gap-2">
         {spaces.map((space) => (
           <SoleOwnerSpaceItem

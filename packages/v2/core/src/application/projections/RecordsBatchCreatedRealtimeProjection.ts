@@ -15,7 +15,10 @@ import { v2CoreTokens } from '../../ports/tokens';
 import { teableSpanName } from '../../ports/Tracer';
 import { AttachmentValueDecoratorService } from '../services/AttachmentValueDecoratorService';
 import { shouldSkipRealtimeBatchMutation } from './BatchRecordRefreshPolicy';
-import { decorateRealtimeAttachmentValue } from './decorateRealtimeAttachmentValue';
+import {
+  decorateRealtimeAttachmentValue,
+  linkRealtimeAttachmentValues,
+} from './decorateRealtimeAttachmentValue';
 import { ProjectionHandler } from './Projection';
 import { readRealtimeRecordActors } from './readRealtimeRecordActors';
 import { runRealtimeTasks } from './runRealtimeTasks';
@@ -83,19 +86,31 @@ export class RecordsBatchCreatedRealtimeProjection implements IEventHandler<Reco
       // The Created path wraps safeTry inside `async () => ...`, so the inferred
       // return is Promise<Result<undefined, _>> (the async wraps ResultAsync).
       const tasks: Array<() => Promise<Result<undefined, DomainError>>> = [];
+      const tableId = event.tableId.toString();
+      const linked = yield* (
+        await linkRealtimeAttachmentValues(
+          attachmentValueDecoratorService,
+          event.records.flatMap(({ recordId, fields }) =>
+            fields.map(({ fieldId, value }) => ({ tableId, recordId, fieldId, value }))
+          )
+        )
+      ).safeUnwrap();
+      let offset = 0;
 
       for (const record of event.records) {
         const docId = yield* RealtimeDocId.fromParts(collection, record.recordId).safeUnwrap();
+        const start = offset;
+        offset += record.fields.length;
 
         tasks.push(async () =>
           safeTry(async function* () {
             // Convert fields array to flat map
             const fields: Record<string, unknown> = {};
-            for (const fieldValue of record.fields) {
+            for (const [index, fieldValue] of record.fields.entries()) {
               fields[fieldValue.fieldId] = yield* (
                 await decorateRealtimeAttachmentValue(
                   attachmentValueDecoratorService,
-                  fieldValue.value
+                  linked[start + index]
                 )
               ).safeUnwrap();
             }

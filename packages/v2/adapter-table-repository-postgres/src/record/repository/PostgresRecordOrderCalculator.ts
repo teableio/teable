@@ -14,8 +14,12 @@ import { sql, type Kysely } from 'kysely';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
-import { resolvePostgresDbOrTx } from '../../shared/db';
-import { ensureRowOrderColumns } from '../../shared/ensureRowOrderColumnOnline';
+import { getPostgresTransaction, resolvePostgresDbOrTx } from '../../shared/db';
+import {
+  createRowOrderColumnInTransaction,
+  ensureRowOrderColumns,
+  rowOrderIndexName,
+} from '../../shared/ensureRowOrderColumnOnline';
 import { v2RecordRepositoryPostgresTokens } from '../di/tokens';
 import type { DynamicDB } from '../query-builder';
 
@@ -29,30 +33,52 @@ export class PostgresRecordOrderCalculator
   ) {}
 
   /**
-   * T8080: ordered creates prepare the view row-order column before they take
-   * a table schema lease. This runs on the request's non-transactional handle,
-   * so `ADD COLUMN`, the chunked backfill and `CREATE INDEX CONCURRENTLY` never
-   * execute while the lease or the write transaction is held.
+   * T8080: ordered creates prepare existing view columns before taking a
+   * schema lease. When a write introduces its own view, its order column
+   * instead belongs to the same locked data transaction.
    */
   async prepareOrderColumn(
     context: IExecutionContext,
     table: Table,
-    viewId: ViewId
+    viewId: ViewId,
+    options?: { readonly inTransaction: true }
   ): Promise<Result<boolean, DomainError>> {
     return safeTry<boolean, DomainError>(
       async function* (this: PostgresRecordOrderCalculator) {
         const dbTableName = yield* table.dbTableName();
         const tableName = yield* dbTableName.value();
-        const dynamicDb = resolvePostgresDbOrTx(this.db, context) as unknown as Kysely<DynamicDB>;
 
         try {
-          await this.ensureOrderColumnExists(dynamicDb, tableName, viewId.toString());
+          if (options?.inTransaction) {
+            const transaction = getPostgresTransaction<DynamicDB>(context, 'data');
+            if (!transaction) {
+              return err(
+                domainError.invariant({
+                  message: 'New view order preparation requires the active data transaction.',
+                })
+              );
+            }
+            const id = viewId.toString();
+            await createRowOrderColumnInTransaction(
+              transaction,
+              tableName,
+              id,
+              rowOrderIndexName(tableName, id)
+            );
+          } else {
+            const dynamicDb = resolvePostgresDbOrTx(
+              this.db,
+              context
+            ) as unknown as Kysely<DynamicDB>;
+            await this.ensureOrderColumnExists(dynamicDb, tableName, viewId.toString());
+          }
           return ok(true);
         } catch (error) {
           return err(
             domainError.unexpected({
               message: error instanceof Error ? error.message : 'Failed to prepare record order',
               code: 'record_order.prepare_failed',
+              ...(options?.inTransaction && { cause: error }),
             })
           );
         }

@@ -91,4 +91,48 @@ describe('AdminTodoBanner', () => {
     render(<AdminTodoBanner />);
     expect(await screen.findByText(MESSAGE)).toBeInTheDocument();
   });
+
+  it('comes back 14 days after it was dismissed while the risks are still there', async () => {
+    const DAY = 24 * 60 * 60 * 1000;
+    const storageKey = 'teable:admin-todo-banner-dismissed:usrAdmin';
+    const dismissedDaysAgo = (days: number) =>
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          signature: 'secrets:SECRET_KEY:missing',
+          dismissedAt: Date.now() - days * DAY,
+        })
+      );
+    respond(secretMissing);
+
+    dismissedDaysAgo(13);
+    const recent = render(<AdminTodoBanner />);
+    await waitFor(() => expect(getSetting).toHaveBeenCalledTimes(1));
+    await Promise.resolve();
+    expect(screen.queryByText(MESSAGE)).not.toBeInTheDocument();
+    recent.unmount();
+
+    dismissedDaysAgo(14);
+    render(<AdminTodoBanner />);
+    expect(await screen.findByText(MESSAGE)).toBeInTheDocument();
+
+    // dismissing again starts a new 14 days from now
+    const before = Date.now();
+    await userEvent.click(screen.getByRole('button', { name: 'actions.close' }));
+    expect(screen.queryByText(MESSAGE)).not.toBeInTheDocument();
+    const stored = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
+    expect(stored.signature).toBe('secrets:SECRET_KEY:missing');
+    expect(stored.dismissedAt).toBeGreaterThanOrEqual(before);
+  });
+
+  it('shows again for a dismissal stored without a time', async () => {
+    // What a release before the 14-day reminder stored: the signature alone.
+    localStorage.setItem(
+      'teable:admin-todo-banner-dismissed:usrAdmin',
+      'secrets:SECRET_KEY:missing'
+    );
+    respond(secretMissing);
+    render(<AdminTodoBanner />);
+    expect(await screen.findByText(MESSAGE)).toBeInTheDocument();
+  });
 });

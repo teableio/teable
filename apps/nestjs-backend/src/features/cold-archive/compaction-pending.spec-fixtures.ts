@@ -61,11 +61,13 @@ export class FakePendingRedis {
     if (this.strings.has(key) || this.sets.has(key)) this.ttls.set(key, seconds);
   }
 
-  async del(key: string): Promise<void> {
+  async del(key: string): Promise<number> {
     this.failIf('del');
+    const existed = this.strings.has(key) || this.sets.has(key);
     this.strings.delete(key);
     this.ttls.delete(key);
     this.sets.delete(key);
+    return existed ? 1 : 0;
   }
 
   async setex(key: string, seconds: number, value: string): Promise<void> {

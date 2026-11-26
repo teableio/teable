@@ -733,6 +733,14 @@ export class PushBaseVcsService {
 
     const { config, baseSchema, baseSnapshot, workingSnapshot, conflicts, isIndexed } =
       loadedRes.value;
+    if (config.promotionBaselineRevision !== undefined) {
+      return err(
+        vcsDomainError.forbidden({
+          code: 'vcs.promotion_push_required',
+          message: 'Submit Builder working copy changes through a Data PR.',
+        })
+      );
+    }
 
     if (conflicts.length > 0) {
       return err(

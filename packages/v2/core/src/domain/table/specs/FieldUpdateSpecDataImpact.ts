@@ -28,6 +28,7 @@ import { UpdateSingleSelectAutoNewOptionsSpec } from './field-updates/UpdateSing
 import { UpdateSingleSelectDefaultValueSpec } from './field-updates/UpdateSingleSelectDefaultValueSpec';
 import { UpdateUserDefaultValueSpec } from './field-updates/UpdateUserDefaultValueSpec';
 import { UpdateUserNotificationSpec } from './field-updates/UpdateUserNotificationSpec';
+import { UpdateAttachmentPublicAccessSpec } from './field-updates/UpdateAttachmentPublicAccessSpec';
 import { TableUpdateFieldAiConfigSpec } from './TableUpdateFieldAiConfigSpec';
 import { TableUpdateFieldDbFieldNameSpec } from './TableUpdateFieldDbFieldNameSpec';
 import { TableUpdateFieldDescriptionSpec } from './TableUpdateFieldDescriptionSpec';
@@ -77,6 +78,7 @@ const nonDataAffectingSpecClasses = [
   UpdateSingleSelectAutoNewOptionsSpec,
   UpdateMultipleSelectAutoNewOptionsSpec,
   UpdateUserNotificationSpec,
+  UpdateAttachmentPublicAccessSpec,
   TableUpdateViewColumnMetaSpec,
 ];
 

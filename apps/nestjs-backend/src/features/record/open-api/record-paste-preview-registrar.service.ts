@@ -79,7 +79,7 @@ export class RecordsPasteHostPreviewPlanner implements IHostPreviewAdapter<Recor
       );
     }
 
-    const command = PasteCommand.create(commandInput);
+    const command = PasteCommand.create(commandInput, this.recordService.maxPasteCells);
     if (command.isErr()) return err(command.error);
     return this.corePlanner.preview(context, command.value, options);
   }

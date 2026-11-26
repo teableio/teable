@@ -16,6 +16,7 @@ import { domainError } from '../domain/shared/DomainError';
 import type { DomainError } from '../domain/shared/DomainError';
 import type { IDomainEvent } from '../domain/shared/DomainEvent';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
+import { LookupField } from '../domain/table/fields/types/LookupField';
 import type { ITableSpecVisitor } from '../domain/table/specs/ITableSpecVisitor';
 import type { Table } from '../domain/table/Table';
 import type { TableSortKey } from '../domain/table/TableSortKey';
@@ -706,5 +707,172 @@ describe('ImportDotTeaStructureHandler', () => {
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('test.side_effect_field_denied');
     expect(tableCreationService.lastInput).toBeUndefined();
+  });
+
+  it('derives single-value multiplicity for lookup fields over manyOne links when isMultipleCellValue is omitted', async () => {
+    const sourceTableId = `tbl${'a'.repeat(16)}`;
+    const targetTableId = `tbl${'b'.repeat(16)}`;
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const lookupFieldId = `fld${'k'.repeat(16)}`;
+    const targetPrimaryId = `fld${'p'.repeat(16)}`;
+    const targetNumberId = `fld${'n'.repeat(16)}`;
+
+    const parser = new FakeDotTeaParser(
+      ok({
+        tables: [
+          {
+            id: sourceTableId,
+            name: 'Source',
+            fields: [
+              { name: 'Name', type: 'singleLineText', isPrimary: true },
+              {
+                id: linkFieldId,
+                name: 'Parent',
+                type: 'link',
+                options: {
+                  relationship: 'manyOne',
+                  foreignTableId: targetTableId,
+                  lookupFieldId: targetPrimaryId,
+                  isOneWay: true,
+                },
+              },
+              {
+                id: lookupFieldId,
+                name: 'Parent Score',
+                type: 'lookup',
+                options: {
+                  linkFieldId,
+                  foreignTableId: targetTableId,
+                  lookupFieldId: targetNumberId,
+                },
+              },
+            ],
+          },
+          {
+            id: targetTableId,
+            name: 'Target',
+            fields: [
+              { id: targetPrimaryId, name: 'Name', type: 'singleLineText', isPrimary: true },
+              { id: targetNumberId, name: 'Score', type: 'number' },
+            ],
+          },
+        ],
+      })
+    );
+    const tableCreationService = new FakeTableCreationService();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRepository(),
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    const createdSource = tableCreationService.lastInput?.tables.find(
+      (table) => table.name().toString() === 'Source'
+    );
+    const createdLookup = createdSource
+      ?.getFields()
+      .find((field) => field.name().toString() === 'Parent Score');
+    expect(createdLookup).toBeInstanceOf(LookupField);
+    if (!(createdLookup instanceof LookupField)) {
+      throw new Error('Expected created lookup field');
+    }
+    expect(createdLookup.isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(false);
+  });
+
+  it('converges single-value multiplicity for nested same-table lookups regardless of field order', async () => {
+    const tableId = `tbl${'s'.repeat(16)}`;
+    const linkFieldId = `fld${'l'.repeat(16)}`;
+    const outerLookupId = `fld${'o'.repeat(16)}`;
+    const innerLookupId = `fld${'i'.repeat(16)}`;
+    const primaryFieldId = `fld${'p'.repeat(16)}`;
+    const numberFieldId = `fld${'n'.repeat(16)}`;
+
+    const parser = new FakeDotTeaParser(
+      ok({
+        tables: [
+          {
+            id: tableId,
+            name: 'SelfNested',
+            fields: [
+              { id: primaryFieldId, name: 'Name', type: 'singleLineText', isPrimary: true },
+              { id: numberFieldId, name: 'Score', type: 'number' },
+              {
+                id: linkFieldId,
+                name: 'Parent',
+                type: 'link',
+                options: {
+                  relationship: 'manyOne',
+                  foreignTableId: tableId,
+                  lookupFieldId: primaryFieldId,
+                  isOneWay: true,
+                },
+              },
+              {
+                id: outerLookupId,
+                name: 'Grandparent Score',
+                type: 'lookup',
+                options: {
+                  linkFieldId,
+                  foreignTableId: tableId,
+                  lookupFieldId: innerLookupId,
+                },
+              },
+              {
+                id: innerLookupId,
+                name: 'Parent Score',
+                type: 'lookup',
+                options: {
+                  linkFieldId,
+                  foreignTableId: tableId,
+                  lookupFieldId: numberFieldId,
+                },
+              },
+            ],
+          },
+        ],
+      })
+    );
+    const tableCreationService = new FakeTableCreationService();
+    const handler = new ImportDotTeaStructureHandler(
+      parser,
+      new FakeForeignTableLoaderService() as never,
+      new FakeTableRepository(),
+      tableCreationService as never,
+      new FakeEventBus(),
+      new FakeUnitOfWork()
+    );
+
+    const command = ImportDotTeaStructureCommand.createFromBuffer({
+      baseId,
+      dotTeaData: new Uint8Array([1]),
+    })._unsafeUnwrap();
+
+    const result = await handler.handle(createContext(), command);
+    expect(result.isOk()).toBe(true);
+    const createdTable = tableCreationService.lastInput?.tables[0];
+    const outerLookup = createdTable
+      ?.getFields()
+      .find((field) => field.name().toString() === 'Grandparent Score');
+    const innerLookup = createdTable
+      ?.getFields()
+      .find((field) => field.name().toString() === 'Parent Score');
+    expect(outerLookup).toBeInstanceOf(LookupField);
+    expect(innerLookup).toBeInstanceOf(LookupField);
+    expect((innerLookup as LookupField).isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(
+      false
+    );
+    expect((outerLookup as LookupField).isMultipleCellValue()._unsafeUnwrap().isMultiple()).toBe(
+      false
+    );
   });
 });

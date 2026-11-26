@@ -1,8 +1,10 @@
 /* eslint-disable sonarjs/no-duplicate-string */
 import type { INestApplication } from '@nestjs/common';
-import { FieldKeyType, getRandomString } from '@teable/core';
+import { FieldKeyType, FieldType, getRandomString, Relationship } from '@teable/core';
 import {
   axios,
+  createField,
+  getRecord,
   getTaskStatusCollection,
   getRecords,
   OPERATION_REDO_STREAM,
@@ -205,6 +207,38 @@ describe('V2 identification headers for task-status-collection and undo/redo (T7
     expect(redoResponse.data.status).toBe('fulfilled');
     expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe('v2');
     expect(redoResponse.headers[X_TEABLE_V2_HEADER]).toBe('true');
+  });
+
+  it('keeps the valid link when a legacy multi-link ID write ends in an empty item', async () => {
+    const target = await createTable(baseId, {
+      name: 'Legacy link targets',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText }],
+      records: [{ fields: { Title: 'Target' } }],
+    });
+    try {
+      const { data: link } = await createField(table.id, {
+        type: FieldType.Link,
+        options: { relationship: Relationship.ManyMany, foreignTableId: target.id },
+      });
+      const hostId = table.records[0].id;
+      const targetId = target.records[0].id;
+      vi.stubEnv('FORCE_V2_ALL', 'false');
+      vi.stubEnv('ENABLE_CANARY_FEATURE', 'false');
+      try {
+        const response = await updateRecord(table.id, hostId, {
+          fieldKeyType: FieldKeyType.Id,
+          typecast: true,
+          record: { fields: { [link.id]: `${targetId}, ` } },
+        });
+        expect(response.headers[X_TEABLE_V2_HEADER]).toBe('false');
+        const { data: saved } = await getRecord(table.id, hostId, { fieldKeyType: FieldKeyType.Id });
+        expect(saved.fields[link.id]).toEqual([{ id: targetId, title: 'Target' }]);
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    } finally {
+      await permanentDeleteTable(baseId, target.id);
+    }
   });
 
   it('attributes historical v1 undo and redo to v1 even on a v2-routed request', async () => {

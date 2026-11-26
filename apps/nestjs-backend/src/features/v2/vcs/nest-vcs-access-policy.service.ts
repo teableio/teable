@@ -1,5 +1,5 @@
 import { ForbiddenException, HttpException, HttpStatus, Injectable } from '@nestjs/common';
-import { Role, type Action } from '@teable/core';
+import { Role, cliOAuthApp, type Action } from '@teable/core';
 import { PrismaService } from '@teable/db-main-prisma';
 import type { IFieldDeletePreviewAuthorization } from '@teable/v2-command-explain';
 import {
@@ -145,6 +145,22 @@ export class NestVcsAccessPolicy {
       const permissions = this.cls.get('permissions');
       if (!requiredActions.every((action) => permissions?.includes(action))) {
         return ok({ kind: 'scoped', tables: [] });
+      }
+    } else if (token) {
+      // Check the credential independently of the user's effective table permissions.
+      const { clientId, scopes } = await this.permissions.getAccessToken(token);
+      if (clientId === cliOAuthApp.clientId && requiredActions.some((a) => !scopes.includes(a))) {
+        const missing = requiredActions.filter((action) => !scopes.includes(action));
+        return err(
+          domainError.forbidden({
+            code: 'vcs.missing_history_scope',
+            message:
+              `This Teable CLI login lacks required history scopes: ${missing.join(', ')}. ` +
+              'Run `teable auth login` again and approve the required scopes. ' +
+              'Reuse any `--endpoint` and `--path` options from the original login. ' +
+              'If using `TEABLE_TOKEN`, replace it with the new token or unset it to use the new login.',
+          })
+        );
       }
     }
     const scopes = await this.resolveReadableTables(

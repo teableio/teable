@@ -3,6 +3,7 @@ import { domainError, ok } from '@teable/v2-core';
 import { sql, type RawBuilder } from 'kysely';
 import { err, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
+import { currencyLinkTitle } from './currencyLinkTitle';
 
 export const MAX_FILLED_LINK_VALUE_ITEMS = 20_000;
 
@@ -40,6 +41,8 @@ export const buildFilledLinkValueExpression = (params: {
     const lookupDbFieldName = yield* lookupField
       .dbFieldName()
       .andThen((dbFieldName) => dbFieldName.value());
+    const column = sql.id('ft', lookupDbFieldName);
+    const titleExpression = currencyLinkTitle(lookupField, column) ?? sql`${column}::text`;
 
     if (linkField.isMultipleValue()) {
       // A batch combines many of these expressions. Bind aligned arrays rather
@@ -56,7 +59,7 @@ export const buildFilledLinkValueExpression = (params: {
             jsonb_strip_nulls(
               jsonb_build_object(
                 'id', v.id,
-                'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+                'title', COALESCE(v.title, ${titleExpression})
               )
             )
             ORDER BY v.ord
@@ -78,7 +81,7 @@ export const buildFilledLinkValueExpression = (params: {
       SELECT jsonb_strip_nulls(
         jsonb_build_object(
           'id', v.id,
-          'title', COALESCE(v.title, ${sql.ref(`ft.${lookupDbFieldName}`)}::text)
+          'title', COALESCE(v.title, ${titleExpression})
         )
       )
       FROM (VALUES (${singleItem.id}, ${singleItem.title ?? null})) AS v(id, title)

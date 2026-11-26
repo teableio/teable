@@ -408,7 +408,7 @@ const createHandlerHarness = (
 };
 
 const decoratingRecordChangedValues: IRecordChangedValueDecoratorService = {
-  async decorateChangedFields(_table, changedFields) {
+  async decorateChangedFields(_table, _recordId, changedFields) {
     return ok(changedFields);
   },
   async decorateChangedFieldsByRecord(_table, changedFieldsByRecord) {

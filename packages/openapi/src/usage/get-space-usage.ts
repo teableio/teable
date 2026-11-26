@@ -2,6 +2,7 @@ import type { RouteConfig } from '@asteasolutions/zod-to-openapi';
 import { z } from 'zod';
 import { axios } from '../axios';
 import { BillingProductLevel, appSumoTierSchema } from '../billing';
+import { PublicFileAvailability } from '../public-file/get-status';
 import { registerRoute, urlBuilder } from '../utils';
 
 export enum UsageFeature {
@@ -52,6 +53,7 @@ export enum UsageFeatureLimit {
   MaxNumSystemSendEmail = 'maxNumSystemSendEmail',
   ConnectorEventEnable = 'connectorEventEnable',
   PeriodicFieldRefreshEnable = 'periodicFieldRefreshEnable',
+  PublicFileEnable = 'publicFileEnable',
 }
 
 export const usageFeatureLimitSchema = z.object({
@@ -84,12 +86,17 @@ export const usageFeatureLimitSchema = z.object({
   [UsageFeatureLimit.MaxNumSystemSendEmail]: z.number(),
   [UsageFeatureLimit.ConnectorEventEnable]: z.boolean(),
   [UsageFeatureLimit.PeriodicFieldRefreshEnable]: z.boolean(),
+  [UsageFeatureLimit.PublicFileEnable]: z.boolean(),
 });
 
 export const usageVoSchema = z.object({
   level: z.enum(BillingProductLevel),
   limit: usageFeatureLimitSchema,
   appSumoTier: appSumoTierSchema.optional(),
+  publicFileAvailability: z.enum(PublicFileAvailability).optional().meta({
+    description:
+      "Base usage only: whether the space's public file links open their files right now, as the public file status reports it",
+  }),
 });
 
 export type IUsageVo = z.infer<typeof usageVoSchema>;

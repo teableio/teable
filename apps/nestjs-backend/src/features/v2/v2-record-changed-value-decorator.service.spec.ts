@@ -118,12 +118,14 @@ describe('V2RecordChangedValueDecoratorService', () => {
         return ok(map);
       }),
       invalidatePreview: vi.fn().mockResolvedValue(ok(undefined)),
+      publicLinks: vi.fn(async (cells: ReadonlyArray<unknown>) => ok(cells.map(() => undefined))),
     };
     const core = new AttachmentValueDecoratorService(signer);
     const service = new V2RecordChangedValueDecoratorService(core);
 
     const result = await service.decorateChangedFields(
       table,
+      'rec1',
       new Map<string, unknown>([
         [
           attachmentFieldId,
@@ -180,7 +182,7 @@ describe('V2RecordChangedValueDecoratorService', () => {
       [textFieldId, 'unchanged text'],
     ]);
 
-    const result = await service.decorateChangedFields(table, changedFields);
+    const result = await service.decorateChangedFields(table, 'rec1', changedFields);
     const decorated = result._unsafeUnwrap();
 
     expect(attachmentsStorageService.getPreviewUrlByPath).toHaveBeenCalledTimes(1);
@@ -308,6 +310,7 @@ describe('V2RecordChangedValueDecoratorService', () => {
 
     await service.decorateChangedFields(
       table,
+      'rec1',
       new Map<string, unknown>([
         [
           attachmentFieldId,
@@ -384,7 +387,7 @@ describe('V2RecordChangedValueDecoratorService', () => {
       ],
     ]);
 
-    const decoratePromise = service.decorateChangedFields(table, changedFields);
+    const decoratePromise = service.decorateChangedFields(table, 'rec1', changedFields);
 
     await vi.waitFor(() => {
       expect(startedTokens).toHaveLength(4);
@@ -438,7 +441,7 @@ describe('V2RecordChangedValueDecoratorService', () => {
       ],
     ]);
 
-    const result = await service.decorateChangedFields(table, changedFields);
+    const result = await service.decorateChangedFields(table, 'rec1', changedFields);
     const decorated = result._unsafeUnwrap();
 
     // Should NOT call getTableThumbnailUrl at all — no paths to look up
@@ -487,7 +490,7 @@ describe('V2RecordChangedValueDecoratorService', () => {
       ],
     ]);
 
-    const result = await service.decorateChangedFields(table, changedFields);
+    const result = await service.decorateChangedFields(table, 'rec1', changedFields);
     const decorated = result._unsafeUnwrap();
 
     expect(attachmentsStorageService.getTableThumbnailUrl).not.toHaveBeenCalled();
@@ -545,7 +548,12 @@ describe('V2RecordChangedValueDecoratorService', () => {
       ],
     };
 
-    const result = await service.decorateChangedFields(table, changedFields, previousFields);
+    const result = await service.decorateChangedFields(
+      table,
+      'rec1',
+      changedFields,
+      previousFields
+    );
     const decorated = result._unsafeUnwrap();
 
     // Cache should be invalidated for the renamed attachment
@@ -613,7 +621,12 @@ describe('V2RecordChangedValueDecoratorService', () => {
       ],
     };
 
-    const result = await service.decorateChangedFields(table, changedFields, previousFields);
+    const result = await service.decorateChangedFields(
+      table,
+      'rec1',
+      changedFields,
+      previousFields
+    );
     const decorated = result._unsafeUnwrap();
 
     // Cache should NOT be invalidated — name didn't change

@@ -5,6 +5,7 @@ import type { ConfigType } from '@nestjs/config';
 import { registerAs } from '@nestjs/config';
 import { resolveSecret } from './secrets/resolve-secret';
 import { ALL_SECRET_SPECS, SECRET_SPECS } from './secrets/secret-specs';
+import { resolveStoredSecretRoots, STORED_SECRET_PURPOSES } from './secrets/stored-secret-roots';
 
 const resolveDataQueryCursorSigningKey = (): string | undefined => {
   // Keep the root first so existing cursors and root rotation retain their behavior.
@@ -32,17 +33,13 @@ export const baseConfig = registerAs('base', () => ({
   // into SECRET_KEY once that is done.
   invitationSecret: resolveSecret(SECRET_SPECS.invitationSecret),
   invitationSecretOld: process.env.BACKEND_INVITATION_SECRET_OLD || undefined,
-  // HKDF root for EE app env-variable encryption (the one purpose with no
-  // dedicated var historically) — resolves dedicated var → SECRET_KEY
-  // umbrella → public dev default, exactly like jwtSecret. _OLD is
-  // decrypt-only while a rotation is in flight (jwt oldSecret pattern).
-  envVariableSecret: resolveSecret(SECRET_SPECS.envVariableSecret),
-  envVariableSecretOld: process.env.BACKEND_ENV_VARIABLE_SECRET_OLD || undefined,
-  // HMAC key of the welcome reward's per-inbox dedupe key (cloud): dedicated var →
-  // SECRET_KEY → the public dev default. Transitional: _OLD still counts while stored keys
-  // are re-signed by the key convergence, then it converges back into SECRET_KEY.
-  welcomeRewardSecret: resolveSecret(SECRET_SPECS.welcomeRewardSecret),
-  welcomeRewardSecretOld: process.env.BACKEND_WELCOME_REWARD_SECRET_OLD || undefined,
+  // HKDF roots for EE app env-variable encryption, a purpose of the stored credential root
+  // (resolveStoredSecretRoots): the first encrypts, the rest only decrypt what an earlier
+  // configuration wrote.
+  envVariableRoots: resolveStoredSecretRoots(STORED_SECRET_PURPOSES.envVariable),
+  // HMAC keys of the welcome reward's per-inbox dedupe key (cloud), resolved the same way:
+  // the first signs, the rest still count while the key convergence re-signs the stored keys.
+  welcomeRewardRoots: resolveStoredSecretRoots(STORED_SECRET_PURPOSES.welcomeReward),
   templateSpaceId: process.env.TEMPLATE_SPACE_ID,
   recordHistoryDisabled: process.env.RECORD_HISTORY_DISABLED === 'true',
   pluginServerPort: process.env.PLUGIN_SERVER_PORT || '3002',

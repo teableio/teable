@@ -225,6 +225,14 @@ describe('undo-redo/deleteRecords (db)', () => {
     await harness.undo(tableId);
     expect(await fetchRowById(harness.db, table, survivorId)).toBeDefined();
     expect(await fetchRowById(harness.db, table, purgedId)).toBeUndefined();
+
+    await harness.redo(tableId);
+    expect(await fetchRowById(harness.db, table, survivorId)).toBeUndefined();
+
+    // The redo index is already committed while its record snapshots are still pending.
+    await harness.undo(tableId);
+    expect(await fetchRowById(harness.db, table, survivorId)).toBeDefined();
+    expect(await fetchRowById(harness.db, table, purgedId)).toBeUndefined();
   });
 
   // Archive redo replays the carried write-ahead rows. It must (a) skip rows whose

@@ -36,7 +36,10 @@ export const GetTableSearchAccelerationStatusRoute: RouteConfig = registerRoute(
   method: 'get',
   path: GET_TABLE_SEARCH_ACCELERATION_STATUS,
   summary: 'Get search acceleration status for a table',
-  request: { params: z.object({ baseId: z.string(), tableId: z.string() }) },
+  request: {
+    params: z.object({ baseId: z.string(), tableId: z.string() }),
+    query: z.object({ projection: z.literal('summary').optional() }),
+  },
   responses: {
     200: {
       description: 'Search acceleration status',
@@ -58,9 +61,14 @@ export const GetShareSearchAccelerationStatusRoute: RouteConfig = registerRoute(
   },
   tags: ['share'],
 });
-export const getTableSearchAccelerationStatus = (baseId: string, tableId: string) =>
+export const getTableSearchAccelerationStatus = (
+  baseId: string,
+  tableId: string,
+  projection?: 'summary'
+) =>
   axios.get<ITableSearchAccelerationStatusVo>(
-    urlBuilder(GET_TABLE_SEARCH_ACCELERATION_STATUS, { baseId, tableId })
+    urlBuilder(GET_TABLE_SEARCH_ACCELERATION_STATUS, { baseId, tableId }),
+    { params: { projection } }
   );
 export const getShareSearchAccelerationStatus = (shareId: string) =>
   axios.get<IShareSearchAccelerationStatusVo>(

@@ -12,6 +12,7 @@ import { RawOpType } from '../../share-db/interface';
 import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { RecordHistoryColdStorageService } from '../record-history-cold/record-history-cold-storage.service';
 import { TableMutationCacheInvalidator } from '../table/open-api/table-mutation-cache-invalidator';
+import { TablePurgeHookRegistry } from './table-purge.hook';
 
 /** Host metadata, sidecar storage and physical-retirement policy shared by lifecycle callers. */
 @Injectable()
@@ -23,7 +24,8 @@ export class TableLifecycleCleanupService {
     private readonly databaseRouter: DatabaseRouter,
     private readonly rawOpStagingService: RawOpStagingService,
     private readonly tableMutationCacheInvalidator: TableMutationCacheInvalidator,
-    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService
+    private readonly recordHistoryColdStorage: RecordHistoryColdStorageService,
+    private readonly purgeHooks: TablePurgeHookRegistry
   ) {}
 
   async captureNativePurgeState(tableId: string) {
@@ -43,7 +45,7 @@ export class TableLifecycleCleanupService {
     return { dbTableName: table.dbTableName, fieldIds: fields.map(({ id }) => id) };
   }
 
-  /** DB metadata & sidecar cleanup commit atomically in TableDeleted; only cache & S3 run post-commit. */
+  /** DB metadata & sidecar cleanup commit atomically in TableDeleted; only cache & storage run post-commit. */
   async cleanupAfterNativePurge(
     baseId: string,
     tableId: string,
@@ -59,7 +61,7 @@ export class TableLifecycleCleanupService {
         target: `mutation cache for table ${tableId}`,
       });
     }
-    await this.cleanupColdHistoryPrefixes([tableId]);
+    await this.cleanupAfterPurge({ baseId, tableIds: [tableId] });
   }
 
   /** Only the admitted native retention boundary calls this after a failed routed attempt. */
@@ -101,23 +103,49 @@ export class TableLifecycleCleanupService {
         skipExternalDataDbCleanup: true,
       });
     });
-    await this.cleanupColdHistoryPrefixes([tableId]);
+    await this.cleanupAfterPurge({ baseId, tableIds: [tableId] });
   }
 
   /**
-   * Best-effort removal of the tables' cold-history prefixes on the private
-   * bucket. The delete is irreversible, so it must only run AFTER the DB purge
-   * transaction has committed — never inside it (a rollback would restore the
-   * table without its cold history). An S3 miss never fails the purge;
-   * leftover prefixes are reconciled by ops tooling against table existence.
+   * Best-effort removal of what the tables keep outside the databases: their cold-history
+   * prefixes on the private bucket, and what the editions' purge hooks remove. The delete is
+   * irreversible, so it must only run AFTER the DB purge transaction has committed — never inside
+   * it (a rollback would restore the table without them). A miss never fails the purge; leftover
+   * cold-history prefixes are reconciled by ops tooling against table existence.
+   *
+   * `spaceId` is passed when the base was purged too and its row is gone; a table purge leaves the
+   * base, which tells the space when a hook is registered.
    */
-  async cleanupColdHistoryPrefixes(tableIds: string[]) {
+  async cleanupAfterPurge(purge: { baseId: string; spaceId?: string; tableIds: string[] }) {
+    const { baseId, tableIds } = purge;
     for (const tableId of tableIds) {
       await this.recordHistoryColdStorage
         .deleteTablePrefix(tableId)
         .catch((error) =>
           this.logger.warn(`failed to delete cold history prefix for ${tableId}: ${error}`)
         );
+    }
+    const hooks = this.purgeHooks.all();
+    if (!hooks.length) return;
+    try {
+      const spaceId =
+        purge.spaceId ??
+        (
+          await this.prismaService.base.findUnique({
+            where: { id: baseId },
+            select: { spaceId: true },
+          })
+        )?.spaceId;
+      if (!spaceId) return;
+      for (const hook of hooks) {
+        await hook
+          .afterPurge({ spaceId, tableIds })
+          .catch((error) =>
+            this.logger.warn(`table purge hook failed for ${tableIds.join(', ')}: ${error}`)
+          );
+      }
+    } catch (error) {
+      this.logger.warn(`table purge hook failed for ${tableIds.join(', ')}: ${error}`);
     }
   }
 

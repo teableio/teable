@@ -1,9 +1,71 @@
 import { describe, expect, it } from 'vitest';
 
-import { PasteCommand } from './PasteCommand';
+import { MAX_PASTE_CELLS, PasteCommand } from './PasteCommand';
+import { PasteStreamCommand } from './PasteStreamCommand';
 
 const tableId = `tbl${'a'.repeat(16)}`;
 const viewId = `viw${'b'.repeat(16)}`;
+
+describe.each([
+  { name: 'PasteCommand', command: PasteCommand },
+  { name: 'PasteStreamCommand', command: PasteStreamCommand },
+])('$name cell budget', ({ command }) => {
+  const singleCellInput = {
+    tableId,
+    viewId,
+    ranges: [
+      [0, 0],
+      [0, 0],
+    ],
+    content: [['x']],
+  };
+
+  it('accepts a trusted budget above the default without reading it from the payload', () => {
+    const maxPasteCells = MAX_PASTE_CELLS + 1;
+    const input = {
+      ...singleCellInput,
+      ranges: [
+        [0, 0],
+        [0, MAX_PASTE_CELLS],
+      ],
+      maxPasteCells,
+    };
+
+    expect(command.create(input)._unsafeUnwrapErr()).toMatchObject({
+      code: 'validation.paste.max_cells_exceeded',
+      details: { max: MAX_PASTE_CELLS },
+    });
+    expect(command.create(input, maxPasteCells)._unsafeUnwrap().maxPasteCells).toBe(maxPasteCells);
+  });
+
+  it('enforces a lower budget against both submitted cells and selected dimensions', () => {
+    for (const input of [
+      { ...singleCellInput, content: [['x', 'y']] },
+      {
+        ...singleCellInput,
+        ranges: [
+          [0, 0],
+          [0, 1],
+        ],
+      },
+    ]) {
+      expect(command.create(input, 1)._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.paste.max_cells_exceeded',
+        message: 'Exceed max paste cells 1',
+        details: { max: 1 },
+      });
+    }
+  });
+
+  it.each([0, -1, 1.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1])(
+    'rejects an invalid trusted budget %s',
+    (maxPasteCells) => {
+      expect(command.create(singleCellInput, maxPasteCells)._unsafeUnwrapErr()).toMatchObject({
+        code: 'validation.paste.invalid_max_cells',
+      });
+    }
+  );
+});
 
 describe('PasteCommand', () => {
   it('creates command with valid input', () => {

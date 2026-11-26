@@ -540,7 +540,7 @@ describe('CreateTablesHandler', () => {
       };
     };
     const decorator: IRecordChangedValueDecoratorService = {
-      async decorateChangedFields(_table, changedFields) {
+      async decorateChangedFields(_table, _recordId, changedFields) {
         return ok(changedFields);
       },
       async decorateChangedFieldsByRecord(table, changedFieldsByRecord) {

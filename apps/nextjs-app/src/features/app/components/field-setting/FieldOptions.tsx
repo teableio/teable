@@ -17,6 +17,7 @@ import type {
   ILongTextFieldOptions,
   IButtonFieldOptions,
   IConditionalRollupFieldOptions,
+  IAttachmentFieldOptions,
 } from '@teable/core';
 import {
   CellValueType,
@@ -27,6 +28,7 @@ import {
 import { getField } from '@teable/openapi';
 import { useFields } from '@teable/sdk/hooks';
 import { useMemo } from 'react';
+import { AttachmentOptions } from './options/AttachmentOptions';
 import { ButtonOptions } from './options/ButtonOptions';
 import { CheckboxOptions } from './options/CheckboxOptions';
 import { ConditionalRollupOptions } from './options/ConditionalRollupOptions';
@@ -192,6 +194,15 @@ export const FieldOptions: React.FC<IFieldOptionsProps> = ({ field, onChange, on
           options={options as IConditionalRollupFieldOptions}
           cellValueType={normalizedFieldCellValueType}
           isMultipleCellValue={isMultipleCellValue}
+          onChange={onChange}
+        />
+      );
+    case FieldType.Attachment:
+      return (
+        <AttachmentOptions
+          fieldId={id}
+          options={options as IAttachmentFieldOptions}
+          isLookup={isLookup}
           onChange={onChange}
         />
       );

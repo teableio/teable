@@ -14,6 +14,7 @@ export type IShareViewPlugin = z.infer<typeof shareViewPluginSchema>;
 export const shareViewGetVoSchema = z.object({
   viewId: z.string().optional(),
   tableId: z.string(),
+  searchAccelerationStatusEnabled: z.boolean().optional(),
   shareId: z
     .string()
     .describe(

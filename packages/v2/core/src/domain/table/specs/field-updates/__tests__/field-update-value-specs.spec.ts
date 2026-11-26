@@ -33,6 +33,7 @@ import { ButtonWorkflow } from '../../../fields/types/ButtonWorkflow';
 import { UserDefaultValue } from '../../../fields/types/UserDefaultValue';
 import { UserMultiplicity } from '../../../fields/types/UserMultiplicity';
 import { UserNotification } from '../../../fields/types/UserNotification';
+import { AttachmentPublicAccess } from '../../../fields/types/AttachmentPublicAccess';
 import { Table } from '../../../Table';
 import { TableName } from '../../../TableName';
 import * as FieldUpdateSpecs from '..';
@@ -95,6 +96,8 @@ const USER_SINGLE = UserMultiplicity.single();
 const USER_MULTIPLE = UserMultiplicity.multiple();
 const USER_NOTIFY_ON = UserNotification.enabled();
 const USER_NOTIFY_OFF = UserNotification.disabled();
+const ATTACHMENT_PUBLIC = AttachmentPublicAccess.enabled();
+const ATTACHMENT_PRIVATE = AttachmentPublicAccess.disabled();
 const TIME_ZONE_UTC = TimeZone.default();
 const TIME_ZONE_SHANGHAI = TimeZone.create('Asia/Shanghai')._unsafeUnwrap();
 const RATING_DB_FIELD_NAME = DbFieldName.rehydrate('fld_rating')._unsafeUnwrap();
@@ -256,6 +259,17 @@ const buildUserTable = (
     if (options.notification) user.withNotification(options.notification);
     if (options.defaultValue) user.withDefaultValue(options.defaultValue);
     user.done();
+  });
+
+const buildAttachmentTable = (fieldId: FieldId, publicAccess = ATTACHMENT_PRIVATE) =>
+  buildTable('m', (builder) => {
+    builder
+      .field()
+      .attachment()
+      .withId(fieldId)
+      .withName(FieldName.create('Files')._unsafeUnwrap())
+      .withPublicAccess(publicAccess)
+      .done();
   });
 
 const buildButtonTable = (
@@ -627,6 +641,26 @@ const commonCases: Case[] = [
       expect(field.defaultValue()?.equals(USER_DEFAULT_MULTI)).toBe(true);
     },
     expectedVisit: 'visitUpdateUserDefaultValue',
+  },
+  {
+    name: 'UpdateAttachmentPublicAccessSpec',
+    buildTable: (fieldId) => buildAttachmentTable(fieldId),
+    buildWrongTypeTable: (fieldId) => buildPlainTextTable(fieldId),
+    makeSpec: (fieldId) =>
+      FieldUpdateSpecs.UpdateAttachmentPublicAccessSpec.create(
+        fieldId,
+        ATTACHMENT_PRIVATE,
+        ATTACHMENT_PUBLIC
+      ),
+    assertSpec: (spec, fieldId) => {
+      expect(spec.fieldId().equals(fieldId)).toBe(true);
+      expect(spec.previousPublicAccess()).toBe(ATTACHMENT_PRIVATE);
+      expect(spec.nextPublicAccess()).toBe(ATTACHMENT_PUBLIC);
+    },
+    assertUpdatedField: (field) => {
+      expect(field.publicAccess().equals(ATTACHMENT_PUBLIC)).toBe(true);
+    },
+    expectedVisit: 'visitUpdateAttachmentPublicAccess',
   },
   {
     name: 'UpdateButtonLabelSpec',

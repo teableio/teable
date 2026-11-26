@@ -15,6 +15,8 @@ import type { ICellValueSpecVisitor } from './ICellValueSpecVisitor';
  * foreign table instead of record IDs. `lookupFieldId` is the link's display
  * field; resolution matches its stored value, falling back to the primary
  * field when the caller does not supply one.
+ * Free-form typecast strings can also request record ID disambiguation before
+ * falling back to title lookup.
  */
 export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellValueSpecVisitor> {
   private constructor(
@@ -22,7 +24,8 @@ export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellVa
     readonly foreignTableId: TableId,
     readonly titles: ReadonlyArray<string>,
     readonly isMultiple: boolean,
-    readonly lookupFieldId?: FieldId
+    readonly lookupFieldId?: FieldId,
+    readonly resolveRecordIds = false
   ) {
     super();
   }
@@ -32,9 +35,17 @@ export class SetLinkValueByTitleSpec extends MutateOnlySpec<TableRecord, ICellVa
     foreignTableId: TableId,
     titles: ReadonlyArray<string>,
     isMultiple = true,
-    lookupFieldId?: FieldId
+    lookupFieldId?: FieldId,
+    resolveRecordIds = false
   ): SetLinkValueByTitleSpec {
-    return new SetLinkValueByTitleSpec(fieldId, foreignTableId, titles, isMultiple, lookupFieldId);
+    return new SetLinkValueByTitleSpec(
+      fieldId,
+      foreignTableId,
+      titles,
+      isMultiple,
+      lookupFieldId,
+      resolveRecordIds
+    );
   }
 
   /**

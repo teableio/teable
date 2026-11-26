@@ -82,6 +82,8 @@ export const TABLE_ROUTE_EDITIONS: Record<string, 'EE'> = {
   'POST /api/base/:baseId/template/installs/:installId/guide/evaluate': 'EE',
   'POST /api/base/:baseId/template/installs/:installId/report': 'EE',
   'DELETE /api/base/:baseId/template/installs/:installId': 'EE',
+  'GET /api/table/:tableId/field/:fieldId/public-file/status': 'EE',
+  'POST /api/table/:tableId/field/:fieldId/public-file/retry': 'EE',
 };
 
 /** Routes registered only when at least one flag is enabled. */
@@ -282,6 +284,10 @@ export const TABLE_ROUTE_LEDGER = {
   'POST /api/table/:tableId/plugin-panel/:pluginPanelId/duplicate': 'host',
   'POST /api/table/:tableId/plugin-panel/:pluginPanelId/install': 'host',
   'POST /api/table/:tableId/plugin-panel/:pluginPanelId/plugin/:pluginInstallId/duplicate': 'host',
+  // PublicFileFieldController
+  // Public copies of an attachment field's files (host): copy status and retry.
+  'GET /api/table/:tableId/field/:fieldId/public-file/status': 'host',
+  'POST /api/table/:tableId/field/:fieldId/public-file/retry': 'host',
   // RecordController
   // Record data engine; history is host, auto-fill is async task orchestration.
   'DELETE /api/table/:tableId/record': 'v2',

@@ -45,6 +45,10 @@ export enum ThumbnailSize {
 export interface IListObjectsOptions {
   /** group keys after the delimiter into `prefixes`, like S3 common prefixes */
   delimiter?: string;
+  /** only keys after this one, in key order */
+  startAfter?: string;
+  /** one page: stop after this many keys instead of listing the whole prefix */
+  maxKeys?: number;
 }
 
 export interface IListedObject {

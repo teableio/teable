@@ -98,8 +98,11 @@ const noopRecordWriteUndoRedoPlanService = {
 } as unknown as RecordWriteUndoRedoPlanService;
 
 const noopRecordChangedValueDecoratorService = {
-  decorateChangedFields: async (_table: Table, changedFields?: ReadonlyMap<string, unknown>) =>
-    ok(changedFields),
+  decorateChangedFields: async (
+    _table: Table,
+    _recordId: string,
+    changedFields?: ReadonlyMap<string, unknown>
+  ) => ok(changedFields),
   decorateChangedFieldsByRecord: async (
     _table: Table,
     changedFieldsByRecord?: ReadonlyMap<string, ReadonlyMap<string, unknown>>

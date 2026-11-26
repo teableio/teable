@@ -48,17 +48,19 @@ export class TableQuerySearchVectorRuntimeService {
     readonly table: ITableReadModel;
     readonly search: unknown;
   }): IRecordSearchAccessPath | undefined {
-    if (!hasSearchValueForSearchVectorRuntime(input.search) || this.mode() !== 'auto') {
+    if (!hasSearchValueForSearchVectorRuntime(input.search) || !this.enabled()) {
       return undefined;
     }
 
     return resolveTableSearchAccessPath(input.table);
   }
 
-  private mode(): TableQuerySearchVectorRuntimeMode {
-    return resolveTableQuerySearchVectorRuntimeMode(
-      this.configService.get(tableQuerySearchAccessPathRuntimeEnv) ??
-        this.configService.get(tableQuerySearchVectorRuntimeEnv)
+  enabled(): boolean {
+    return (
+      resolveTableQuerySearchVectorRuntimeMode(
+        this.configService.get(tableQuerySearchAccessPathRuntimeEnv) ??
+          this.configService.get(tableQuerySearchVectorRuntimeEnv)
+      ) === 'auto'
     );
   }
 }

@@ -35,6 +35,7 @@ type AttachmentLookupByTokenRow = {
   width?: string | number | null;
   height?: string | number | null;
   thumbnailPath?: string | null;
+  deletedTime?: Date | string | null;
 };
 
 @injectable()
@@ -71,6 +72,7 @@ export class PostgresAttachmentLookupService implements IAttachmentLookupService
           width: row.width == null ? undefined : Number(row.width),
           height: row.height == null ? undefined : Number(row.height),
           thumbnailPath: parseThumbnailPath(row.thumbnailPath),
+          ...(row.deletedTime != null && { deleted: true }),
         }))
       );
     } catch (error) {
@@ -155,6 +157,7 @@ export class PostgresAttachmentLookupService implements IAttachmentLookupService
           'path',
           'size',
           'mimetype',
+          'deleted_time as deletedTime',
           ...OPTIONAL_ATTACHMENT_COLUMNS.filter(
             ({ dbColumn }) => !excludedColumns.has(dbColumn)
           ).map(({ select }) => select),

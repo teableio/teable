@@ -1,8 +1,10 @@
 import { createHmac, hkdfSync } from 'node:crypto';
 import { HttpErrorCode } from '@teable/core';
 import { MASKED_SECRET_PREFIX, isMaskedSecret } from '@teable/openapi';
-import { resolveSecret } from '../../configs/secrets/resolve-secret';
-import { SECRET_SPECS } from '../../configs/secrets/secret-specs';
+import {
+  resolveStoredSecretRoots,
+  STORED_SECRET_PURPOSES,
+} from '../../configs/secrets/stored-secret-roots';
 import { CustomHttpException } from '../../custom.exception';
 
 /**
@@ -57,7 +59,7 @@ const getMaskKey = (): Buffer =>
   (maskKey ??= Buffer.from(
     hkdfSync(
       'sha256',
-      resolveSecret(SECRET_SPECS.thirdPartyCredentialEncryptionSecret),
+      resolveStoredSecretRoots(STORED_SECRET_PURPOSES.thirdPartyCredential).primary,
       '',
       'teable:setting-secret-mask',
       32

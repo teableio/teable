@@ -70,6 +70,7 @@ import {
   useTemplateProjectDeleteNotice,
   useTemplateProjectInfo,
 } from '@/features/app/components/space/template/host-context';
+import { usePublicFileEnabled } from '@/features/app/hooks/usePublicFileEnabled';
 import { getBaseDisplayName } from '@/features/app/utils/base-name';
 import { downloadUrlWithFileName } from '@/features/app/utils/download-url';
 import { BaseShareDialog } from '../../base/base-side-bar/BaseShareDialog';
@@ -227,6 +228,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
   const { project: templateProjectHost } = React.useContext(TemplateHostContext);
   const deleteNotice = useTemplateProjectDeleteNotice(base.id, deleteConfirm);
   const publishedAppCount = usePublishedAppCount(base.id, deleteConfirm);
+  const publicFileEnabled = usePublicFileEnabled();
   const [shareOpen, setShareOpen] = React.useState(false);
   const [inviteOpen, setInviteOpen] = React.useState(false);
   const [exportConfirm, setExportConfirm] = React.useState(false);
@@ -682,6 +684,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
               {publishedAppCount > 0 && (
                 <p>{t('common:trash.publishedAppsOffline', { total: publishedAppCount })}</p>
               )}
+              {publicFileEnabled && <p>{t('common:trash.publicLinksOffAll')}</p>}
               <p>{t('common:trash.description')}</p>
             </div>
             <DialogFooter>

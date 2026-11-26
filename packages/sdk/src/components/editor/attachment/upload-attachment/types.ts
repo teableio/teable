@@ -42,6 +42,8 @@ export interface IUploadAttachmentRef {
 
 export interface UploadAttachmentViewProps extends UploadAttachmentBaseProps {
   uploadingFiles: IUploadingFile[];
+  /** Whether the field has public links on: the attachments' public links are offered then. */
+  showPublicLinks?: boolean;
   onUpload: (files: File[]) => void;
   onCancelUpload?: (id: string) => void;
 }

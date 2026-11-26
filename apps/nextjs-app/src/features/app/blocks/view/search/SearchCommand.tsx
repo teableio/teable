@@ -53,7 +53,7 @@ interface ISearchCommand {
   hideNotMatchRow?: boolean;
   onHideSwitchChange: (hideNotMatchRow?: boolean) => void;
   onChange: (fieldIds: string[] | null) => void;
-  shareView?: boolean;
+  legacyIndex: boolean;
 }
 
 export interface ISearchCommandRef {
@@ -106,7 +106,7 @@ const SearchOptionItem = (props: ISearchOptionItem) => {
 };
 
 export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((props, ref) => {
-  const { onChange, value, hideNotMatchRow, onHideSwitchChange, shareView } = props;
+  const { onChange, value, hideNotMatchRow, onHideSwitchChange, legacyIndex } = props;
   const { maxSearchFieldCount = Infinity } = useEnv();
   const { t } = useTranslation(['common', 'table']);
   const defaultFields = useFields();
@@ -127,7 +127,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
 
   useImperativeHandle(ref, () => ({
     toggleSearchIndex: async () => {
-      toggleIndexFn(TableIndex.search);
+      if (legacyIndex) await toggleIndexFn(TableIndex.search);
     },
   }));
 
@@ -139,7 +139,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
   const { data: tableActivatedIndex } = useQuery({
     queryKey: ['table-index', tableId],
     queryFn: () => getTableActivatedIndex(baseId!, tableId!).then(({ data }) => data),
-    enabled: !shareView,
+    enabled: legacyIndex,
   });
 
   const enabledSearchIndex = tableActivatedIndex?.includes(TableIndex.search);
@@ -148,7 +148,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
     queryKey: ['table-abnormal-index', baseId, tableId, TableIndex.search],
     queryFn: () =>
       getTableAbnormalIndex(baseId!, tableId!, TableIndex.search).then(({ data }) => data),
-    enabled: Boolean(enabledSearchIndex && !shareView),
+    enabled: Boolean(enabledSearchIndex && legacyIndex),
   });
 
   const { mutateAsync: toggleIndexFn, isPending: isLoading } = useMutation({
@@ -319,7 +319,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
           />
         )}
 
-        {!shareView && editable && (
+        {legacyIndex && editable && (
           <SearchOptionItem
             id="search-index"
             label={t('actions.tableIndex')}
@@ -374,7 +374,7 @@ export const SearchCommand = forwardRef<ISearchCommandRef, ISearchCommand>((prop
         )}
       </div>
 
-      <AlertDialog open={alertVisible} onOpenChange={setAlertVisible}>
+      <AlertDialog open={legacyIndex && alertVisible} onOpenChange={setAlertVisible}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t('table:import.title.tipsTitle')}</AlertDialogTitle>

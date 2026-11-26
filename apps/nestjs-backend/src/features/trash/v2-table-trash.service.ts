@@ -213,7 +213,10 @@ export class V2RecordsDeletedTableTrashProjection implements IEventHandler<Recor
             records,
           },
           context,
-          { fillExistingMarkers: true }
+          {
+            fillExistingMarkers: true,
+            ...(rawOperationId ? { matchOperationIdOnly: true } : {}),
+          }
         )
     );
 

@@ -7,6 +7,7 @@ import path from 'node:path';
 import type { INestApplication } from '@nestjs/common';
 import type { ILinkFieldOptions } from '@teable/core';
 import { FieldKeyType, FieldType, Relationship, SortFunc, StatisticsFunc } from '@teable/core';
+import { PrismaService } from '@teable/db-main-prisma';
 import {
   analyzeFile as apiAnalyzeFile,
   axios,
@@ -69,7 +70,10 @@ import { DataDbBindingService } from '../src/features/space/data-db-binding.serv
 import { DataDbMigrationService } from '../src/features/space/data-db-migration.service';
 import { SpaceDataDbMigrationWorkerService } from '../src/features/space/space-data-db-migration-worker.service';
 import { SpaceDataDbMigrationService } from '../src/features/space/space-data-db-migration.service';
+import { RecordTitleReader } from '../src/features/v2/record-title-reader';
 import { DataDbClientManager } from '../src/global/data-db-client-manager.service';
+import { DatabaseRouter } from '../src/global/database-router.service';
+import type { IClsStore } from '../src/types/cls';
 import { createAwaitWithEventWithResult } from './utils/event-promise';
 import {
   createBase,
@@ -87,6 +91,7 @@ import {
   permanentDeleteBase,
   permanentDeleteSpace,
   permanentDeleteTable,
+  runWithTestUser,
   updateRecord,
 } from './utils/init-app';
 import { createSearchPathRejectingPostgresProxy } from './utils/postgres-pooler-proxy';
@@ -650,6 +655,38 @@ describeByodbStorage('BYODB space storage placement (e2e)', () => {
       records: [{ fields: {} }, { fields: {} }, { fields: {} }],
     });
     expect(mainTable.records).toHaveLength(3);
+
+    const titleReader = app.get(RecordTitleReader);
+    const prisma = app.get(PrismaService);
+    const router = app.get(DatabaseRouter);
+    const cls = app.get<ClsService<IClsStore>>(ClsService);
+    const titleRecordId = mainTable.records[0].id;
+    const updateTitle = router
+      .dataKnex()(mainTable.dbTableName)
+      .where('__id', titleRecordId)
+      .update({ [mainTable.fields[0].dbFieldName]: 'uncommitted BYODB title' })
+      .toSQL()
+      .toNative();
+    const rollbackTitle = new Error('Roll back the BYODB title update');
+    await runWithTestUser(cls, async () => {
+      await expect(
+        prisma.$tx(() =>
+          router.dataPrismaTransactionForTable(
+            mainTable.id,
+            async (tx) => {
+              expect(await tx.$executeRawUnsafe(updateTitle.sql, ...updateTitle.bindings)).toBe(1);
+              await expect(titleReader.byIds(mainTable.id, [titleRecordId])).resolves.toEqual([
+                { id: titleRecordId, title: 'uncommitted BYODB title' },
+              ]);
+              throw rollbackTitle;
+            },
+            undefined,
+            { useTransaction: true }
+          )
+        )
+      ).rejects.toBe(rollbackTitle);
+    });
+
     const computeActivityResponse = await axios.get('/v2/tables/getComputeActivity', {
       params: { baseId: base.id, tableId: mainTable.id },
     });

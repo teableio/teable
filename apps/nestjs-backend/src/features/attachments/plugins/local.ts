@@ -49,6 +49,13 @@ const UPLOAD_STAGING_HEARTBEAT_MS = 60 * 1000;
 // more than a day can lose its staging directory; publication checks ownership.
 const UPLOAD_STAGING_STALE_MS = 24 * 60 * 60 * 1000;
 
+/** The page `startAfter` and `maxKeys` ask for, cut from keys in order. */
+const pageOf = <T extends { key: string }>(objects: T[], options?: IListObjectsOptions): T[] => {
+  const startAfter = options?.startAfter;
+  const after = startAfter ? objects.filter(({ key }) => key > startAfter) : objects;
+  return options?.maxKeys ? after.slice(0, options.maxKeys) : after;
+};
+
 @Injectable()
 export class LocalStorage implements StorageAdapter {
   private static readonly activeUploads = new Set<string>();
@@ -615,7 +622,8 @@ export class LocalStorage implements StorageAdapter {
     prefix: string,
     options?: IListObjectsOptions
   ): Promise<IListObjectsResult> {
-    const objects: IListObjectsResult['objects'] = [];
+    // keys first, stat only the page: a paged walk does not stat every file each time
+    const files: { key: string; path: string }[] = [];
     const prefixes = new Set<string>();
     const bucketDir = resolve(this.storageDir, bucket);
     // emulate S3 prefix semantics on the filesystem: prefix is a key prefix, keys use '/'
@@ -627,8 +635,7 @@ export class LocalStorage implements StorageAdapter {
         const key = keyPrefix ? `${keyPrefix}/${entry.name}` : entry.name;
         if (!isRelevant(key)) continue;
         if (entry.isFile() && key.startsWith(prefix)) {
-          const { size, mtime } = fse.statSync(join(dir, entry.name));
-          objects.push({ key, size, lastModified: mtime });
+          files.push({ key, path: join(dir, entry.name) });
           continue;
         }
         if (!entry.isDirectory()) continue;
@@ -643,8 +650,15 @@ export class LocalStorage implements StorageAdapter {
       }
     };
     walk(bucketDir, '');
-    objects.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
-    return { objects, prefixes: [...prefixes].sort((a, b) => Number(a > b) - Number(a < b)) };
+    files.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
+    const objects = pageOf(files, options).map(({ key, path }) => {
+      const { size, mtime } = fse.statSync(path);
+      return { key, size, lastModified: mtime };
+    });
+    return {
+      objects,
+      prefixes: [...prefixes].sort((a, b) => Number(a > b) - Number(a < b)),
+    };
   }
 
   async deleteFile(bucket: string, path: string): Promise<void> {

@@ -3,6 +3,7 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { diffSnapshots, isEmptyPatch, summarizePatch } from '../../domain/diffSnapshots';
 import { readonlyCheckoutError, vcsDomainError } from '../../domain/errors';
 import { canonicalizeSnapshot } from '../../domain/fieldClassification';
 import type {
@@ -20,8 +21,13 @@ import {
   type IVcsStateRepository,
   type IVcsWorkspaceConfig,
 } from '../../ports';
+import { alignSourceSnapshot } from './DiffBaseVcsService';
 import { historicalEngineSnapshot } from './historicalEngineSnapshot';
-import { EAGER_RETURN_SNAPSHOT_RECORD_LIMIT, runWithEngineSession } from './workspaceHelpers';
+import {
+  EAGER_RETURN_SNAPSHOT_RECORD_LIMIT,
+  loadVcsWorkspace,
+  runWithEngineSession,
+} from './workspaceHelpers';
 
 export interface ICloneBaseVcsInput {
   readonly baseId: string;
@@ -35,6 +41,8 @@ export interface ICloneBaseVcsInput {
   readonly schemaOnly?: boolean;
   readonly chunkSize?: number;
   readonly includeSnapshot?: boolean;
+  readonly checkpoint?: IBaseVcsSnapshot;
+  readonly adoptCheckpoint?: boolean;
 }
 
 export interface ICloneBaseVcsOutput {
@@ -160,6 +168,7 @@ export class CloneBaseVcsService {
       clonedAt,
       cloneRevision: persistedSnapshot.revision,
       lastPulledAt: clonedAt,
+      ...(input.checkpoint ? { promotionBaselineRevision: input.checkpoint.revision } : {}),
     };
   }
 
@@ -729,10 +738,132 @@ export class CloneBaseVcsService {
     });
   }
 
+  private async adoptCheckpoint(
+    checkpoint: IBaseVcsSnapshot
+  ): Promise<Result<ICloneBaseVcsOutput, DomainError>> {
+    const incompatible = (message: string) =>
+      err(
+        vcsDomainError.conflict({
+          code: 'vcs.promotion_adoption_conflict',
+          message,
+        })
+      );
+    const configRes = await this.stateRepository.readConfig();
+    if (configRes.isErr()) return err(configRes.error);
+    const config = configRes.value;
+    if (
+      !config ||
+      config.baseId !== checkpoint.baseId ||
+      config.remoteMode !== 'v2-vcs' ||
+      config.headlessUrl !== undefined ||
+      config.readOnly ||
+      config.selectedTables !== undefined ||
+      config.schemaOnly
+    ) {
+      return incompatible(
+        'Back up or move the incompatible working copy before initializing Data PRs. No files were replaced.'
+      );
+    }
+    if (config.promotionBaselineRevision !== undefined) {
+      const stored = await this.stateRepository.readBaseSnapshot();
+      if (stored.isErr()) return err(stored.error);
+      const baseline = stored.value;
+      if (
+        !baseline ||
+        baseline.baseId !== checkpoint.baseId ||
+        baseline.accessScope ||
+        config.promotionBaselineRevision > baseline.revision
+      ) {
+        return incompatible(
+          'The Builder checkpoint revision is inconsistent. Back up the clone and move it aside before initializing again.'
+        );
+      }
+      const count = baseline.tables.reduce((total, table) => total + table.records.length, 0);
+      return ok({
+        config,
+        snapshot: baseline,
+        remoteMode: config.remoteMode,
+        summary: summarizeClonedSchemaAndRecords(baseline, count),
+      });
+    }
+
+    // Hold the local PGlite owner through inspection and enrollment. A live legacy serve must
+    // be stopped by its owner before adoption, so changes cannot slip past the clean check.
+    return runWithEngineSession(this.localEngine, async (engine) => {
+      const loaded = await loadVcsWorkspace(this.stateRepository, engine);
+      if (loaded.isErr()) return err(loaded.error);
+      const { baseSnapshot, workingSnapshot, conflicts } = loaded.value;
+      if (
+        baseSnapshot.baseId !== checkpoint.baseId ||
+        baseSnapshot.accessScope ||
+        conflicts.length
+      ) {
+        return incompatible(
+          'Back up or move the incompatible working copy before initializing Data PRs. No files were replaced.'
+        );
+      }
+      const patch = diffSnapshots(baseSnapshot, workingSnapshot);
+      if (!isEmptyPatch(patch)) {
+        return incompatible(
+          'The existing clone has local edits. Preserve those edits in a separate checkout and initialize a clean Data PR working copy.'
+        );
+      }
+      if (
+        baseSnapshot.revision !== checkpoint.revision ||
+        baseSnapshot.baseName !== checkpoint.baseName ||
+        !isEmptyPatch(diffSnapshots(baseSnapshot, alignSourceSnapshot(checkpoint, baseSnapshot)))
+      ) {
+        return incompatible(
+          'The clean clone does not match the current immutable checkpoint. Pull the current base or move the old clone aside, then initialize again.'
+        );
+      }
+      const next = { ...config, promotionBaselineRevision: checkpoint.revision };
+      const saved = await this.stateRepository.writeConfig(next);
+      if (saved.isErr()) return err(saved.error);
+      return ok({
+        config: next,
+        snapshot: baseSnapshot,
+        remoteMode: next.remoteMode,
+        summary: summarizePatch(patch),
+      });
+    });
+  }
+
   async execute(input: ICloneBaseVcsInput): Promise<Result<ICloneBaseVcsOutput, DomainError>> {
+    if (input.atRevision !== undefined && !input.checkpoint) {
+      const available = await this.ensureWorkspaceAvailable(input.baseId, input.force);
+      return available.isErr()
+        ? err(available.error)
+        : this.checkoutRevision(input, input.atRevision);
+    }
+    if (input.checkpoint) {
+      const snapshot = input.checkpoint;
+      if (
+        snapshot.baseId !== input.baseId ||
+        !Number.isSafeInteger(snapshot.revision) ||
+        snapshot.revision < 0 ||
+        snapshot.accessScope ||
+        input.atRevision !== undefined ||
+        input.force ||
+        input.schemaOnly ||
+        input.tableIds ||
+        input.headlessUrl
+      ) {
+        return err(
+          vcsDomainError.validation({
+            code: 'vcs.invalid_checkpoint_clone',
+            message: 'A complete base checkpoint is required to initialize this working copy.',
+          })
+        );
+      }
+      if (input.adoptCheckpoint) return this.adoptCheckpoint(snapshot);
+      const available = await this.ensureWorkspaceAvailable(input.baseId);
+      if (available.isErr()) return err(available.error);
+      return this.executeMonolithicClone(input, { snapshot, remoteMode: 'v2-vcs' });
+    }
+
     const availableRes = await this.ensureWorkspaceAvailable(input.baseId, input.force);
     if (availableRes.isErr()) return err(availableRes.error);
-    if (input.atRevision !== undefined) return this.checkoutRevision(input, input.atRevision);
 
     const enableRes = await this.ensureVcsEnabledIfSupported(input.baseId);
     if (enableRes.isErr()) return err(enableRes.error);

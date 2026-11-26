@@ -20,6 +20,7 @@ import {
   urlBuilder,
 } from '@teable/openapi';
 import { DEFAULT_TABLE_DATA_SAFETY_LIMITS } from '@teable/v2-core';
+import { thresholdConfig } from '../src/configs/threshold.config';
 import * as fieldFactory from '../src/features/field/model/factory';
 import { disableLegacyFieldAdmission } from './utils/disable-legacy-field-admission';
 import {
@@ -71,6 +72,61 @@ describe('ordinary native paste preparation retirement (real HTTP)', () => {
       .filter((data) => data && data !== '[DONE]')
       .map((data) => JSON.parse(data));
   };
+
+  it('honors a raised server paste limit at the exact cell boundary', async () => {
+    const columns = 20;
+    const rows = 2501;
+    const cellCount = columns * rows;
+    const table = await createTable(baseId, {
+      name: 'Configured paste limit',
+      fields: Array.from({ length: columns }, (_, i) => ({
+        name: `Column ${i + 1}`,
+        type: FieldType.SingleLineText,
+      })),
+      records: [],
+    });
+    const config = app.get(thresholdConfig.KEY);
+    const previousLimit = config.maxPasteCells;
+    try {
+      const content = Array.from({ length: rows }, (_, i) =>
+        Array<string>(columns).fill(String(i + 1)).join('\t')
+      ).join('\n');
+      const url = urlBuilder(PASTE_URL, { tableId: table.id });
+      const body: IPasteRo = {
+        viewId: table.views[0]!.id,
+        ranges: [
+          [0, 0],
+          [0, 0],
+        ],
+        content,
+      };
+      const options = { headers: { [X_CANARY_HEADER]: 'true' }, validateStatus: () => true };
+
+      config.maxPasteCells = cellCount - 1;
+      const rejected = await axios.patch(url, body, options);
+      expect(rejected.headers['x-teable-v2']).toBe('true');
+      expect(rejected.status).toBe(400);
+      expect(rejected.data.message).toBe(`Exceed max paste cells ${cellCount - 1}`);
+      expect((await getRecords(table.id, { take: 1 })).data.records).toEqual([]);
+
+      config.maxPasteCells = cellCount;
+      const accepted = await axios.patch(url, body, options);
+      expect(accepted.headers['x-teable-v2']).toBe('true');
+      expect(accepted.status, JSON.stringify(accepted.data)).toBe(200);
+      for (const offset of [0, rows - 1]) {
+        const { data } = await getRecords(table.id, {
+          viewId: table.views[0]!.id,
+          fieldKeyType: FieldKeyType.Id,
+          skip: offset,
+          take: 1,
+        });
+        expect(data.records[0]?.fields[table.fields[columns - 1]!.id]).toBe(String(offset + 1));
+      }
+    } finally {
+      config.maxPasteCells = previousLimit;
+      await permanentDeleteTable(baseId, table.id);
+    }
+  });
 
   it.each(['sync', 'stream'] as const)(
     'updates and creates with source headers after field factories retire (%s)',

@@ -96,6 +96,11 @@ class NamedPrismaService
     );
   }
 
+  /** Compare the registry-owned pool itself, including its connection role and options. */
+  usesPgPool(pool: IPgPoolLease['pool']): boolean {
+    return this.poolLease.pool === pool;
+  }
+
   bindAfterTransaction(fn: () => void) {
     this.afterTxCb = fn;
   }

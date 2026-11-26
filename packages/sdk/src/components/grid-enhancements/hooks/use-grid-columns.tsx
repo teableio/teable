@@ -31,6 +31,7 @@ import {
 } from '../../../hooks';
 import type { IFieldInstance, NumberField, Record as IRecordModel } from '../../../model';
 import type { GridView } from '../../../model/view';
+import { isPublicAttachmentField } from '../../../utils/fieldType';
 import { findUrls } from '../../../utils/find-urls';
 import { normalizeCellValueForDisplay } from '../../../utils/normalize-cell-value';
 import { getDisplayChoiceMap } from '../../../utils/select-color';
@@ -50,6 +51,7 @@ import {
   expandPreviewModal,
 } from '../editor';
 import { GridUserEditor } from '../editor/GridUserEditor';
+import { PUBLIC_ATTACHMENT_ICON } from './use-grid-icons';
 
 const cellValueStringCache: LRUCache<string, string> = new LRUCache({ max: 1000 });
 
@@ -222,7 +224,9 @@ const useGenerateColumns = () => {
               ? 'calculating'
               : field.aiConfig != null
                 ? 'ai'
-                : iconString(type, isLookup, field.isConditionalLookup),
+                : isPublicAttachmentField(field)
+                  ? PUBLIC_ATTACHMENT_ICON
+                  : iconString(type, isLookup, field.isConditionalLookup),
           };
         })
         .filter(Boolean)

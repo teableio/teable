@@ -1,5 +1,6 @@
 import type { ISecretSpec } from './secret-specs';
 import { ALL_SECRET_SPECS, SECRET_SPECS } from './secret-specs';
+import { PUBLIC_DEFAULT_STORED_ROOT } from './stored-secret-roots';
 
 type IEnv = Record<string, string | undefined>;
 
@@ -18,6 +19,13 @@ const alternativeEnvKeys = (spec: ISecretSpec): string[] => [
   ...(spec.derivePurpose ? ['SECRET_KEY'] : []),
 ];
 
+/**
+ * Whether SECRET_KEY alone gives the spec a value, because it falls back to it
+ * or is derived from it. Such a secret needs no variable of its own.
+ */
+const followsSecretKey = (spec: ISecretSpec): boolean =>
+  spec.envKey !== SECRET_SPECS.secretKey.envKey && alternativeEnvKeys(spec).includes('SECRET_KEY');
+
 /** Each key/iv pair is set together or left unset together. */
 const CIPHER_PAIRS: [ISecretSpec, ISecretSpec][] = [
   [SECRET_SPECS.mailEncryptionKey, SECRET_SPECS.mailEncryptionIv],
@@ -34,30 +42,51 @@ export const findHalfConfiguredPairs = (
     ([key, iv]) => (isSet(env, key.envKey) ? { set: key, unset: iv } : { set: iv, unset: key })
   );
 
-/** Required specs (per requiredWhen) whose dedicated/fallback env vars are all unset. */
+/**
+ * The stored credential root and the specs it superseded all end at SECRET_KEY: whenever one
+ * of them resolves to nothing private, SECRET_KEY is unset too, and its own line says what
+ * to set. None of them is listed, so no optional or deprecated var is taught.
+ */
+const resolvesThroughSecretKey = (spec: ISecretSpec): boolean => {
+  const storedRoot: ISecretSpec = SECRET_SPECS.storedCredentialEncryptionSecret;
+  return (
+    spec === storedRoot ||
+    (Boolean(spec.deprecated) && (spec.fallbackEnvKeys ?? []).includes(storedRoot.envKey))
+  );
+};
+
+const isRequiredAndUnset = (spec: ISecretSpec, env: IEnv): boolean =>
+  (spec.requiredWhen?.(env) ?? true) && !isConfigured(spec, env);
+
+/**
+ * Required specs (per requiredWhen) whose dedicated/fallback env vars are all unset, minus
+ * the ones that resolve through SECRET_KEY by way of the stored credential root.
+ */
 export const findMissingSecrets = (
   specs: readonly ISecretSpec[],
   env: IEnv = process.env
 ): ISecretSpec[] =>
-  specs.filter((spec) => (spec.requiredWhen?.(env) ?? true) && !isConfigured(spec, env));
+  specs.filter((spec) => isRequiredAndUnset(spec, env) && !resolvesThroughSecretKey(spec));
 
-/** Specs still running on their publicly known former source default. */
+/**
+ * The publicly known value a spec can be pinned to: its former source default, or for the
+ * stored credential root, which has none of its own, the one SECRET_KEY falls back to.
+ */
+const publicDefaultOf = (spec: ISecretSpec): string | undefined =>
+  spec.legacyDefault ??
+  (spec.envKey === SECRET_SPECS.storedCredentialEncryptionSecret.envKey
+    ? PUBLIC_DEFAULT_STORED_ROOT
+    : undefined);
+
+/** Specs explicitly set to a publicly known value. */
 export const findPublicDefaultSecrets = (
   specs: readonly ISecretSpec[],
   env: IEnv = process.env
 ): ISecretSpec[] =>
-  specs.filter(
-    (spec) => spec.legacyDefault !== undefined && env[spec.envKey] === spec.legacyDefault
-  );
-
-/**
- * SECRET_ADMIN_TOOLS_ENABLED holds back the admin-facing secret tooling until
- * it is opened: the server-secrets check of the admin checklist and, on
- * self-hosted, the JWT credentials and cipher re-encrypt pages. Off by
- * default. The boot warnings and the half-pair refusal do not depend on it.
- */
-export const isSecretAdminToolsEnabled = (env: IEnv = process.env): boolean =>
-  env.SECRET_ADMIN_TOOLS_ENABLED === 'true';
+  specs.filter((spec) => {
+    const publicDefault = publicDefaultOf(spec);
+    return publicDefault !== undefined && env[spec.envKey] === publicDefault;
+  });
 
 export type IInsecureSecretReason = 'missing' | 'publicDefault';
 
@@ -91,6 +120,20 @@ export const findInsecureSecrets = (
   ];
 };
 
+/**
+ * Announced one version ahead, and only where it will apply: a later version refuses to
+ * start in production mode while SECRET_KEY is unset or on its public default, so a
+ * production boot that still starts that way says so. Development and tests keep running
+ * without one and are not told.
+ */
+const SECRET_KEY_REQUIRED_NOTICE =
+  'A LATER VERSION WILL REFUSE TO START while SECRET_KEY is unset or set to its publicly known default. Set a private SECRET_KEY before upgrading to it.';
+
+const isSecretKey = (spec: ISecretSpec): boolean => spec.envKey === SECRET_SPECS.secretKey.envKey;
+
+const announcesStartupRefusal = (specs: ISecretSpec[], env: IEnv): boolean =>
+  env.NODE_ENV === 'production' && specs.some(isSecretKey);
+
 // aes-128-cbc slots need exactly 16 chars; everything else takes any strong value.
 const isAes16Slot = (envKey: string) => /_ENCRYPTION_(?:KEY|IV)$/.test(envKey);
 
@@ -100,7 +143,10 @@ const pinLine = (s: ISecretSpec): string =>
     ? `${s.envKey}='${s.legacyDefault}'`
     : `# ${s.envKey} — ${s.pinInstruction}`;
 
-export const buildMissingSecretsMessage = (missing: ISecretSpec[]): string => {
+export const buildMissingSecretsMessage = (
+  missing: ISecretSpec[],
+  env: IEnv = process.env
+): string => {
   const list = missing
     .map((s) => {
       const alternatives = alternativeEnvKeys(s);
@@ -109,11 +155,29 @@ export const buildMissingSecretsMessage = (missing: ISecretSpec[]): string => {
     .join('\n');
   // Directly copy-pastable blocks — never send the operator off to another file.
   const existingBlock = missing.map((s) => `    ${pinLine(s)}`).join('\n');
-  const newBlock = missing
+  // A new deployment is advised to set SECRET_KEY and what does not follow it, nothing
+  // else: the rest falls back to SECRET_KEY or is derived from it, and a variable it never
+  // set is one it never has to retire. A deprecated secret is not one to start with either.
+  const toGenerate = missing.filter((s) => !followsSecretKey(s) && !s.deprecated);
+  const newBlock = toGenerate
     .map(
       (s) => `    ${s.envKey}=$(openssl rand ${isAes16Slot(s.envKey) ? '-hex 8' : '-base64 32'})`
     )
     .join('\n');
+  const newDeployment = toGenerate.length
+    ? [
+        'NEW deployment: generate fresh values instead:',
+        '',
+        newBlock,
+        '',
+        ...(missing.some(followsSecretKey)
+          ? [
+              'That is all a new deployment sets. The other variables above fall back to SECRET_KEY or are derived from it: leave them unset.',
+              '',
+            ]
+          : []),
+      ]
+    : [];
   return [
     'SECURITY WARNING: missing secret environment variable(s) — the instance will START anyway, falling back to the built-in PUBLICLY KNOWN defaults (they live in the public git history, so anyone can forge tokens / decrypt data protected by them):',
     '',
@@ -121,14 +185,12 @@ export const buildMissingSecretsMessage = (missing: ISecretSpec[]): string => {
     '',
     'Fine for a quick local try-out; for anything reachable from the network, set your own values.',
     '',
+    ...(announcesStartupRefusal(missing, env) ? [SECRET_KEY_REQUIRED_NOTICE, ''] : []),
     'EXISTING deployment (was running without these variables): it is implicitly using the old built-in values. To pin them explicitly before rotating, add EXACTLY the block below (mind `$` escaping in your env format):',
     '',
     existingBlock,
     '',
-    'NEW deployment: generate fresh values instead:',
-    '',
-    newBlock,
-    '',
+    ...newDeployment,
     'Planned JWT secret rotation later on: put the new value in BACKEND_JWT_SECRET and keep the previous one in BACKEND_JWT_SECRET_OLD until outstanding tokens expire (~30d), then remove it.',
     '',
     'Planned encryption key rotation: move the current pair into <VAR>_OLD (e.g. BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY_OLD / ..._IV_OLD — ALWAYS both, copying the unchanged half; half a pair refuses to boot), put fresh values in the main vars, and keep _OLD until no ciphertext under it remains (access tokens live until they expire or are revoked). If the old key LEAKED, do NOT pin it into _OLD — hard-cut instead: _OLD is accepted for decryption, so pinning a leaked key keeps forged ciphertext working.',
@@ -161,13 +223,17 @@ export const buildHalfConfiguredPairsMessage = (
     ...pairs.map(({ unset }) => `    ${halfPairPinLine(unset, env)}`),
   ].join('\n');
 
-export const buildPublicDefaultsWarning = (onDefaults: ISecretSpec[]): string =>
+export const buildPublicDefaultsWarning = (
+  onDefaults: ISecretSpec[],
+  env: IEnv = process.env
+): string =>
   [
     'SECURITY WARNING: the following secrets are set to their PUBLICLY KNOWN former source-code defaults (they live in the public git history, so anyone can forge tokens / decrypt data protected by them):',
     '',
     ...onDefaults.map((s) => `  - ${s.envKey} (${s.usedFor})`),
     '',
     'The instance keeps running so existing data stays accessible, but plan a rotation to freshly generated values as soon as possible.',
+    ...(announcesStartupRefusal(onDefaults, env) ? ['', SECRET_KEY_REQUIRED_NOTICE] : []),
   ].join('\n');
 
 // The key/iv pairs whose ciphertext sits in users' hands, with the cipher each runs under.
@@ -231,8 +297,9 @@ export const buildWrongLengthCipherValuesWarning = (
  * to start with zero secret configuration (resolve-secret.ts falls back to
  * the legacy source-code defaults). It warns, loudly:
  *
- * - missing secrets → loud error log with per-secret pin/generate
- *   instructions, then boot on the legacy defaults. Development sets no
+ * - missing secrets → loud error log with a pin line per secret for an
+ *   existing deployment and, for a new one, the lines that generate SECRET_KEY
+ *   and what does not follow it, then boot on the legacy defaults. Development sets no
  *   secrets BY DESIGN — it exercises the exact zero-config path self-hosters
  *   hit — so expect this warning on every local boot;
  * - secrets explicitly set to their public former defaults → loud error log,
@@ -255,11 +322,11 @@ export const enforceSecretsPolicy = (
   }
   const missing = findMissingSecrets(ALL_SECRET_SPECS, env);
   if (missing.length > 0) {
-    logError(buildMissingSecretsMessage(missing));
+    logError(buildMissingSecretsMessage(missing, env));
   }
   const onDefaults = findPublicDefaultSecrets(ALL_SECRET_SPECS, env);
   if (onDefaults.length > 0) {
-    logError(buildPublicDefaultsWarning(onDefaults));
+    logError(buildPublicDefaultsWarning(onDefaults, env));
   }
   const wrongLength = findWrongLengthCipherValues(env);
   if (wrongLength.length > 0) {

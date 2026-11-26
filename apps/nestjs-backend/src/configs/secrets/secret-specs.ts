@@ -44,6 +44,12 @@ export interface ISecretSpec {
   /** printed in the boot error when the previous value is not a public constant */
   pinInstruction?: string;
   /**
+   * Still read so the data stored under it stays readable, but superseded: a new
+   * deployment should not set it, and an existing one can remove it once a key
+   * convergence has rewritten that data.
+   */
+  deprecated?: boolean;
+  /**
    * Required only while this predicate holds (default: always). For secrets
    * whose sole consumer is itself selected by boot-time env — demanding them
    * unconditionally would force dead config on deployments that never read
@@ -52,17 +58,21 @@ export interface ISecretSpec {
   requiredWhen?: (env: Record<string, string | undefined>) => boolean;
 }
 
-/** For specs whose only consumer is an EE / cloud feature: do not nag community boots. */
 /**
- * BYODB URLs are written in the authenticated format once its root is set, or once SECRET_KEY
- * (what the root falls back to) is a private value. Under the public default SECRET_KEY the
- * root would be publicly computable too, worse than a private legacy key/iv, so the legacy
- * format stays until one of them is set.
+ * BYODB URLs are written in the authenticated format once their root is a private value:
+ * the format's superseded dedicated var while it is set, else the stored credential root,
+ * else SECRET_KEY. Under the public default the root would be publicly computable, worse
+ * than a private legacy key/iv, so the legacy format stays until a private root is set.
  */
-export const writesAuthenticatedDataDbUrls = (env: Record<string, string | undefined>): boolean =>
-  Boolean(env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET) ||
-  Boolean(env.SECRET_KEY && env.SECRET_KEY !== SECRET_SPECS.secretKey.legacyDefault);
+export const writesAuthenticatedDataDbUrls = (env: Record<string, string | undefined>): boolean => {
+  const root =
+    env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET ||
+    env.BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET ||
+    env.SECRET_KEY;
+  return Boolean(root && root !== SECRET_SPECS.secretKey.legacyDefault);
+};
 
+/** For specs whose only consumer is an EE / cloud feature: do not nag community boots. */
 const isEeOrCloudEdition = (env: Record<string, string | undefined>) => {
   const edition = env.NEXT_BUILD_ENV_EDITION?.toUpperCase();
   return edition === 'EE' || edition === 'CLOUD';
@@ -74,12 +84,14 @@ export const SECRET_SPECS = {
     // Besides the umbrella specs (fallbackEnvKeys) it seeds the derived key/iv
     // pairs (derivePurpose) — describe exactly what reads it.
     usedFor:
-      'JWT/session fallback, BYODB URL key derivation, personal access token key derivation, mail unsubscribe-link key derivation, local storage read-token key derivation, EE env-variable encryption, AI-config key encryption, third-party credential encryption, invitation-code HMAC, welcome-reward inbox HMAC, plugin secret fallback, structured-query cursor signing (private root preferred over JWT/session)',
-    // 'defaultSecretKey' was only ever the dev fallback for EE env-variable
-    // encryption; deployments that relied on it must pin it to keep decrypting.
+      'JWT/session fallback, stored credential root fallback (third-party credentials, AI-config keys, EE env variables, BYODB URLs, welcome-reward inbox HMAC), legacy BYODB URL key derivation, personal access token key derivation, mail unsubscribe-link key derivation, local storage read-token key derivation, invitation-code HMAC, plugin secret fallback, structured-query cursor signing (private root preferred over JWT/session)',
+    // The public literal everything that follows SECRET_KEY runs on while it is unset. A
+    // later version refuses to start on it in production mode, so nothing teaches pinning
+    // it: what was stored under it is kept readable through an _OLD var next to a private
+    // SECRET_KEY.
     legacyDefault: 'defaultSecretKey',
     pinInstruction:
-      "generate one: `openssl rand -base64 32`. Existing deployments that stored EE app env-variables WITHOUT SECRET_KEY set must pin BACKEND_ENV_VARIABLE_SECRET='defaultSecretKey' to keep decrypting them (rotate via BACKEND_ENV_VARIABLE_SECRET_OLD afterwards).",
+      "generate one: `openssl rand -base64 32`. Existing deployments that stored EE app env variables or AI provider keys WITHOUT SECRET_KEY set: add BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD='defaultSecretKey' next to the new SECRET_KEY so they stay readable (it only decrypts). It can go once System Admin → Key rotation has re-encrypted them; an instance without that page keeps it.",
   },
   jwtSecret: {
     envKey: 'BACKEND_JWT_SECRET',
@@ -104,47 +116,63 @@ export const SECRET_SPECS = {
     usedFor: 'signing invitation link codes (HMAC)',
     legacyDefault: 'defaultSecretKey',
   },
-  // Same shape as jwtSecret: dedicated var, then the SECRET_KEY umbrella
-  // (byte-identical to the pre-dedicated behavior), then the public dev
-  // default. HKDF input, so any strong value works (`openssl rand -base64 32`).
+  // The one root of what is encrypted in the database: third-party credentials, AI provider
+  // keys, EE app env variables, BYODB URLs in the authenticated format, and the HMAC key of
+  // the welcome reward's dedupe keys. Each purpose derives its own key from it (its HKDF
+  // info), so one root never shares key material between them. Unset, it is SECRET_KEY, which
+  // is all a deployment needs; set, it keeps what is stored apart from the secret that signs.
+  // It has no default of its own: with nothing set it is whatever SECRET_KEY falls back to.
+  // The five specs it superseded are still read ahead of it (stored-secret-roots.ts),
+  // so an upgrade changes nothing until an operator sets this one and removes those.
+  storedCredentialEncryptionSecret: {
+    envKey: 'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET',
+    fallbackEnvKeys: ['SECRET_KEY'],
+    usedFor:
+      'encrypting what is stored in the database for customers: third-party credentials (OAuth tokens, IM bot credentials, SSO client secrets, SMTP passwords, app-builder secrets, automation webhook / mail secrets), AI provider API keys, EE app env variables, BYODB database URLs; signing the welcome reward dedupe keys on cloud (HKDF root)',
+  },
+  // Superseded by the stored credential root: still the root of its purpose while set, so
+  // nothing changes on upgrade. Unset, the purpose follows the stored credential root, then
+  // SECRET_KEY (byte-identical to the behaviour before that root existed).
   envVariableSecret: {
     envKey: 'BACKEND_ENV_VARIABLE_SECRET',
-    fallbackEnvKeys: ['SECRET_KEY'],
+    fallbackEnvKeys: ['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET', 'SECRET_KEY'],
     usedFor: 'encrypting EE app env variables (HKDF root)',
     legacyDefault: 'defaultSecretKey',
+    deprecated: true,
     requiredWhen: isEeOrCloudEdition,
   },
-  // Same resolution shape as envVariableSecret (dedicated var → SECRET_KEY →
-  // the public dev default); a distinct HKDF info string keeps its key
-  // material separate even when the roots collide. HKDF input, so any strong
-  // value works (`openssl rand -base64 32`).
+  // Superseded like envVariableSecret, with the same resolution; a distinct HKDF info string
+  // keeps its key material separate now that the roots are meant to be one.
   aiConfigEncryptionSecret: {
     envKey: 'BACKEND_AI_CONFIG_ENCRYPTION_SECRET',
-    fallbackEnvKeys: ['SECRET_KEY'],
+    fallbackEnvKeys: ['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET', 'SECRET_KEY'],
     usedFor: 'encrypting AI provider API keys stored in instance/space AI config (HKDF root)',
     legacyDefault: 'defaultSecretKey',
+    deprecated: true,
   },
   // HMAC key of the welcome reward's per-inbox dedupe key; only cloud grants the reward.
-  // Unset, it is SECRET_KEY itself (byte-identical to the behaviour before it existed);
-  // _OLD keeps counting while the key convergence re-signs the stored keys.
+  // Superseded like envVariableSecret: unset, it is the stored credential root, then
+  // SECRET_KEY itself (byte-identical to the behaviour before either existed). Every
+  // previous key keeps counting while the key convergence re-signs the stored keys.
   welcomeRewardSecret: {
     envKey: 'BACKEND_WELCOME_REWARD_SECRET',
-    fallbackEnvKeys: ['SECRET_KEY'],
+    fallbackEnvKeys: ['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET', 'SECRET_KEY'],
     usedFor: 'deduplicating the welcome reward per inbox (HMAC, cloud)',
     legacyDefault: 'defaultSecretKey',
+    deprecated: true,
     requiredWhen: (env) => env.NEXT_BUILD_ENV_EDITION?.toUpperCase() === 'CLOUD',
   },
-  // Same resolution shape as aiConfigEncryptionSecret; the HKDF info string
-  // (teable:third-party-credential) keeps it apart from the AI-config key when
-  // both fall back to SECRET_KEY. Required on every edition: community stores
-  // such credentials too (instance settings, space AI integrations), and with
-  // only the public default root they are stored unencrypted.
+  // Superseded like aiConfigEncryptionSecret, with the same resolution; the HKDF info string
+  // (teable:third-party-credential) keeps it apart from the AI-config key under one root.
+  // Read on every edition: community stores such credentials too (instance settings, space
+  // AI integrations), and with only the public default root they are stored unencrypted.
   thirdPartyCredentialEncryptionSecret: {
     envKey: 'BACKEND_THIRD_PARTY_CREDENTIAL_ENCRYPTION_SECRET',
-    fallbackEnvKeys: ['SECRET_KEY'],
+    fallbackEnvKeys: ['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET', 'SECRET_KEY'],
     usedFor:
       'encrypting third-party credentials stored for customers: OAuth tokens, IM bot credentials, SSO client secrets, SMTP passwords, app-builder secrets, automation webhook / mail secrets (HKDF root)',
     legacyDefault: 'defaultSecretKey',
+    deprecated: true,
   },
   // Only the unsubscribe-link tokens of EE mail (automation / notification
   // emails) use this pair; the community backend never reads it. With
@@ -207,39 +235,45 @@ export const SECRET_SPECS = {
     usedFor: 'encrypting personal access tokens',
     legacyDefault: 'i0vKGXBWkzyAoGf4',
   },
-  // BYODB keys keep their historical resolution chain (dedicated var, then the
-  // access-token key, then sha256(SECRET_KEY ?? a public literal), where key
-  // == iv when SECRET_KEY is set) — see data-db-url-secret.ts. Their previous
-  // effective value depends on the deployment's own env, so the boot warning
-  // teaches how to compute it and never prints derived key material.
+  // The legacy BYODB pair keeps its historical resolution chain (dedicated var, then the
+  // access-token pair, then sha256(SECRET_KEY ?? a public literal), where key == iv when
+  // SECRET_KEY is set) — see data-db-url-secret.ts. The previous effective value depends on
+  // the deployment's own env, so the boot warning teaches how to compute it and never
+  // prints derived key material.
   // fallbackEnvKeys only tell the policy which vars keep the effective value
   // off the public literals; nothing resolves these specs via resolveSecret.
   dataDbUrlEncryptionKey: {
     envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_KEY',
     fallbackEnvKeys: ['BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY', 'SECRET_KEY'],
-    usedFor: 'encrypting BYODB database URLs',
+    usedFor: 'encrypting BYODB database URLs in the legacy format',
+    deprecated: true,
     pinInstruction:
-      "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY if it was set, otherwise compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY ?? 'teable-data-db-url-secret').digest('hex').slice(0,16))\"`. New deployments: `openssl rand -hex 8`.",
+      "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY if it was set, otherwise compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY ?? 'teable-data-db-url-secret').digest('hex').slice(0,16))\"`.",
   },
   dataDbUrlEncryptionIv: {
     envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_IV',
     fallbackEnvKeys: ['BACKEND_ACCESS_TOKEN_ENCRYPTION_IV', 'SECRET_KEY'],
-    usedFor: 'encrypting BYODB database URLs',
+    usedFor: 'encrypting BYODB database URLs in the legacy format',
+    deprecated: true,
     pinInstruction:
-      "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_IV if it was set; with SECRET_KEY set, compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY).digest('hex').slice(0,16))\"` (key and iv share one derivation input — a historical quirk); with neither, the same command with 'teable-data-db-url-secret-iv' in place of process.env.SECRET_KEY. New deployments: `openssl rand -hex 8`.",
+      "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_IV if it was set; with SECRET_KEY set, compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY).digest('hex').slice(0,16))\"` (key and iv share one derivation input — a historical quirk); with neither, the same command with 'teable-data-db-url-secret-iv' in place of process.env.SECRET_KEY.",
   },
-  // HKDF root of the authenticated BYODB URL format (AES-256-GCM, see
-  // data-db-url-secret.ts). It resolves like the other roots, but only the
-  // dedicated var switches new writes to that format: the fallbacks serve
-  // decryption alone, so every replica, and every environment sharing the
-  // database, can read the format before any of them writes it. Unset, the
-  // legacy pair above keeps writing, hence in scope only once it is set.
+  // HKDF root of the authenticated BYODB URL format (AES-256-GCM, see data-db-url-secret.ts).
+  // Superseded like envVariableSecret, with the same resolution. It shipped as that format's
+  // own root before the stored credential root existed, so a deployment that set it keeps
+  // reading and writing under it until an operator removes it. In scope only where the
+  // format is written: under the public default root the legacy pair above keeps writing.
   dataDbUrlEncryptionSecret: {
     envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_SECRET',
-    fallbackEnvKeys: ['SECRET_KEY'],
+    fallbackEnvKeys: ['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET', 'SECRET_KEY'],
     usedFor: 'encrypting BYODB database URLs in the authenticated format (HKDF root)',
     legacyDefault: 'defaultSecretKey',
-    requiredWhen: writesAuthenticatedDataDbUrls,
+    deprecated: true,
+    // Read whenever it is set, its public default included: that value is what keeps the
+    // legacy format in use, so it has to show up as a public value instead of going out of
+    // scope. Unset, the purpose is in scope once some private root writes the format.
+    requiredWhen: (env) =>
+      Boolean(env.BACKEND_DATA_DB_URL_ENCRYPTION_SECRET) || writesAuthenticatedDataDbUrls(env),
   },
   // Read straight from env by the EE automation script runner; the sandbox
   // service falls back to the same public value, so the pair keeps working.

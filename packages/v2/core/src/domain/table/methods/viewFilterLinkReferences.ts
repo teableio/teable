@@ -7,7 +7,12 @@ import { RecordId } from '../records/RecordId';
 import type { Table } from '../Table';
 import type { TableId } from '../TableId';
 import type { ViewId } from '../views/ViewId';
-import type { ViewSourceFilterDTO } from '../views/ViewSourceFilter';
+
+export type FilterLinkReferenceGroup = {
+  readonly filterSet: ReadonlyArray<
+    FilterLinkReferenceGroup | { readonly fieldId: string; readonly value?: unknown }
+  >;
+};
 
 export type ViewFilterLinkReference = {
   readonly foreignTableId: TableId;
@@ -49,7 +54,7 @@ const collectRecordIds = (
 
 export const collectFilterLinkReferences = (
   table: Table,
-  sourceFilter: ViewSourceFilterDTO
+  sourceFilter: FilterLinkReferenceGroup
 ): ReadonlyArray<ViewFilterLinkReference> => {
   const linkFields = table.getFields((field): field is LinkField => field instanceof LinkField);
   const linkFieldById = new Map(linkFields.map((field) => [field.id().toString(), field] as const));
@@ -67,7 +72,7 @@ export const collectFilterLinkReferences = (
   );
   const referencesByForeignTableId = new Map<string, MutableViewFilterLinkReference>();
 
-  const visit = (group: ViewSourceFilterDTO): void => {
+  const visit = (group: FilterLinkReferenceGroup): void => {
     for (const item of group.filterSet) {
       if ('filterSet' in item) {
         visit(item);

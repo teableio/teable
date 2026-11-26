@@ -84,7 +84,7 @@ export class LookupField
    * a single-value field like AutoNumber would result in an INTEGER column).
    */
   private isMultipleCellValueOverride: boolean | undefined;
-
+  private readonly hasExplicitIsMultipleCellValueOverride: boolean;
   private constructor(
     id: FieldId,
     name: FieldName,
@@ -99,6 +99,7 @@ export class LookupField
     super(id, name, FieldType.lookup(), dbFieldName, dependencies ?? [], FieldComputed.computed());
     this.innerFieldValue = innerField;
     this.isMultipleCellValueOverride = isMultipleCellValue;
+    this.hasExplicitIsMultipleCellValueOverride = isMultipleCellValue !== undefined;
     this.innerOptionsPatchValue = innerOptionsPatch ? { ...innerOptionsPatch } : undefined;
     this.legacyMultiplicityDerivationEnabled = legacyMultiplicityDerivation === true;
   }
@@ -403,8 +404,33 @@ export class LookupField
     return this.ensureDependencies([this.linkFieldId(), ...(conditionFieldIds ?? [])]);
   }
 
+  recomputeLegacyMultiplicity(context: ForeignTableValidationContext): boolean {
+    if (!this.legacyMultiplicityDerivationEnabled || this.hasExplicitIsMultipleCellValueOverride) {
+      return false;
+    }
+    const linkFieldResult = context.hostTable.getField((field) =>
+      field.id().equals(this.linkFieldId())
+    );
+    if (linkFieldResult.isErr() || !(linkFieldResult.value instanceof LinkField)) {
+      return false;
+    }
+    const foreignTable = context.foreignTables.find((table) =>
+      table.id().equals(this.foreignTableId())
+    );
+    if (!foreignTable) {
+      return false;
+    }
+    const lookupFieldResult = ForeignTable.from(foreignTable).fieldById(this.lookupFieldId());
+    if (lookupFieldResult.isErr()) {
+      return false;
+    }
+    const previous = this.isMultipleCellValueOverride;
+    this.deriveMultiplicityOverride(linkFieldResult.value, lookupFieldResult.value);
+    return this.isMultipleCellValueOverride !== previous;
+  }
+
   private deriveMultiplicityOverride(linkField: LinkField, lookupField: Field): void {
-    if (this.isMultipleCellValueOverride !== undefined) {
+    if (this.hasExplicitIsMultipleCellValueOverride) {
       return;
     }
 

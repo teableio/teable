@@ -11,7 +11,7 @@ import {
   maxCollaboratorNotifyRecordTitles,
   NotificationService,
 } from '../../features/notification/notification.service';
-import { RecordService } from '../../features/record/record.service';
+import { RecordTitleReader } from '../../features/v2/record-title-reader';
 import type { IChangeRecord, IChangeValue, RecordCreateEvent, RecordUpdateEvent } from '../events';
 import { Events } from '../events';
 
@@ -32,7 +32,7 @@ export class CollaboratorNotificationListener {
   constructor(
     private readonly prismaService: PrismaService,
     private readonly notificationService: NotificationService,
-    private readonly recordService: RecordService,
+    private readonly recordTitles: RecordTitleReader,
     @InjectModel('CUSTOM_KNEX') private readonly knex: Knex,
     private readonly collaboratorService: CollaboratorService
   ) {}
@@ -107,7 +107,7 @@ export class CollaboratorNotificationListener {
     ];
     const recordTitles =
       recordIdsNeedingTitles.length > 0
-        ? await this.recordService.getRecordsHeadWithIds(tableId, recordIdsNeedingTitles)
+        ? await this.recordTitles.byIds(tableId, recordIdsNeedingTitles)
         : [];
     const recordTitlesMap = keyBy(recordTitles, 'id');
 

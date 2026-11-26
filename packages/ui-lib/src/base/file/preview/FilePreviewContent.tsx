@@ -1,6 +1,6 @@
 /* eslint-disable jsx-a11y/click-events-have-key-events */
 /* eslint-disable jsx-a11y/no-static-element-interactions */
-import { X, ChevronLeft, ChevronRight, Download, Trash2 } from '@teable/icons';
+import { X, ChevronLeft, ChevronRight, Download, Link, Trash2 } from '@teable/icons';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { useIsMobile } from '../../../hooks/use-is-mobile';
 import { Dialog, DialogContent, DialogTrigger, cn } from '../../../shadcn';
@@ -18,7 +18,7 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
   const { files, currentFile, openPreview, closePreview, onPrev, onNext, i18nMap } =
     useContext(FilePreviewContext);
   const isMobile = useIsMobile(640);
-  const { name, fileId, src, downloadUrl, onDelete } = currentFile || {};
+  const { name, fileId, src, downloadUrl, onDelete, onCopyLink } = currentFile || {};
   const open = Boolean(fileId);
   const thumbnailContainerRef = useRef<HTMLDivElement | null>(null);
   const activeThumbnailRef = useRef<HTMLButtonElement>(null);
@@ -211,6 +211,17 @@ export const FilePreviewContent = (props: { container?: HTMLElement | null }) =>
               >
                 <Download className="text-xl" />
               </button>
+              {onCopyLink && (
+                <button
+                  type="button"
+                  className={HEADER_BUTTON_CLASS}
+                  onClick={() => onCopyLink()}
+                  title={i18nMap?.copyLink || 'Copy link'}
+                  aria-label={i18nMap?.copyLink || 'Copy link'}
+                >
+                  <Link className="text-xl" />
+                </button>
+              )}
               {onDelete && (
                 <button
                   type="button"

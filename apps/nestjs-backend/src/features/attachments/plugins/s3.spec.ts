@@ -663,3 +663,28 @@ describe('S3Storage getObjectMeta', () => {
     });
   });
 });
+
+describe('S3Storage listObjects', () => {
+  it('lists one page after a key when asked for maxKeys', async () => {
+    const storage = new S3Storage(mockS3Config(false));
+    const send = vi.fn(async () => ({
+      Contents: [{ Key: 'p/b', Size: 2 }],
+      IsTruncated: true,
+      NextContinuationToken: 'next',
+    }));
+    (storage as any).s3ClientPrivateNetwork = { send };
+
+    const { objects } = await storage.listObjects('bucket', 'p/', {
+      startAfter: 'p/a',
+      maxKeys: 1,
+    });
+
+    expect(objects).toEqual([{ key: 'p/b', size: 2, etag: undefined, lastModified: undefined }]);
+    expect(send).toHaveBeenCalledTimes(1);
+    expect((send.mock.calls[0] as any)[0].input).toMatchObject({
+      Prefix: 'p/',
+      StartAfter: 'p/a',
+      MaxKeys: 1,
+    });
+  });
+});

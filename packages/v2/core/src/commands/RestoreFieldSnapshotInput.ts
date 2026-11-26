@@ -3,6 +3,7 @@ import type { Result } from 'neverthrow';
 import { z } from 'zod';
 
 import { domainError, type DomainError } from '../domain/shared/DomainError';
+import { withoutAttachmentPublicAccess } from '../domain/table/fields/types/AttachmentPublicAccess';
 import { tableFieldInputSchema, type ITableFieldInput } from '../schemas/field';
 
 const LOOKUP_INPUT_OPTION_KEYS = [
@@ -140,7 +141,7 @@ export const toRestoreFieldCreateInput = (
     return defined({
       ...common,
       type: field.type,
-      options: field.options,
+      options: withoutAttachmentPublicAccess(field).options,
     });
   })();
 

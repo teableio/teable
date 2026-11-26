@@ -75,7 +75,9 @@
       "downloadSuccess": "Download completed",
       "downloadFailed": "Download failed",
       "downloadCancelled": "Download canceled",
-      "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost"
+      "requireHttps": "Bulk download requires HTTPS. Please access via HTTPS or localhost",
+      "copyPublicLink": "Copy public link",
+      "publicLinkCopied": "Public link copied"
     },
     "date": {
       "placeholder": "Pick a date",
@@ -1837,6 +1839,10 @@
       "endpointChanged": "A saved secret can only be sent to the address it was saved for. Enter {{field}} again.",
       "reenterForNewAddress": "The address changed. Enter or clear {{fields}} first.",
       "staleMask": "The saved {{field}} changed since this page was loaded. Enter it again."
+    },
+    "publicFile": {
+      "fieldNotFound": "Field not found",
+      "noPublicFields": "The space does not exist or has no attachment fields with public access on"
     }
   },
   "usageLimitBanner": {
