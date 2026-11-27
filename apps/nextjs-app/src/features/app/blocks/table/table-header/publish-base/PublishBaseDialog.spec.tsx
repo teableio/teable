@@ -60,6 +60,11 @@ vi.mock('../../../base/base-node/hooks', async (importOriginal) => ({
   buildTreeItems: () => state.treeItems,
   filterAutoHiddenFolders: (nodes: unknown) => nodes,
 }));
+// The catalogue card itself is the template centre's; here only its cover matters.
+vi.mock('@/features/app/components/space/template/TemplateCard', () => ({
+  TemplateCard: ({ template }: { template: { cover?: { presignedUrl?: string } | null } }) =>
+    template.cover?.presignedUrl ? <img src={template.cover.presignedUrl} alt="" /> : null,
+}));
 vi.mock('@teable/sdk/components', () => ({ AttachmentManager: class {} }));
 vi.mock('next-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));

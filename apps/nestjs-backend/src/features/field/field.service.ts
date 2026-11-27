@@ -58,6 +58,7 @@ import {
   applyFieldPropertyOpsAndCreateInstance,
 } from './model/factory';
 import type { FormulaFieldDto } from './model/field-dto/formula-field.dto';
+import { readStoredField } from './model/read-stored-field';
 
 type IOpContext = ISetFieldPropertyOpContext;
 
@@ -897,25 +898,9 @@ export class FieldService implements IReadonlyAdapterService {
   }
 
   async getField(tableId: string, fieldId: string): Promise<IFieldVo> {
-    const field = await this.prismaService.txClient().field.findFirst({
-      where: { id: fieldId, tableId, deletedTime: null },
-    });
-    if (!field) {
-      throw new CustomHttpException(
-        `Field ${fieldId} not found in table ${tableId}`,
-        HttpErrorCode.NOT_FOUND,
-        {
-          localization: {
-            i18nKey: 'httpErrors.field.notFoundInTable',
-            context: { tableId, fieldId },
-          },
-        }
-      );
-    }
-    const fieldVo = rawField2FieldObj(field);
+    const fieldVo = await readStoredField(this.prismaService.txClient(), tableId, fieldId);
     await this.fieldPeriodicRefreshStateService?.attachPeriodicRefreshToFieldVos([fieldVo]);
-    // Filter out meta field to prevent it from being sent to frontend
-    return omit(fieldVo, ['meta']) as IFieldVo;
+    return fieldVo;
   }
 
   async getFieldsByQuery(tableId: string, query?: IGetFieldsQuery): Promise<IFieldVo[]> {

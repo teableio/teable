@@ -1024,6 +1024,72 @@ describe('useInstances hook', () => {
     expect(docs[0].data.fields.fldSchemaRefresh04).toEqual(['待开始']);
   });
 
+  it('refreshes attachment cells in place when the field turns public links on', async () => {
+    const presenceController = createMockPresence();
+    const attachment = { id: 'act1', token: 'tok1', name: 'a.png', mimetype: 'image/png' };
+    const docs = [
+      createMockDoc({
+        data: { id: 'rec1', fields: { fldPublicAttachment: [attachment] } },
+        collection: 'rec_tblPublicAttachment',
+        id: 'rec1',
+      }),
+    ];
+    const createSubscribeQuery = vi.fn((collection: string, queryParams: unknown) => {
+      return {
+        collection,
+        query: queryParams,
+        results: docs,
+        ready: true,
+        sent: true,
+        ...mockQueryMethods,
+      } as unknown as Query<any>;
+    });
+    const connection = {
+      createSubscribeQuery,
+      getPresence: vi.fn(() => presenceController.presence),
+    } as any;
+
+    const publicAttachment = { ...attachment, publicUrl: 'https://files.example.com/a.png' };
+    vi.mocked(getRecords).mockResolvedValue({
+      data: { records: [{ id: 'rec1', fields: { fldPublicAttachment: [publicAttachment] } }] },
+    } as any);
+
+    renderHook(
+      () =>
+        useInstances({
+          ...mockProps,
+          collection: 'rec_tblPublicAttachment',
+          queryParams: {},
+        }),
+      {
+        wrapper: createUseInstancesWrap({ ...mockAppContext, connection }),
+      }
+    );
+
+    await act(async () => {
+      presenceController.emitReceive([
+        {
+          actionKey: 'setField',
+          payload: {
+            tableId: 'tblPublicAttachment',
+            field: {
+              id: 'fldPublicAttachment',
+              updatedProperties: ['isPublic'],
+              options: { isPublic: true },
+            },
+          },
+        },
+      ]);
+      await Promise.resolve();
+    });
+
+    expect(vi.mocked(getRecords)).toHaveBeenCalledWith(
+      'tblPublicAttachment',
+      expect.objectContaining({ projection: ['fldPublicAttachment'] })
+    );
+    expect(docs[0].data.fields.fldPublicAttachment).toEqual([publicAttachment]);
+  });
+
   it('refreshes projected record fields in place on legacy v1 setField presence with options changes', async () => {
     const presenceController = createMockPresence();
     const docs = [

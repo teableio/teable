@@ -503,7 +503,9 @@ describe('fieldDtoSchema', () => {
       const field = { id: 'fldField', name: 'Field', type };
       for (const status of [{}, { isComputed: true }, { isLookup: true }]) {
         expect(fieldDtoSchema.safeParse({ ...field, ...status }).success).toBe(false);
-        expect(fieldDtoSchema.safeParse({ ...field, ...status, hasError: false }).success).toBe(false);
+        expect(fieldDtoSchema.safeParse({ ...field, ...status, hasError: false }).success).toBe(
+          false
+        );
       }
       expect(fieldDtoSchema.safeParse({ ...field, hasError: true }).success).toBe(false);
     }

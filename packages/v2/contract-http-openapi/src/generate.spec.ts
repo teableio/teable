@@ -24,7 +24,14 @@ describe('public operation schemas', () => {
         $ref: `urn:teable:table-docs#/paths/~1tables~1get/get/responses/${status}/content/application~1json/schema`,
       });
     const acceptsTable = response(200);
-    const table = { id: 'tbl1', baseId: 'bse1', name: 'Tasks', fields: [], views: [], actorStorageVersion: 1 };
+    const table = {
+      id: 'tbl1',
+      baseId: 'bse1',
+      name: 'Tasks',
+      fields: [],
+      views: [],
+      actorStorageVersion: 1,
+    };
     expect(acceptsTable({ ok: true, data: { table } })).toBe(true);
     expect(acceptsTable({ ok: true, data: { table: { ...table, fields: 'invalid' } } })).toBe(
       false

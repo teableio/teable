@@ -224,27 +224,28 @@
   },
   "publishBase": {
     "title": "Publicar en el centro de plantillas",
-    "description": "¡Publica el proyecto en el centro de plantillas con un clic! Deja que más personas vean, usen y hagan Remix de tu creatividad, y construyan juntos un negocio más poderoso",
-    "configureTitle": "Configura tu plantilla",
-    "configureDescription": "Las plantillas destacadas pueden aparecer en el centro de plantillas",
+    "description": "Publica en el centro de plantillas para que otros encuentren y usen tu plantilla.",
+    "configureTitle": "Publicar plantilla",
+    "configureDescription": "Una vez publicada, la plantilla se puede compartir e instalar mediante un enlace. Aparecerá en el centro de plantillas tras la revisión.",
     "infoTitle": "Información básica",
     "form": {
-      "title": "Título",
+      "title": "Nombre de la plantilla",
       "description": "Descripción",
       "changelog": "Notas de la versión",
       "changelogPlaceholder": "Describe los cambios para las instalaciones existentes; se muestran en la vista previa de la actualización",
-      "publishNode": "Publicar nodos",
+      "publishNode": "Incluye",
       "includeData": "Incluir datos",
       "defaultActiveNode": "Nodo activo predeterminado",
-      "descriptionPlaceholder": "Describe brevemente tu idea...",
-      "titlePlaceholder": "Nombra tu trabajo...",
+      "descriptionPlaceholder": "Describe qué resuelve y cómo se usa",
+      "titlePlaceholder": "p. ej., Seguimiento de clientes",
       "versionTitle": "Contenido de la versión",
-      "addChangelog": "Añadir notas de la versión"
+      "addChangelog": "Añadir notas de la versión",
+      "cover": "Portada"
     },
     "publishToCommunity": "Publicar en el centro de plantillas",
     "publish": "Publicar",
-    "publishSuccess": "¡Publicación exitosa!",
-    "previewTips": "Deja que el mundo vea tu trabajo",
+    "publishSuccess": "Plantilla publicada",
+    "previewTips": "Vista previa en el centro de plantillas",
     "update": "Actualizar",
     "submit": "Publicar plantilla",
     "review": {
@@ -258,23 +259,29 @@
         "trial": "Ejecución de prueba",
         "content": "Contenido"
       },
+      "checkLine": {
+        "connectors": "No compatible: {{providers}}",
+        "estimate": "{{runs}}/mes"
+      },
       "checkMessage": {
         "connectors": "No se puede conectar aquí: {{providers}}",
         "privacy": "Incluye registros; revisa si contienen datos personales",
         "estimate": "Unas {{runs}} ejecuciones al mes, por encima de las {{free}} del plan gratuito",
         "trial": "Las automatizaciones no necesitan cuenta; asegúrate de que funcionan sin ella",
-        "content": "Aún solo tuyo: {{count}}",
-        "contentMarked": "Marcado como ejemplo: {{count}}"
+        "content": "Contenido personal por sustituir ({{count}})",
+        "contentMarked": "Marcado como ejemplo ({{count}})"
       },
       "withdraw": "Despublicar",
-      "withdrawn": "Plantilla despublicada.",
+      "withdrawn": "Publicación cancelada",
       "withdrawConfirmTitle": "¿Despublicar esta plantilla?",
       "withdrawConfirmDescription": "Su enlace dejará de abrirse y no aparecerá en el centro de plantillas. Las copias instaladas no se ven afectadas y puedes volver a publicarla más adelante.",
       "live": "Publicada · v{{version}}",
-      "listed": "En el centro de plantillas"
+      "listed": "En el centro de plantillas",
+      "allVersions": "Todas las versiones ({{count}})",
+      "fewerVersions": "Ver menos"
     },
     "unPublish": "Despublicar",
-    "unPublishSuccess": "¡Proyecto despublicado con éxito!",
+    "unPublishSuccess": "Retirada del centro de plantillas",
     "unPublishConfirmTitle": "Confirmar despublicación",
     "unPublishConfirmDescription": "¿Estás seguro de que deseas despublicar este proyecto? Ya no será visible en el centro de plantillas.",
     "uploadCover": "Clic para subir imagen de portada",
@@ -288,29 +295,44 @@
       "atLeastOneNode": "Selecciona al menos un nodo para publicar",
       "coverRequired": "Añade una imagen de portada"
     },
-    "urlCopied": "¡URL copiada al portapapeles!",
-    "urlCopiedForDiscord": "¡URL copiada al portapapeles! Puedes pegarla en Discord.",
+    "urlCopied": "Enlace copiado",
+    "urlCopiedForDiscord": "Enlace copiado. Pégalo en Discord.",
     "featuredLabel": "Featured",
-    "featuredTip": "Seleccionado oficialmente como destacado. Tu plantilla recibirá más exposición.",
-    "publishSuccessDescription": "Comparte tu trabajo con el mundo",
+    "featuredTip": "Destacada por Teable. Tu plantilla gana más visibilidad.",
+    "publishSuccessDescription": "Copia el enlace o compártelo en redes sociales.",
     "shareWith": "Compartir con",
     "unpublishedApps": {
-      "title": "Apps no publicadas detectadas",
-      "description": "Las apps no publicadas pueden causar errores en la vista previa de la plantilla. Publícalas ahora o continúa de todos modos.",
-      "publishAll": "Publicar todas",
+      "title": "Hay apps sin publicar",
+      "description": "Es posible que las apps sin publicar no se abran en la vista previa de la plantilla.",
+      "publishAll": "Publicar todas las apps",
       "publish": "Publicar",
       "published": "Publicada",
-      "publishing": "Publicando...",
+      "publishing": "Publicando…",
       "notPublished": "No publicada",
       "publishFailed": "Error al publicar",
       "publishFailedTip1": "Verifique si la app de origen se puede publicar correctamente",
       "publishFailedTip2": "Intente volver a publicar esta plantilla",
-      "ignoreAndContinue": "Ignorar y continuar",
-      "goToFix": "Ir a corregir",
-      "redeploy": "Redesplegar",
+      "ignoreAndContinue": "Continuar sin publicar",
+      "goToFix": "Abrir app",
+      "redeploy": "Volver a publicar",
       "unnamedApp": "Aplicación sin nombre"
     },
-    "submitVersion": "Publicar v{{version}}"
+    "submitVersion": "Publicar v{{version}}",
+    "agreeTermsFirst": "Acepta los términos para creadores para publicar.",
+    "preview": {
+      "titleMissing": "Añade un nombre para la plantilla",
+      "descriptionMissing": "Añade una descripción"
+    },
+    "updateTemplate": "Actualizar plantilla",
+    "timeline": {
+      "versions": "Historial de versiones",
+      "published": "Publicada"
+    },
+    "checksTitle": "Comprobaciones previas a la publicación",
+    "listing": {
+      "title": "Ficha",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -488,14 +510,14 @@
     "fromGoogleSheetDesc": "Elige una hoja de cálculo"
   },
   "templateProject": {
-    "make": "Convertir en plantilla",
-    "new": "Nuevo proyecto de plantilla",
+    "make": "Crear plantilla",
+    "new": "Crear proyecto de plantilla",
     "plural": "Proyectos de plantilla",
     "projectsTab": "Proyectos",
     "empty": "Aún no hay proyectos de plantilla",
     "trialCopy": "Copia de prueba",
     "wholeProject": "Todo el proyecto ({{count}})",
-    "sampleRecords": "Registros de ejemplo: {{count}}",
+    "sampleRecords": "Registros de ejemplo ({{count}})",
     "noRecords": "Sin registros"
   }
 }

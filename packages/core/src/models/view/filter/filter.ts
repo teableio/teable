@@ -134,6 +134,48 @@ export const extractFieldIdsFromFilter = (
   return [...new Set(fieldIds)];
 };
 
+/** Remove conditions whose field is invalidated, pruning empty groups without changing the input. */
+export const removeFilterConditionsByFieldIds = (
+  filter: IFilterSet,
+  fieldIds: ReadonlySet<string>
+): IFilter => {
+  if (!fieldIds.size) {
+    return filter;
+  }
+
+  const pruneItem = (item: IFilterItem | IFilterSet): IFilterItem | IFilterSet | null => {
+    if ('fieldId' in item && fieldIds.has(item.fieldId)) return null;
+    return 'filterSet' in item && item.filterSet ? prune(item) : item;
+  };
+
+  const prune = (group: IFilterSet): IFilter => {
+    const items = group.filterSet;
+    if (!Array.isArray(items)) {
+      return group.filterSet?.length ? group : null;
+    }
+
+    let nextItems: IFilterSet['filterSet'] | undefined;
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const nextItem = pruneItem(item);
+
+      if (nextItem !== item) {
+        nextItems ??= items.slice(0, i);
+      }
+      if (nextItem) {
+        nextItems?.push(nextItem);
+      }
+    }
+
+    if (!(nextItems ?? items).length) {
+      return null;
+    }
+    return nextItems ? { ...group, filterSet: nextItems } : group;
+  };
+
+  return prune(filter);
+};
+
 /**
  * Drop conditions that reference fields outside `readableFieldIds`.
  *

@@ -52,7 +52,7 @@ const attachmentItemSchema = z.object({
 // Accept title:null from persisted empty-primary links, then strip it.
 const linkItemSchema = z
   .object({
-    id: z.string(),
+    id: z.string().min(1),
     title: z.string().nullish(),
   })
   .transform(({ id, title }) => (title == null ? { id } : { id, title }));

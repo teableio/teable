@@ -455,22 +455,17 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
       );
     }
 
-    if (!this.typecast) {
-      return err(
-        domainError.validation({
-          code: 'validation.field.invalid_link_format',
-          message: `Invalid link format for field "${field.name().toString()}". Expected array of { id, title? } objects.`,
-          details: {
-            fieldId: field.id().toString(),
-            fieldName: field.name().toString(),
-            providedValue: this.value,
-          },
-        })
-      );
-    }
-
-    // typecast but cannot parse, return null
-    return ok(new SetLinkValueSpec(field.id(), CellValue.null()));
+    return err(
+      domainError.validation({
+        code: 'validation.field.invalid_link_format',
+        message: `Invalid link format for field "${field.name().toString()}". Use link objects with string IDs or a list of titles.`,
+        details: {
+          fieldId: field.id().toString(),
+          fieldName: field.name().toString(),
+          providedValue: this.value,
+        },
+      })
+    );
   }
 
   // ============ User Field ============
@@ -678,6 +673,7 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
   private parseLinkValue(
     value: unknown
   ):
+    | { type: 'invalid' }
     | { type: 'ids'; value: LinkItem[] }
     | { type: 'titles'; value: string[]; resolveRecordIds?: boolean } {
     let arr: unknown[];
@@ -697,9 +693,21 @@ export class FieldToSpecVisitor extends AbstractFieldVisitor<ICellValueSpec> {
 
     const first = arr[0];
 
-    // Check if it's { id: string } format
-    if (typeof first === 'object' && first !== null && 'id' in first) {
-      return { type: 'ids', value: arr as LinkItem[] };
+    if (typeof first === 'object' || arr.some((item) => typeof item === 'object')) {
+      if (
+        arr.every(
+          (item): item is LinkItem =>
+            item !== null &&
+            typeof item === 'object' &&
+            'id' in item &&
+            typeof item.id === 'string' &&
+            item.id.length > 0 &&
+            (!('title' in item) || item.title == null || typeof item.title === 'string')
+        )
+      ) {
+        return { type: 'ids', value: arr };
+      }
+      return { type: 'invalid' };
     }
 
     if (this.typecast && arr.every((item) => typeof item === 'string')) {

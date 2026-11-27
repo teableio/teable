@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import type { ISecretSpec } from './secret-specs';
 import { ALL_SECRET_SPECS, SECRET_SPECS } from './secret-specs';
 import { PUBLIC_DEFAULT_STORED_ROOT } from './stored-secret-roots';
@@ -96,7 +97,7 @@ export type IInsecureSecretReason = 'missing' | 'publicDefault';
  * former default. Env var names only, never values — it feeds the instance
  * admin checklist. While SECRET_KEY is unset, the unset secrets that setting
  * it would cover are left out, so the checklist asks for that one variable
- * (the boot warning still lists each, with its pin value).
+ * (the boot warning still lists each).
  */
 export const findInsecureSecrets = (
   env: IEnv = process.env
@@ -137,11 +138,90 @@ const announcesStartupRefusal = (specs: ISecretSpec[], env: IEnv): boolean =>
 // aes-128-cbc slots need exactly 16 chars; everything else takes any strong value.
 const isAes16Slot = (envKey: string) => /_ENCRYPTION_(?:KEY|IV)$/.test(envKey);
 
-/** The env line that pins an unset secret to the value it has been running on. */
+/** The env line that pins the unset half of a key/iv pair to the value it has been running on. */
 const pinLine = (s: ISecretSpec): string =>
   s.legacyDefault !== undefined && s.pinInstruction === undefined
     ? `${s.envKey}='${s.legacyDefault}'`
     : `# ${s.envKey} — ${s.pinInstruction}`;
+
+const isUnset = (missing: ISecretSpec[], spec: ISecretSpec): boolean =>
+  missing.some((s) => s.envKey === spec.envKey);
+
+/** The _OLD lines that keep an existing deployment's data readable, each under what it keeps. */
+const keptReadableLines = (missing: ISecretSpec[]): string[] => {
+  const lines: string[] = [];
+  let lastNote: string | undefined;
+  for (const { keepReadable } of missing) {
+    if (!keepReadable) continue;
+    if (keepReadable.note !== lastNote) lines.push(`    # ${keepReadable.note}`);
+    lines.push(`    ${keepReadable.line}`);
+    lastNote = keepReadable.note;
+  }
+  return lines;
+};
+
+/**
+ * A stored credential root of its own means nothing was stored under SECRET_KEY, so a change of
+ * SECRET_KEY strands nothing there: no _OLD line for it. That line would also overwrite the
+ * previous root a deployment rotating the stored credential root keeps in the same variable.
+ */
+const withoutCoveredRoot = (specs: ISecretSpec[], env: IEnv): ISecretSpec[] =>
+  isSet(env, SECRET_SPECS.storedCredentialEncryptionSecret.envKey)
+    ? specs.filter((spec) => !isSecretKey(spec))
+    : specs;
+
+/**
+ * What changes once a private SECRET_KEY takes over from a public value, by which secrets ran
+ * on that value. The old signing values are public, so nothing keeps them accepted; the
+ * access-token and mail pairs keep theirs for decryption.
+ */
+const switchEffects = (onOldValue: (spec: ISecretSpec) => boolean): string[] => {
+  const keptByCode = [
+    ...(onOldValue(SECRET_SPECS.accessTokenEncryptionKey) ? ['personal access tokens'] : []),
+    ...(onOldValue(SECRET_SPECS.mailEncryptionKey) ? ['email unsubscribe links'] : []),
+  ];
+  return [
+    ...(onOldValue(SECRET_SPECS.sessionSecret) ? ['everyone signs in again'] : []),
+    ...(onOldValue(SECRET_SPECS.jwtSecret)
+      ? [
+          'share-link sessions, plugin and OAuth tokens and App Builder app credentials signed so far stop being accepted (refresh app credentials in System Admin → Key rotation → JWT credentials, or on each app)',
+        ]
+      : []),
+    ...(keptByCode.length > 0
+      ? [
+          `${keptByCode.join(' and ')} issued so far keep working, their old key staying accepted for decryption only`,
+        ]
+      : []),
+  ];
+};
+
+const switchSentence = (effects: string[]): string =>
+  effects.length > 0 ? `At the switch: ${effects.join('; ')}.` : '';
+
+const OLD_LINES_CLEANUP =
+  'Afterwards re-encrypt in System Admin → Key rotation and remove an _OLD line once nothing is left under it; an instance without that page keeps them.';
+
+/**
+ * For a deployment that already has data. It is not told to set the built-in values as
+ * variables of their own: they are public, and what follows SECRET_KEY needs no variable.
+ * It switches to a private SECRET_KEY like a new deployment and adds the _OLD lines that
+ * keep what it stored or sent readable.
+ */
+const existingDeploymentPart = (missing: ISecretSpec[], env: IEnv): string[] => {
+  const kept = keptReadableLines(withoutCoveredRoot(missing, env));
+  const atTheSwitch = switchSentence(switchEffects((spec) => isUnset(missing, spec)));
+  const lead =
+    'EXISTING deployment (it has been running on the built-in values): do NOT set those old values as variables of their own. They are public, and the dedicated variables are on their way out.';
+  if (kept.length === 0) return atTheSwitch ? [`${lead} ${atTheSwitch}`, ''] : [];
+  return [
+    `${lead} Next to the new values above, add the lines below. They only decrypt or verify, so what was stored or sent so far stays readable:`,
+    '',
+    ...kept,
+    '',
+    [atTheSwitch, OLD_LINES_CLEANUP].filter(Boolean).join(' '),
+    '',
+  ];
+};
 
 export const buildMissingSecretsMessage = (
   missing: ISecretSpec[],
@@ -154,25 +234,24 @@ export const buildMissingSecretsMessage = (
     })
     .join('\n');
   // Directly copy-pastable blocks — never send the operator off to another file.
-  const existingBlock = missing.map((s) => `    ${pinLine(s)}`).join('\n');
-  // A new deployment is advised to set SECRET_KEY and what does not follow it, nothing
-  // else: the rest falls back to SECRET_KEY or is derived from it, and a variable it never
-  // set is one it never has to retire. A deprecated secret is not one to start with either.
+  // A deployment sets SECRET_KEY and what does not follow it, nothing else: the rest falls
+  // back to SECRET_KEY or is derived from it, and a variable it never set is one it never
+  // has to retire. A deprecated secret is not one to start with either.
   const toGenerate = missing.filter((s) => !followsSecretKey(s) && !s.deprecated);
-  const newBlock = toGenerate
+  const generateBlock = toGenerate
     .map(
       (s) => `    ${s.envKey}=$(openssl rand ${isAes16Slot(s.envKey) ? '-hex 8' : '-base64 32'})`
     )
     .join('\n');
-  const newDeployment = toGenerate.length
+  const whatToSet = toGenerate.length
     ? [
-        'NEW deployment: generate fresh values instead:',
+        'Set these, each to a freshly generated value:',
         '',
-        newBlock,
+        generateBlock,
         '',
         ...(missing.some(followsSecretKey)
           ? [
-              'That is all a new deployment sets. The other variables above fall back to SECRET_KEY or are derived from it: leave them unset.',
+              'That is all a deployment sets. The other variables above fall back to SECRET_KEY or are derived from it: leave them unset.',
               '',
             ]
           : []),
@@ -186,14 +265,9 @@ export const buildMissingSecretsMessage = (
     'Fine for a quick local try-out; for anything reachable from the network, set your own values.',
     '',
     ...(announcesStartupRefusal(missing, env) ? [SECRET_KEY_REQUIRED_NOTICE, ''] : []),
-    'EXISTING deployment (was running without these variables): it is implicitly using the old built-in values. To pin them explicitly before rotating, add EXACTLY the block below (mind `$` escaping in your env format):',
-    '',
-    existingBlock,
-    '',
-    ...newDeployment,
-    'Planned JWT secret rotation later on: put the new value in BACKEND_JWT_SECRET and keep the previous one in BACKEND_JWT_SECRET_OLD until outstanding tokens expire (~30d), then remove it.',
-    '',
-    'Planned encryption key rotation: move the current pair into <VAR>_OLD (e.g. BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY_OLD / ..._IV_OLD — ALWAYS both, copying the unchanged half; half a pair refuses to boot), put fresh values in the main vars, and keep _OLD until no ciphertext under it remains (access tokens live until they expire or are revoked). If the old key LEAKED, do NOT pin it into _OLD — hard-cut instead: _OLD is accepted for decryption, so pinning a leaked key keeps forged ciphertext working.',
+    ...whatToSet,
+    ...existingDeploymentPart(missing, env),
+    'Changing a secret later on: keep the previous value in the matching _OLD variable (BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD, BACKEND_JWT_SECRET_OLD, BACKEND_SESSION_SECRET_OLD, …) until nothing depends on it. A value that is public or LEAKED does not go into BACKEND_JWT_SECRET_OLD or BACKEND_SESSION_SECRET_OLD: it would stay accepted there, so forged tokens and sessions would keep working.',
   ].join('\n');
 };
 
@@ -223,6 +297,66 @@ export const buildHalfConfiguredPairsMessage = (
     ...pairs.map(({ unset }) => `    ${halfPairPinLine(unset, env)}`),
   ].join('\n');
 
+/**
+ * The legacy BYODB key and iv of a deployment whose SECRET_KEY is the public default and that
+ * gave neither that pair nor the access-token pair a value: both halves are the same digest of
+ * SECRET_KEY (data-db-url-secret.ts), as public as the default itself. The access-token and
+ * mail pairs keep their public derivation on for decryption themselves; this one stays on only
+ * through its _OLD variables, and the stored credential root's _OLD does not read it.
+ */
+const dataDbPairOnPublicSecretKey = (env: IEnv): string | undefined => {
+  const hasOwnValue = [
+    SECRET_SPECS.dataDbUrlEncryptionKey,
+    SECRET_SPECS.dataDbUrlEncryptionIv,
+    SECRET_SPECS.accessTokenEncryptionKey,
+    SECRET_SPECS.accessTokenEncryptionIv,
+  ].some((spec) => isSet(env, spec.envKey));
+  if (hasOwnValue) return undefined;
+  return createHash('sha256')
+    .update(SECRET_SPECS.secretKey.legacyDefault)
+    .digest('hex')
+    .slice(0, 16);
+};
+
+/**
+ * For a deployment that set SECRET_KEY to its public default and now replaces it: what the
+ * missing-secrets message gives a deployment that never set it, with the legacy BYODB pair
+ * being the one derived from that default. A secret with no variable of its own follows
+ * SECRET_KEY, so it is on the old value.
+ */
+const replacingPublicSecretKeyPart = (env: IEnv): string[] => {
+  const { secretKey, invitationSecret, dataDbUrlEncryptionKey, dataDbUrlEncryptionIv } =
+    SECRET_SPECS;
+  const dataDbPair = dataDbPairOnPublicSecretKey(env);
+  const kept = [
+    ...keptReadableLines(
+      withoutCoveredRoot(
+        [secretKey, ...(isSet(env, invitationSecret.envKey) ? [] : [invitationSecret])],
+        env
+      )
+    ),
+    ...(dataDbPair
+      ? [
+          `    # ${dataDbUrlEncryptionKey.keepReadable.note}`,
+          `    ${dataDbUrlEncryptionKey.envKey}_OLD='${dataDbPair}'`,
+          `    ${dataDbUrlEncryptionIv.envKey}_OLD='${dataDbPair}'`,
+        ]
+      : []),
+  ];
+  const followsSecretKeyHere = (spec: ISecretSpec): boolean =>
+    (spec.requiredWhen?.(env) ?? true) && !isSet(env, spec.envKey);
+  const atTheSwitch = switchSentence(switchEffects(followsSecretKeyHere));
+  if (kept.length === 0) return atTheSwitch ? ['', `Replacing SECRET_KEY: ${atTheSwitch}`] : [];
+  return [
+    '',
+    'Replacing SECRET_KEY: add these next to the new value. They only decrypt or verify, so what was stored or sent under the old one stays readable:',
+    '',
+    ...kept,
+    '',
+    [atTheSwitch, OLD_LINES_CLEANUP].filter(Boolean).join(' '),
+  ];
+};
+
 export const buildPublicDefaultsWarning = (
   onDefaults: ISecretSpec[],
   env: IEnv = process.env
@@ -233,6 +367,7 @@ export const buildPublicDefaultsWarning = (
     ...onDefaults.map((s) => `  - ${s.envKey} (${s.usedFor})`),
     '',
     'The instance keeps running so existing data stays accessible, but plan a rotation to freshly generated values as soon as possible.',
+    ...(onDefaults.some(isSecretKey) ? replacingPublicSecretKeyPart(env) : []),
     ...(announcesStartupRefusal(onDefaults, env) ? ['', SECRET_KEY_REQUIRED_NOTICE] : []),
   ].join('\n');
 
@@ -297,13 +432,13 @@ export const buildWrongLengthCipherValuesWarning = (
  * to start with zero secret configuration (resolve-secret.ts falls back to
  * the legacy source-code defaults). It warns, loudly:
  *
- * - missing secrets → loud error log with a pin line per secret for an
- *   existing deployment and, for a new one, the lines that generate SECRET_KEY
- *   and what does not follow it, then boot on the legacy defaults. Development sets no
+ * - missing secrets → loud error log with the lines that generate SECRET_KEY and
+ *   what does not follow it and, for a deployment that already has data, the _OLD
+ *   lines that keep it readable, then boot on the legacy defaults. Development sets no
  *   secrets BY DESIGN — it exercises the exact zero-config path self-hosters
  *   hit — so expect this warning on every local boot;
  * - secrets explicitly set to their public former defaults → loud error log,
- *   and boot (a deployment that pinned them per the instructions above);
+ *   and boot (a deployment that pinned them as earlier versions taught);
  * - access token or mail key/iv values of a length their cipher can't take →
  *   error log naming the variables and the length each needs, and boot.
  *

@@ -1,3 +1,6 @@
+import dayjs from 'dayjs';
+import timezone from 'dayjs/plugin/timezone.js';
+import utc from 'dayjs/plugin/utc.js';
 import { describe, expect, it } from 'vitest';
 
 import { FieldId } from '../../domain/table/fields/FieldId';
@@ -7,7 +10,11 @@ import { CellValueMultiplicity } from '../../domain/table/fields/types/CellValue
 import { CellValueType } from '../../domain/table/fields/types/CellValueType';
 import { CreatedTimeField } from '../../domain/table/fields/types/CreatedTimeField';
 import { DateField } from '../../domain/table/fields/types/DateField';
-import { DateTimeFormatting } from '../../domain/table/fields/types/DateTimeFormatting';
+import {
+  DateFormattingPreset,
+  DateTimeFormatting,
+  TimeFormatting,
+} from '../../domain/table/fields/types/DateTimeFormatting';
 import { FormulaExpression } from '../../domain/table/fields/types/FormulaExpression';
 import { FormulaField } from '../../domain/table/fields/types/FormulaField';
 import { LastModifiedTimeField } from '../../domain/table/fields/types/LastModifiedTimeField';
@@ -20,7 +27,11 @@ import { SingleLineTextField } from '../../domain/table/fields/types/SingleLineT
 import { SingleSelectField } from '../../domain/table/fields/types/SingleSelectField';
 import { UserField } from '../../domain/table/fields/types/UserField';
 import { UserMultiplicity } from '../../domain/table/fields/types/UserMultiplicity';
+import { dateDisplayPattern } from './cellValueFormatting';
 import { FieldDisplayValueVisitor } from './FieldDisplayValueVisitor';
+
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
 const fieldId = (seed: string) => FieldId.create(`fld${seed.repeat(16)}`)._unsafeUnwrap();
 const fieldName = (value: string) => FieldName.create(value)._unsafeUnwrap();
@@ -161,5 +172,158 @@ describe('prepared native display values', () => {
     );
     expect(format({ name: 'Historical scalar' }).isErr()).toBe(true);
     expect(format(null)._unsafeUnwrap()).toBe('');
+  });
+
+  it('matches dayjs.tz().format() across all date/time presets, timezones, DST transitions, and edge inputs', () => {
+    const previousTz = process.env.TZ;
+    process.env.TZ = 'UTC';
+    try {
+      const timeZones = [
+        'utc',
+        'UTC',
+        'Etc/UTC',
+        'Etc/GMT+5',
+        'Asia/Qatar',
+        'America/New_York',
+        'Europe/London',
+        'Asia/Kolkata',
+        'Pacific/Chatham',
+        'Australia/Lord_Howe',
+      ];
+      const inputs: unknown[] = [
+        '2026-01-01T00:00:00.000Z',
+        '2026-06-15T12:00:00.000Z',
+        '2026-06-15T12:30:00.000Z',
+        '2024-03-10T06:59:59.000Z',
+        '2024-03-10T07:00:00.000Z',
+        '2024-11-03T05:30:00.000Z',
+        '2000-02-29T23:45:00.000Z',
+        '1970-01-01T00:00:00.000Z',
+        '1969-12-31T23:59:59.500Z',
+        '1969-12-31T23:59:59.000Z',
+        '2026-02-01T10:23:45.123456Z',
+        '2026-06-15T12:30:00+03:00',
+        '2026-06-15 12:30:00+00:00',
+        '2026-02-01',
+        new Date('2026-11-14T10:23:45.678Z'),
+        1763115825678,
+        '0050-03-05T04:05:06.000Z',
+      ];
+
+      for (const timeZone of timeZones) {
+        for (const datePreset of Object.values(DateFormattingPreset)) {
+          for (const timePreset of Object.values(TimeFormatting)) {
+            const formatting = DateTimeFormatting.create({
+              date: datePreset,
+              time: timePreset,
+              timeZone,
+            })._unsafeUnwrap();
+            const pattern = dateDisplayPattern(formatting);
+            const format = DateField.create({
+              id: fieldId('m'),
+              name: fieldName('Date'),
+              formatting,
+            })
+              ._unsafeUnwrap()
+              .accept(new FieldDisplayValueVisitor())
+              ._unsafeUnwrap();
+
+            for (const input of inputs) {
+              const expected = dayjs(input as string)
+                .tz(timeZone)
+                .format(pattern);
+              expect(format(input)._unsafeUnwrap()).toBe(expected);
+            }
+          }
+        }
+      }
+
+      // Custom non-preset date pattern, historical sub-minute LMT offset, and invalid numeric inputs
+      const customFormatting = DateTimeFormatting.create({
+        date: 'DD MMM YYYY',
+        time: TimeFormatting.Hour24,
+        timeZone: 'Asia/Qatar',
+      })._unsafeUnwrap();
+      const customFormat = DateField.create({
+        id: fieldId('n'),
+        name: fieldName('Custom Date'),
+        formatting: customFormatting,
+      })
+        ._unsafeUnwrap()
+        .accept(new FieldDisplayValueVisitor())
+        ._unsafeUnwrap();
+      expect(customFormat('2026-11-14T10:23:45.678Z')._unsafeUnwrap()).toBe(
+        dayjs('2026-11-14T10:23:45.678Z').tz('Asia/Qatar').format('DD MMM YYYY HH:mm')
+      );
+      expect(customFormat(Number.NaN).isErr()).toBe(true);
+      expect(customFormat(Number.POSITIVE_INFINITY).isErr()).toBe(true);
+
+      const lmtFormatting = DateTimeFormatting.create({
+        date: 'YYYY-MM-DD HH:mm:ss',
+        time: TimeFormatting.None,
+        timeZone: 'Africa/Monrovia',
+      })._unsafeUnwrap();
+      const lmtFormat = DateField.create({
+        id: fieldId('o'),
+        name: fieldName('LMT Date'),
+        formatting: lmtFormatting,
+      })
+        ._unsafeUnwrap()
+        .accept(new FieldDisplayValueVisitor())
+        ._unsafeUnwrap();
+      expect(lmtFormat('1970-06-01T00:00:00.000Z')._unsafeUnwrap()).toBe(
+        dayjs('1970-06-01T00:00:00.000Z').tz('Africa/Monrovia').format('YYYY-MM-DD HH:mm:ss')
+      );
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
+  });
+
+  it('formats dates identically across UTC and America/New_York host process timezones', () => {
+    const parisFormat = DateField.create({
+      id: fieldId('p'),
+      name: fieldName('Paris Date'),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD',
+        time: TimeFormatting.Hour24,
+        timeZone: 'Europe/Paris',
+      })._unsafeUnwrap(),
+    })
+      ._unsafeUnwrap()
+      .accept(new FieldDisplayValueVisitor())
+      ._unsafeUnwrap();
+    const gmtPlus5Format = DateField.create({
+      id: fieldId('q'),
+      name: fieldName('Fixed Offset Date'),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD HH:mm Z',
+        time: TimeFormatting.None,
+        timeZone: 'Etc/GMT+5',
+      })._unsafeUnwrap(),
+    })
+      ._unsafeUnwrap()
+      .accept(new FieldDisplayValueVisitor())
+      ._unsafeUnwrap();
+
+    const previousTz = process.env.TZ;
+    try {
+      for (const hostTz of ['UTC', 'America/New_York']) {
+        process.env.TZ = hostTz;
+        expect(parisFormat('2024-03-10T06:30:00.000Z')._unsafeUnwrap()).toBe('2024-03-10 07:30');
+        expect(gmtPlus5Format('2024-03-10T07:00:00.000Z')._unsafeUnwrap()).toBe(
+          '2024-03-10 02:00 -05:00'
+        );
+      }
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
   });
 });

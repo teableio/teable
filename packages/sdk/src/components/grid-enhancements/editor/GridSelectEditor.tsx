@@ -6,6 +6,7 @@ import type {
 import { FieldType } from '@teable/core';
 import { temporaryPaste } from '@teable/openapi';
 import { useTheme } from '@teable/ui-lib';
+import { isEqual } from 'lodash';
 import type { ForwardRefRenderFunction } from 'react';
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef } from 'react';
 import { useTranslation } from '../../../context/app/i18n';
@@ -17,6 +18,13 @@ import type { IEditorRef } from '../../editor/type';
 import type { IEditorProps } from '../../grid/components';
 import { useGridPopupPosition } from '../hooks';
 import type { IWrapperEditorProps } from './type';
+
+interface IPendingCellSaves {
+  count: number;
+  sent: unknown[];
+  heldBack: boolean;
+  failed: boolean;
+}
 
 const GridSelectEditorBase: ForwardRefRenderFunction<
   IEditorRef<string | string[] | undefined>,
@@ -46,13 +54,31 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
     | ISingleSelectCellValue
     | IMultipleSelectCellValue;
   const attachStyle = useGridPopupPosition(rect, 340);
+  // The grid reuses this editor across cells, so saves in flight are tracked per cell: the
+  // count, the values sent, and whether a cell update was held back while they were pending.
+  const pendingSavesRef = useRef(new Map<string, IPendingCellSaves>());
+  const cellKey = `${record.id}:${fieldId}`;
+  const cellKeyRef = useRef(cellKey);
+  cellKeyRef.current = cellKey;
+  const shownCellKeyRef = useRef(cellKey);
+  const cellValueRef = useRef(cellValue);
+  cellValueRef.current = cellValue;
 
   useEffect(() => {
-    if (isMultiple) {
-      editorRef.current?.setValue?.(cellValue);
+    if (!isMultiple) return;
+    const cellChanged = shownCellKeyRef.current !== cellKey;
+    shownCellKeyRef.current = cellKey;
+    // While this cell's saves are in flight, the server's echo of an earlier click would undo a
+    // later one, so the editor keeps its local value until they settle. Moving to another cell
+    // always shows that cell's value.
+    const pending = pendingSavesRef.current.get(cellKey);
+    if (pending && !cellChanged) {
+      pending.heldBack = true;
+      return;
     }
+    editorRef.current?.setValue?.(cellValue);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [JSON.stringify(cellValue)]);
+  }, [cellKey, JSON.stringify(cellValue)]);
 
   useImperativeHandle(ref, () => ({
     focus: () => (editorRef.current || defaultFocusRef.current)?.focus?.(),
@@ -73,9 +99,32 @@ const GridSelectEditorBase: ForwardRefRenderFunction<
     }));
   }, [options, displayChoiceMap, resolvedTheme]);
 
-  const onChange = (value?: string[] | string) => {
-    record.updateCell(fieldId, isMultiple && value?.length === 0 ? null : value, { t });
-    if (!isMultiple) setTimeout(() => setEditing?.(false));
+  const onChange = async (value?: string[] | string) => {
+    const nextValue = isMultiple && value?.length === 0 ? null : value;
+    const save = record.updateCell(fieldId, nextValue, { t });
+    if (!isMultiple) {
+      setTimeout(() => setEditing?.(false));
+      return;
+    }
+    const key = cellKey;
+    const pending = pendingSavesRef.current.get(key) ?? {
+      count: 0,
+      sent: [],
+      heldBack: false,
+      failed: false,
+    };
+    pendingSavesRef.current.set(key, pending);
+    pending.count += 1;
+    pending.sent.push(nextValue ?? null);
+    // updateCell resolves with the error after rolling the cell back.
+    if (await save) pending.failed = true;
+    pending.count -= 1;
+    if (pending.count) return;
+    pendingSavesRef.current.delete(key);
+    if (cellKeyRef.current !== key) return;
+    const latest = cellValueRef.current ?? null;
+    const missedUpdate = pending.heldBack && !pending.sent.some((sent) => isEqual(sent, latest));
+    if (pending.failed || missedUpdate) editorRef.current?.setValue?.(cellValueRef.current);
   };
 
   const onOptionAdd = useCallback(

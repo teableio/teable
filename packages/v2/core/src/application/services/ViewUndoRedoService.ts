@@ -3,6 +3,8 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
 import type { DomainError } from '../../domain/shared/DomainError';
+import type { IDomainEvent } from '../../domain/shared/DomainEvent';
+import { FieldUpdated } from '../../domain/table/events/FieldUpdated';
 import type { Table } from '../../domain/table/Table';
 import { captureViewSnapshot, type ViewSnapshotValue } from '../../domain/table/views/ViewSnapshot';
 import type * as ExecutionContextPort from '../../ports/ExecutionContext';
@@ -61,19 +63,36 @@ export class ViewUndoRedoService {
     );
   }
 
+  static restoreDeletedView(table: Table, snapshot: ViewSnapshotValue, events: ReadonlyArray<IDomainEvent>) {
+    // The field updates from DeleteView are the incoming links actually cleared by the delete.
+    const byTable = new Map<string, string[]>();
+    for (const event of events) {
+      if (!(event instanceof FieldUpdated)) continue;
+      const tableId = event.tableId.toString();
+      const fieldIds = byTable.get(tableId);
+      if (fieldIds) fieldIds.push(event.fieldId.toString());
+      else byTable.set(tableId, [event.fieldId.toString()]);
+    }
+    return createUndoRedoCommand('ApplyViewSnapshot', {
+      tableId: table.id().toString(),
+      snapshot,
+      ...(byTable.size > 0 && {
+        clearedLinkFilters: Array.from(byTable, ([tableId, fieldIds]) => ({ tableId, fieldIds })),
+      }),
+    });
+  }
+
   async appendDelete(
     context: ExecutionContextPort.IExecutionContext,
     table: Table,
-    snapshot: ViewSnapshotValue
+    snapshot: ViewSnapshotValue,
+    events: ReadonlyArray<IDomainEvent> = []
   ): Promise<Result<void, DomainError>> {
     return this.undoRedoStackService.appendEntry(
       toUndoRedoStackAppendContext(context),
       table.id(),
       {
-        undoCommand: createUndoRedoCommand('ApplyViewSnapshot', {
-          tableId: table.id().toString(),
-          snapshot,
-        }),
+        undoCommand: ViewUndoRedoService.restoreDeletedView(table, snapshot, events),
         redoCommand: createUndoRedoCommand('DeleteView', {
           tableId: table.id().toString(),
           viewId: snapshot.id,

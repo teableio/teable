@@ -104,6 +104,13 @@ export interface ITemplateProjectSubmitState {
   blocked: boolean;
   /** The checks, drawn in the dialog's side column while nothing is under review. */
   panel: React.ReactNode;
+  /**
+   * The same checks on the publish page: lines of the next version's checklist (`<li>`s), each
+   * with what the author does about it.
+   */
+  rows?: React.ReactNode;
+  /** What the template carries, for the publish page's side column. */
+  contents?: React.ReactNode;
 }
 
 export type ITemplateProjectBase = Pick<IGetBaseVo, 'id' | 'name' | 'spaceId'>;

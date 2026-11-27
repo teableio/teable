@@ -1,8 +1,8 @@
 import { ResourceType } from '@teable/openapi';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { IDeleteRecordsPayload } from '../../../event-emitter/events/delete-records-payload';
 import type { IDeleteFieldsPayload } from '../../undo-redo/operations/delete-fields.operation';
-import type { IDeleteRecordsPayload } from '../../undo-redo/operations/delete-records.operation';
 import type { IDeleteViewPayload } from '../../undo-redo/operations/delete-view.operation';
 import { TableTrashListener } from './table-trash.listener';
 

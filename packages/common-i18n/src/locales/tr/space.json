@@ -220,27 +220,28 @@
   },
   "publishBase": {
     "title": "Şablon Merkezinde Yayınla",
-    "description": "Tek tıkla projenizi şablon merkezinde yayınlayın! Yaratıcılığınızı daha fazla kişinin görmesine, kullanmasına ve Remix yapmasına izin verin ve birlikte daha güçlü bir iş kurun",
-    "configureTitle": "Şablon bilgilerini ayarla",
-    "configureDescription": "Öne çıkan şablonlar Şablon Merkezinde yer alabilir",
+    "description": "Başkalarının bulup kullanabilmesi için şablonunuzu Şablon Merkezinde yayınlayın.",
+    "configureTitle": "Şablonu yayınla",
+    "configureDescription": "Yayınlandıktan sonra şablon bağlantıyla paylaşılabilir ve kurulabilir. İncelemeden sonra Şablon Merkezinde görünür.",
     "infoTitle": "Temel bilgiler",
     "form": {
-      "title": "Başlık",
+      "title": "Şablon adı",
       "description": "Açıklama",
       "changelog": "Sürüm notları",
       "changelogPlaceholder": "Mevcut kurulumlar için değişiklikleri açıklayın; yükseltme önizlemesinde gösterilir",
-      "publishNode": "Düğümleri yayınla",
+      "publishNode": "Dahil olanlar",
       "includeData": "Verileri dahil et",
       "defaultActiveNode": "Varsayılan aktif düğüm",
-      "descriptionPlaceholder": "Fikrinizi kısaca açıklayın...",
-      "titlePlaceholder": "Çalışmanıza bir ad verin...",
+      "descriptionPlaceholder": "Hangi sorunu çözdüğünü ve nasıl kullanılacağını açıklayın",
+      "titlePlaceholder": "ör. Müşteri takibi",
       "versionTitle": "Sürüm içeriği",
-      "addChangelog": "Sürüm notları ekle"
+      "addChangelog": "Sürüm notları ekle",
+      "cover": "Kapak"
     },
     "publishToCommunity": "Şablon merkezinde yayınla",
     "publish": "Yayınla",
-    "publishSuccess": "Yayınlama başarılı!",
-    "previewTips": "Dünyanın çalışmanızı görmesine izin verin",
+    "publishSuccess": "Şablon yayınlandı",
+    "previewTips": "Şablon Merkezi önizlemesi",
     "update": "Güncelle",
     "submit": "Şablonu yayınla",
     "review": {
@@ -254,23 +255,29 @@
         "trial": "Deneme çalıştırması",
         "content": "İçerik"
       },
+      "checkLine": {
+        "connectors": "Desteklenmiyor: {{providers}}",
+        "estimate": "{{runs}}/ay"
+      },
       "checkMessage": {
         "connectors": "Burada bağlanamıyor: {{providers}}",
         "privacy": "Kayıtlar dahil; kişisel veri içerip içermediklerini kontrol edin",
         "estimate": "Ayda yaklaşık {{runs}} çalıştırma; ücretsiz planın sınırı olan {{free}} değerinin üzerinde",
         "trial": "Otomasyonlar hesap gerektirmiyor; hesap olmadan çalıştıklarından emin olun",
-        "content": "Hâlâ yalnızca size ait: {{count}}",
-        "contentMarked": "Örnek olarak işaretlendi: {{count}}"
+        "content": "Değiştirilecek kişisel içerik ({{count}})",
+        "contentMarked": "Örnek olarak işaretlendi ({{count}})"
       },
       "withdraw": "Yayından kaldır",
-      "withdrawn": "Yayından kaldırıldı.",
+      "withdrawn": "Yayından kaldırıldı",
       "withdrawConfirmTitle": "Bu şablon yayından kaldırılsın mı?",
       "withdrawConfirmDescription": "Şablonun bağlantısı artık açılmaz ve Şablon Merkezinde görünmez. Kurulu kopyalar etkilenmez; daha sonra yeniden yayınlayabilirsiniz.",
       "live": "Yayında · v{{version}}",
-      "listed": "Şablon Merkezinde"
+      "listed": "Şablon Merkezinde",
+      "allVersions": "Tüm sürümler ({{count}})",
+      "fewerVersions": "Daha az göster"
     },
     "unPublish": "Yayından kaldır",
-    "unPublishSuccess": "Proje başarıyla yayından kaldırıldı!",
+    "unPublishSuccess": "Listeden kaldırıldı",
     "unPublishConfirmTitle": "Yayından kaldırmayı onayla",
     "unPublishConfirmDescription": "Bu projeyi yayından kaldırmak istediğinizden emin misiniz? Artık şablon merkezinde görünmeyecek.",
     "uploadCover": "Kapak resmi yüklemek için tıklayın",
@@ -284,29 +291,44 @@
       "atLeastOneNode": "Yayınlamak için en az bir düğüm seçin",
       "coverRequired": "Bir kapak görseli ekleyin"
     },
-    "urlCopied": "URL panoya kopyalandı!",
-    "urlCopiedForDiscord": "URL panoya kopyalandı! Discord'a yapıştırabilirsiniz.",
+    "urlCopied": "Bağlantı kopyalandı",
+    "urlCopiedForDiscord": "Bağlantı kopyalandı. Discord'a yapıştırın.",
     "featuredLabel": "Featured",
-    "featuredTip": "Resmi olarak öne çıkan olarak seçildi. Şablonunuz daha fazla görünürlük kazanacak.",
-    "publishSuccessDescription": "Çalışmanızı dünyayla paylaşın",
+    "featuredTip": "Teable tarafından öne çıkarıldı. Şablonunuz daha fazla görünürlük kazanır.",
+    "publishSuccessDescription": "Bağlantıyı kopyalayın veya sosyal medyada paylaşın.",
     "shareWith": "Şununla paylaş",
     "unpublishedApps": {
-      "title": "Yayınlanmamış Uygulamalar Tespit Edildi",
-      "description": "Yayınlanmamış uygulamalar şablon önizleme hatalarına neden olabilir. Şimdi yayınlayın veya devam edin.",
-      "publishAll": "Tümünü Yayınla",
+      "title": "Bazı uygulamalar yayınlanmadı",
+      "description": "Yayınlanmamış uygulamalar şablon önizlemesinde açılmayabilir.",
+      "publishAll": "Tüm uygulamaları yayınla",
       "publish": "Yayınla",
       "published": "Yayınlandı",
-      "publishing": "Yayınlanıyor...",
+      "publishing": "Yayınlanıyor…",
       "notPublished": "Yayınlanmadı",
       "publishFailed": "Yayınlama başarısız",
       "publishFailedTip1": "Kaynak uygulamanın başarıyla yayınlanıp yayınlanamayacağını kontrol edin",
       "publishFailedTip2": "Bu şablonu yeniden yayınlamayı deneyin",
-      "ignoreAndContinue": "Yoksay ve Devam Et",
-      "goToFix": "Düzeltmeye Git",
-      "redeploy": "Yeniden Dağıt",
+      "ignoreAndContinue": "Yayınlamadan devam et",
+      "goToFix": "Uygulamayı aç",
+      "redeploy": "Yeniden yayınla",
       "unnamedApp": "Adsız Uygulama"
     },
-    "submitVersion": "v{{version}} yayınla"
+    "submitVersion": "v{{version}} yayınla",
+    "agreeTermsFirst": "Yayınlamak için içerik üretici koşullarını kabul edin.",
+    "preview": {
+      "titleMissing": "Bir şablon adı ekleyin",
+      "descriptionMissing": "Bir açıklama ekleyin"
+    },
+    "updateTemplate": "Şablonu güncelle",
+    "timeline": {
+      "versions": "Sürüm geçmişi",
+      "published": "Yayınlandı"
+    },
+    "checksTitle": "Yayın öncesi kontroller",
+    "listing": {
+      "title": "Listeleme",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -477,14 +499,14 @@
     "fromGoogleSheetDesc": "Bir e-tablo seçin"
   },
   "templateProject": {
-    "make": "Şablon yap",
-    "new": "Yeni şablon projesi",
+    "make": "Şablon oluştur",
+    "new": "Şablon projesi oluştur",
     "plural": "Şablon projeleri",
     "projectsTab": "Projeler",
     "empty": "Henüz şablon projesi yok",
     "trialCopy": "Deneme kopyası",
     "wholeProject": "Projedeki her şey ({{count}})",
-    "sampleRecords": "Örnek kayıt: {{count}}",
+    "sampleRecords": "Örnek kayıtlar ({{count}})",
     "noRecords": "Kayıt yok"
   }
 }

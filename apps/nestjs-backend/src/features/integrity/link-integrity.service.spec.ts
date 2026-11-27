@@ -22,8 +22,6 @@ describe('LinkIntegrityService tableId scoping', () => {
       undefined as never,
       undefined as never,
       undefined as never,
-      undefined as never,
-      undefined as never
     );
   };
 

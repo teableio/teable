@@ -18,6 +18,7 @@ import type { IViewOperationPlugin } from '../ports/ViewOperationPlugin';
 import { ViewOperationKind } from '../ports/ViewOperationPlugin';
 import { ApplyViewSnapshotCommand } from './ApplyViewSnapshotCommand';
 import { ApplyViewSnapshotHandler } from './ApplyViewSnapshotHandler';
+import { createFieldOperationPluginRunner } from './fieldOperationPluginRunnerTestUtils';
 
 const context: IExecutionContext = { actorId: ActorId.create('actor')._unsafeUnwrap() };
 
@@ -64,7 +65,8 @@ const createHandler = (params: {
   const handler = new ApplyViewSnapshotHandler(
     repository,
     flow as unknown as TableUpdateFlow,
-    new ViewOperationPluginRunner(params.plugins)
+    new ViewOperationPluginRunner(params.plugins),
+    createFieldOperationPluginRunner()
   );
   return { handler, repository, flow };
 };

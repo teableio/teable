@@ -3482,5 +3482,83 @@ describe('ListTableRecordsHandler', () => {
       expect(result._unsafeUnwrap().appliedGroup).toEqual([{ fieldId: statusId, order: 'asc' }]);
       expect(captured.orderByFieldIds).toContain(statusId);
     });
+
+    it('keeps record.fields zero-copy when only allowed fields are present and copy-on-write strips disallowed fields', async () => {
+      const builder = Table.builder()
+        .withBaseId(createBaseId('z'))
+        .withName(TableName.create('Zero Copy Strip')._unsafeUnwrap());
+      builder.field().singleLineText().withName(FieldName.create('Title')._unsafeUnwrap()).done();
+      builder.field().singleLineText().withName(FieldName.create('Secret')._unsafeUnwrap()).done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const tableRepository = new MemoryTableRepository();
+      await tableRepository.insert(createContext(), table);
+
+      const titleId = table
+        .getField((field) => field.name().toString() === 'Title')
+        ._unsafeUnwrap()
+        .id()
+        .toString();
+      const secretId = table
+        .getField((field) => field.name().toString() === 'Secret')
+        ._unsafeUnwrap()
+        .id()
+        .toString();
+
+      const cleanFields: Record<string, unknown> = { [titleId]: 'Clean row' };
+      const extraFields: Record<string, unknown> = {
+        [titleId]: 'Extra row',
+        [secretId]: 'Should strip',
+      };
+      const recordQueryRepo: ITableRecordQueryRepository = {
+        find: async () =>
+          ok({
+            records: [
+              {
+                id: createRecordId('a').toString(),
+                version: 1,
+                fields: cleanFields,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+              {
+                id: createRecordId('b').toString(),
+                version: 1,
+                fields: extraFields,
+                createdByActorType: null,
+                createdByActorId: null,
+                lastModifiedByActorType: null,
+                lastModifiedByActorId: null,
+              },
+            ],
+            total: 2,
+          }),
+        findOne: async () => err(domainError.notFound({ message: 'Not found' })),
+        async *findStream() {},
+      };
+
+      const query = ListTableRecordsQuery.create({
+        tableId: table.id().toString(),
+        fieldKeyType: FieldKeyType.Id,
+        projection: [titleId],
+      })._unsafeUnwrap();
+      const result = await new ListTableRecordsHandler(
+        tableRepository,
+        recordQueryRepo,
+        new NoopLogger()
+      ).handle(createContext(), query);
+
+      expect(result.isOk()).toBe(true);
+      const records = result._unsafeUnwrap().records;
+      expect(records).toHaveLength(2);
+      // Clean row stays zero-copy (exact same fields reference).
+      expect(records[0]?.fields).toBe(cleanFields);
+      // Row with disallowed field is copy-on-write stripped without mutating input.
+      expect(records[1]?.fields).not.toBe(extraFields);
+      expect(records[1]?.fields).toEqual({ [titleId]: 'Extra row' });
+      expect(extraFields).toEqual({ [titleId]: 'Extra row', [secretId]: 'Should strip' });
+    });
   });
 });

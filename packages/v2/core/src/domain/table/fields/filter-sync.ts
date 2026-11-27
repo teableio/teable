@@ -1,5 +1,6 @@
 import type { ISpecification } from '../../shared/specification/ISpecification';
 import type { Table } from '../Table';
+import { textConditionOperatorSchema } from '../records/specs/RecordConditionOperators';
 import type { ITableSpecVisitor } from '../specs/ITableSpecVisitor';
 import { TableUpdateFieldTypeSpec } from '../specs/TableUpdateFieldTypeSpec';
 import { UpdateMultipleSelectOptionsSpec } from '../specs/field-updates/UpdateMultipleSelectOptionsSpec';
@@ -60,6 +61,7 @@ type FieldSelectOptionChangeSummary = {
 
 export type FieldFilterSyncPlan = {
   readonly removeReferencedFilterItems: boolean;
+  readonly allowedOperatorsAfterConversion?: ReadonlyArray<string>;
   readonly renamedSelectOptionValues: ReadonlyMap<string, string>;
   readonly removedSelectOptionValues: ReadonlySet<string>;
   readonly userMultiplicityChange?: UserFilterMultiplicityChange;
@@ -72,6 +74,7 @@ export const buildFieldFilterSyncPlan = (
   const renamedSelectOptionValues = new Map<string, string>();
   const removedSelectOptionValues = new Set<string>();
   let removeReferencedFilterItems = false;
+  let allowedOperatorsAfterConversion: ReadonlyArray<string> | undefined;
   let userMultiplicityChange: UserFilterMultiplicityChange | undefined;
   for (const spec of updateSpecs) {
     if (
@@ -79,7 +82,16 @@ export const buildFieldFilterSyncPlan = (
       spec.oldField().id().equals(updatedField.id())
     ) {
       if (spec.isTypeConversion()) {
-        removeReferencedFilterItems = true;
+        const before = spec.oldField().type().toString();
+        const after = spec.newField().type().toString();
+        if (
+          (before === 'longText' && after === 'singleLineText') ||
+          (before === 'singleLineText' && after === 'longText')
+        ) {
+          allowedOperatorsAfterConversion = textConditionOperatorSchema.options;
+        } else {
+          removeReferencedFilterItems = true;
+        }
       } else {
         const summary = getFieldSelectOptionChangeSummaryFromTypeSpec(spec);
         if (summary) {
@@ -137,6 +149,7 @@ export const buildFieldFilterSyncPlan = (
 
   return {
     removeReferencedFilterItems,
+    ...(allowedOperatorsAfterConversion ? { allowedOperatorsAfterConversion } : {}),
     renamedSelectOptionValues,
     removedSelectOptionValues,
     ...(userMultiplicityChange ? { userMultiplicityChange } : {}),
@@ -178,11 +191,17 @@ export const hasFieldSelectOptionChanges = (
 export const hasFieldFilterSyncPlanChanges = (plan: FieldFilterSyncPlan): boolean => {
   return (
     plan.removeReferencedFilterItems ||
+    plan.allowedOperatorsAfterConversion !== undefined ||
     plan.renamedSelectOptionValues.size > 0 ||
     plan.removedSelectOptionValues.size > 0 ||
     plan.userMultiplicityChange != null
   );
 };
+
+const shouldRemoveCondition = (plan: FieldFilterSyncPlan, operator: unknown): boolean =>
+  plan.removeReferencedFilterItems ||
+  (plan.allowedOperatorsAfterConversion !== undefined &&
+    (typeof operator !== 'string' || !plan.allowedOperatorsAfterConversion.includes(operator)));
 
 export const hasSelectOptionValueChanges = (plan: FieldFilterSyncPlan): boolean => {
   return plan.renamedSelectOptionValues.size > 0 || plan.removedSelectOptionValues.size > 0;
@@ -214,7 +233,8 @@ export const syncFilterByFieldChanges = (
 export const syncFilterByFieldChangesWithId = (
   filter: unknown,
   fieldId: string,
-  plan: FieldFilterSyncPlan
+  plan: FieldFilterSyncPlan,
+  resolveSymbolOperator?: (operator: string) => string | undefined
 ): unknown => {
   if (!hasFieldFilterSyncPlanChanges(plan)) {
     return filter;
@@ -225,7 +245,11 @@ export const syncFilterByFieldChangesWithId = (
       if (node.fieldId !== fieldId) {
         return { ...node };
       }
-      if (plan.removeReferencedFilterItems) {
+      const compatibilityOperator =
+        resolveSymbolOperator && node.isSymbol === true && typeof node.operator === 'string'
+          ? resolveSymbolOperator(node.operator)
+          : node.operator;
+      if (shouldRemoveCondition(plan, compatibilityOperator)) {
         return null;
       }
 
@@ -319,7 +343,7 @@ export const syncRecordFilterByFieldChanges = (
       if (node.fieldId !== fieldId) {
         return { ...node };
       }
-      if (plan.removeReferencedFilterItems) {
+      if (shouldRemoveCondition(plan, node.operator)) {
         return null;
       }
 

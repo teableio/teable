@@ -4,6 +4,7 @@ import { PrismaService } from '@teable/db-main-prisma';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitterService } from '../../../event-emitter/event-emitter.service';
 import { Events } from '../../../event-emitter/events';
+import type { IDeleteRecordsPayload } from '../../../event-emitter/events/delete-records-payload';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
 import { LinkService } from '../../calculation/link.service';
@@ -82,7 +83,7 @@ export class RecordDeleteService {
       return { records: recordsForEvent, orders };
     });
 
-    this.eventEmitterService.emitAsync(Events.OPERATION_RECORDS_DELETE, {
+    this.eventEmitterService.emitAsync<IDeleteRecordsPayload>(Events.OPERATION_RECORDS_DELETE, {
       operationId: generateOperationId(),
       windowId,
       tableId,

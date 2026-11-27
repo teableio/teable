@@ -30,7 +30,7 @@ const fieldActionByOperation: Partial<Record<FieldOperationKind, FieldAction>> =
 
 type PermissionDetails = {
   readonly operation: FieldOperationKind;
-  readonly sourceOperation: FieldOperationKind;
+  readonly sourceOperation: FieldOperationPluginContext['target']['sourceOperation'];
   readonly sourceTableId: string;
   readonly targetTableId: string;
   readonly action: FieldAction;
@@ -89,7 +89,9 @@ export class SymmetricFieldPermissionFieldOperationPlugin implements IFieldOpera
 
     const sourceBaseId = context.target.sourceTable.baseId().toString();
     const targetBaseId = context.table.baseId().toString();
-    if (sourceBaseId === targetBaseId) {
+    const changesViewScope =
+      context.target.sourceOperation === 'deleteView' || context.target.sourceOperation === 'restoreView';
+    if (sourceBaseId === targetBaseId && !changesViewScope) {
       return ok(undefined);
     }
 

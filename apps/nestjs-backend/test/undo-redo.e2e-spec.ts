@@ -84,6 +84,7 @@ import {
   ensureUndoRedoWindowIdHeader,
 } from '@teable/openapi';
 import type { ITableFullVo, IUndoVo, IUserMeVo } from '@teable/openapi';
+import { ok, ViewOperationPluginRunner } from '@teable/v2-core';
 import type { AxiosInstance } from 'axios';
 import { onTestFinished } from 'vitest';
 import { CacheService } from '../src/cache/cache.service';
@@ -92,6 +93,7 @@ import { EventEmitterService } from '../src/event-emitter/event-emitter.service'
 import { Events } from '../src/event-emitter/events';
 import { X_TEABLE_V2_HEADER } from '../src/features/canary/interceptors/v2-indicator.interceptor';
 import { RecordService } from '../src/features/record/record.service';
+import { SymmetricFieldTargetSchemaCapabilityProvider } from '../src/features/record/symmetric-field-target-schema-capability.service';
 import { X_TEABLE_UNDO_REDO_ENGINE_HEADER } from '../src/features/undo-redo/open-api/undo-redo.service';
 import { createNewUserAxios } from './utils/axios-instance/new-user';
 import { createEventPromise } from './utils/event-promise';
@@ -1590,6 +1592,138 @@ describe('Undo Redo (e2e)', () => {
     expect(redoResponse.headers[X_TEABLE_UNDO_REDO_ENGINE_HEADER]).toBe(expectedEngine);
 
     expect(await waitForViewVisibility(table.id, view.id, false, 300)).toBeUndefined();
+  });
+
+  it.skipIf(!isForceV2)('keeps a self-link edit committed between undo admission and persistence (T8770)', async () => {
+    const view = (await createView(table.id, { type: ViewType.Grid, name: 'Original scope' })).data;
+    const replacement = table.views[0].id;
+    const options = { relationship: Relationship.ManyMany, foreignTableId: table.id };
+    const field = (await createField(table.id, {
+      type: FieldType.Link, name: 'Scoped self link', options: { ...options, filterByViewId: view.id },
+    })).data;
+    const otherWindow = { headers: { [windowIdHeader]: 'win' + getRandomString(8) } };
+    await deleteView(table.id, view.id);
+    const prepare = ViewOperationPluginRunner.prototype.prepare;
+    const admission = vi.spyOn(ViewOperationPluginRunner.prototype, 'prepare').mockImplementation(async function (this: ViewOperationPluginRunner, context) {
+      if (context.kind === 'create' && context.payload.source === 'snapshotRestore' && context.payload.tableId === table.id) {
+        await axios.put(`/table/${table.id}/field/${field.id}/convert`, {
+          type: FieldType.Link, options: { ...options, filterByViewId: replacement },
+        }, otherWindow);
+      }
+      return prepare.call(this, context);
+    });
+    try {
+      expect((await undo(table.id)).data.status).toBe('fulfilled');
+    } finally {
+      admission.mockRestore();
+    }
+    expect((await getView(table.id, view.id)).data.id).toBe(view.id);
+    expect((await getField(table.id, field.id)).data.options).toMatchObject({ filterByViewId: replacement });
+    await axios.put(`/table/${table.id}/field/${field.id}/convert`, {
+      type: FieldType.Link, options: { ...options, filterByViewId: view.id },
+    }, otherWindow);
+    expect((await getField(table.id, field.id)).data.options).toMatchObject({ filterByViewId: view.id });
+  });
+
+  it.skipIf(!isForceV2)('rolls back a multi-owner view undo on field permission denial and retries the entry (T8770)', async () => {
+    const foreign = await createTable(baseId, { name: 'Second field owner' });
+    try {
+      const view = (await createView(table.id, { type: ViewType.Grid, name: 'Scoped' })).data;
+      const options = { relationship: Relationship.ManyMany, foreignTableId: table.id, filterByViewId: view.id };
+      const owners = [table.id, foreign.id];
+      const links: { owner: string; id: string }[] = [];
+      for (const owner of owners) {
+        const field = (await createField(owner, { type: FieldType.Link, name: 'Scoped link', options })).data;
+        links.push({ owner, id: field.id });
+      }
+      await deleteView(table.id, view.id);
+      const capability = app.get(SymmetricFieldTargetSchemaCapabilityProvider);
+      const check = capability.canManageTargetSchema.bind(capability);
+      const checked: string[] = [];
+      const denySecond = vi.spyOn(capability, 'canManageTargetSchema').mockImplementation(async (...args) => {
+        const owner = args[0].id().toString();
+        checked.push(owner);
+        return checked.length === 2 ? ok(false) : check(...args);
+      });
+      try {
+        expect((await undo(table.id)).data.status).toBe('failed');
+      } finally {
+        denySecond.mockRestore();
+      }
+      expect(checked.sort()).toEqual([...owners].sort());
+      expect((await getViewList(table.id)).data.some((current) => current.id === view.id)).toBe(false);
+      for (const link of links) {
+        expect((await getField(link.owner, link.id)).data.options).toMatchObject({ filterByViewId: null });
+      }
+      expect((await undo(table.id)).data.status).toBe('fulfilled');
+      for (const link of links) {
+        expect((await getField(link.owner, link.id)).data.options).toMatchObject({ filterByViewId: view.id });
+      }
+    } finally {
+      await permanentDeleteTable(baseId, foreign.id);
+    }
+  });
+
+  it.skipIf(!isForceV2)('restores the view-scoped link candidates after undoing view deletion (T8770)', async () => {
+    const target = await createTable(baseId, {
+      name: 'Candidate records',
+      fields: [{ name: 'Title', type: FieldType.SingleLineText, isPrimary: true }],
+      records: [{ fields: { Title: 'Included' } }, { fields: { Title: 'Excluded' } }],
+    });
+    try {
+      const view = (await createView(target.id, { type: ViewType.Grid, name: 'Included only' })).data;
+      await updateViewFilter(target.id, view.id, {
+        filter: { conjunction: 'and', filterSet: [{ fieldId: target.fields[0].id, operator: 'is', value: 'Included' }] },
+      });
+      const options = { relationship: Relationship.ManyMany, foreignTableId: target.id };
+      const scoped = (await createField(table.id, {
+        name: 'Scoped', type: FieldType.Link, options: { ...options, filterByViewId: view.id },
+      })).data;
+      const control = (await createField(table.id, { name: 'Unrestricted', type: FieldType.Link, options })).data;
+      const self = (await createField(target.id, {
+        name: 'Scoped self link', type: FieldType.Link, options: { ...options, filterByViewId: view.id },
+      })).data;
+      const candidates = async (fieldId: string) =>
+        (await getRecords(target.id, { filterLinkCellCandidate: fieldId })).data.records.map((r) => r.id).sort();
+      const scope = async () => ((await getField(table.id, scoped.id)).data.options as ILinkFieldOptions).filterByViewId;
+      const all = target.records.map((r) => r.id).sort();
+      const included = [target.records[0].id];
+      expect(await candidates(scoped.id)).toEqual(included);
+      expect(await candidates(control.id)).toEqual(all);
+
+      await deleteView(target.id, view.id);
+      expect(await scope()).toBeNull();
+      expect(await candidates(scoped.id)).toEqual(all);
+      expect((await undo(target.id)).data.status).toBe('fulfilled');
+      expect((await getView(target.id, view.id)).data.id).toBe(view.id);
+      expect(await scope()).toBe(view.id);
+      expect(await candidates(scoped.id)).toEqual(included);
+      expect((await getField(target.id, self.id)).data.options).toMatchObject({ filterByViewId: view.id });
+      expect(await candidates(self.id)).toEqual(included);
+      expect(await candidates(control.id)).toEqual(all);
+      const otherWindow = { headers: { [windowIdHeader]: 'win' + getRandomString(8) } };
+      const later = (await axios.post<IFieldVo>(`/table/${table.id}/field`, {
+        name: 'Scoped in another window', type: FieldType.Link, options: { ...options, filterByViewId: view.id },
+      }, otherWindow)).data;
+      expect((await redo(target.id)).data.status).toBe('fulfilled');
+      expect(await scope()).toBeNull();
+      expect(await candidates(scoped.id)).toEqual(all);
+      expect(await candidates(later.id)).toEqual(all);
+      const other = (await axios.post<{ id: string }>(`/table/${target.id}/view`, {
+        type: ViewType.Grid, name: 'Replacement scope',
+      }, otherWindow)).data;
+      await axios.put(`/table/${table.id}/field/${scoped.id}/convert`, {
+        type: FieldType.Link, options: { ...options, filterByViewId: other.id },
+      }, otherWindow);
+      expect((await undo(target.id)).data.status).toBe('fulfilled');
+      expect(await scope()).toBe(other.id);
+      expect((await getField(table.id, later.id)).data.options).toMatchObject({ filterByViewId: view.id });
+      expect(await candidates(later.id)).toEqual(included);
+      expect(await candidates(self.id)).toEqual(included);
+      expect(await candidates(control.id)).toEqual(all);
+    } finally {
+      await permanentDeleteTable(baseId, target.id);
+    }
   });
 
   it.skipIf(!isForceV2)(

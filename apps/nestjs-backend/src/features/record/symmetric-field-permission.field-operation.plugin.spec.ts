@@ -122,6 +122,18 @@ describe('SymmetricFieldPermissionFieldOperationPlugin', () => {
     expect(validPermissions).not.toHaveBeenCalled();
   });
 
+  it.each(['restoreView', 'deleteView'] as const)(
+    'checks the current field-update capability for same-base %s changes',
+    async (sourceOperation) => {
+      const { plugin, validPermissions } = createPlugin();
+      const sideEffect = context({ kind: FieldOperationKind.update, targetBaseId: SOURCE_BASE_ID });
+      validPermissions.mockRejectedValue(new CustomHttpException('denied', HttpErrorCode.RESTRICTED_RESOURCE));
+      const result = await plugin.prepare({ ...sideEffect, target: { ...sideEffect.target, sourceOperation } });
+      expect(result._unsafeUnwrapErr().tags).toContain('forbidden');
+      expect(validPermissions).toHaveBeenCalledWith(TARGET_TABLE_ID, ['field|update'], ACCESS_TOKEN_ID);
+    }
+  );
+
   it('does not add a redundant permission check to same-base side effects', async () => {
     const { plugin, validPermissions } = createPlugin();
 

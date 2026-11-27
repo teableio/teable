@@ -2,6 +2,8 @@ import { inject, injectable } from '@teable/v2-di';
 import { err, ok, safeTry } from 'neverthrow';
 import type { Result } from 'neverthrow';
 
+import { FieldOperationPluginRunner } from '../application/services/FieldOperationPluginRunner';
+import { guardViewLinkFilterChanges } from '../application/services/guardViewLinkFilterChanges';
 import { TableUpdateFlow } from '../application/services/TableUpdateFlow';
 import { ViewUndoRedoService } from '../application/services/ViewUndoRedoService';
 import { ViewOperationPluginRunner } from '../application/services/ViewOperationPluginRunner';
@@ -57,6 +59,8 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     private readonly domainWriteTransaction: DomainWriteTransactionPort.IDomainWriteTransaction,
     @inject(v2CoreTokens.viewUndoRedoService)
     private readonly viewUndoRedoService: ViewUndoRedoService,
+    @inject(v2CoreTokens.fieldOperationPluginRunner)
+    private readonly fieldOperationPluginRunner: FieldOperationPluginRunner,
     @inject(v2CoreTokens.viewOperationPluginRunner)
     private readonly viewOperationPluginRunner: ViewOperationPluginRunner = new ViewOperationPluginRunner([], new NoopLogger())
   ) {}
@@ -127,29 +131,28 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
                     let latestSourceTable = updatedTable;
 
                     for (const group of dependencyGroups) {
-                      const foreignTableSpec = yield* TableAggregate.specs()
-                        .byId(group.foreignTableId)
-                        .build();
-                      const foreignTableResult = await handler.tableRepository.findOne(
-                        currentContext,
-                        foreignTableSpec,
-                        { lock: 'forUpdate' }
-                      );
-                      if (foreignTableResult.isErr()) {
-                        if (isNotFoundError(foreignTableResult.error)) continue;
-                        return err(foreignTableResult.error);
+                      let owner = latestSourceTable;
+                      if (!group.foreignTableId.equals(command.tableId)) {
+                        const spec = yield* TableAggregate.specs().byId(group.foreignTableId).build();
+                        const loaded = await handler.tableRepository.findOne(currentContext, spec, { lock: 'forUpdate' });
+                        if (loaded.isErr()) {
+                          if (isNotFoundError(loaded.error)) continue;
+                          return err(loaded.error);
+                        }
+                        owner = loaded.value;
                       }
 
                       const cleanupResult =
-                        yield* foreignTableResult.value.clearViewFilterDependencies(
+                        yield* owner.clearViewFilterDependencies(
                           command.viewId,
                           group.fieldIds
                         );
                       if (!cleanupResult) continue;
+                      yield* await guardViewLinkFilterChanges(handler.fieldOperationPluginRunner, currentContext, updatedTable, owner, cleanupResult, 'deleteView');
 
                       const foreignUpdateResult = yield* await handler.tableUpdateFlow.execute(
                         currentContext,
-                        { table: foreignTableResult.value },
+                        { table: owner },
                         () => ok(cleanupResult),
                         { publishEvents: false }
                       );
@@ -169,6 +172,12 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
           );
 
           const events = [...updateResult.events, ...updateResult.postPersistEvents];
+          // Capture the inverse before commit. A lost reservation or store failure aborts deletion.
+          if (command.refreshInverse) {
+            yield* await command.refreshInverse(
+              ViewUndoRedoService.restoreDeletedView(updateResult.table, deletedSnapshot, events)
+            );
+          }
           return ok(
             domainWrite.fromEvents(
               DeleteViewResult.create(updateResult.table, command.viewId, deletedSnapshot, events),
@@ -181,7 +190,8 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     );
 
     if (transactionResult.isErr()) return err(transactionResult.error);
-    const { table: updatedTable, deletedSnapshot } = transactionResult.value.value;
+    if (command.refreshInverse) return ok(transactionResult.value.value);
+    const { table: updatedTable, deletedSnapshot, events } = transactionResult.value.value;
     if (
       transactionResult.value.status === 'deferred' &&
       ExecutionContextPort.isReusableBatchTransactionScope(context.batchTransaction)
@@ -191,7 +201,8 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
         const undoRedoResult = await this.viewUndoRedoService.appendDelete(
           dispatchContext,
           updatedTable,
-          deletedSnapshot
+          deletedSnapshot,
+          events
         );
         if (undoRedoResult.isErr()) {
           throw new Error(undoRedoResult.error.message);
@@ -203,7 +214,8 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
     const undoRedoResult = await this.viewUndoRedoService.appendDelete(
       context,
       updatedTable,
-      deletedSnapshot
+      deletedSnapshot,
+      events
     );
     if (undoRedoResult.isErr()) return err(undoRedoResult.error);
     return ok(transactionResult.value.value);
@@ -222,14 +234,12 @@ export class DeleteViewHandler implements ICommandHandler<DeleteViewCommand, Del
         foreignTableId: dependency.foreignTableId,
         fieldIds: [],
       };
-      if (!group.fieldIds.some((fieldId) => fieldId.equals(dependency.symmetricFieldId))) {
-        group.fieldIds.push(dependency.symmetricFieldId);
-      }
+      group.fieldIds.push(dependency.symmetricFieldId);
       groups.set(key, group);
     }
 
-    return [...groups.values()].sort((left, right) =>
-      left.foreignTableId.toString().localeCompare(right.foreignTableId.toString())
+    return [...groups.values()].sort((a, b) =>
+      a.foreignTableId.toString().localeCompare(b.foreignTableId.toString())
     );
   }
 }

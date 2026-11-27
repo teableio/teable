@@ -647,10 +647,11 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
     const targets = await createTableWithStorage(db, 'junction-targets');
     createdSchemas.push(targets.schemaName);
     const targetTableName = `${targets.schemaName}.${targets.tableName}`;
-    const { table: sourceFixture, schemaName, tableName } = await createTableWithStorage(
-      db,
-      'junction-sources'
-    );
+    const {
+      table: sourceFixture,
+      schemaName,
+      tableName,
+    } = await createTableWithStorage(db, 'junction-sources');
     createdSchemas.push(schemaName);
     const sourceTableName = `${schemaName}.${tableName}`;
     const builder = Table.builder()
@@ -699,7 +700,9 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
     const [title, ...linkFields] = table.getFields();
     title.setDbFieldName(DbFieldName.rehydrate('col_title')._unsafeUnwrap())._unsafeUnwrap();
     for (const [index, field] of linkFields.entries()) {
-      field.setDbFieldName(DbFieldName.rehydrate(links[index].column)._unsafeUnwrap())._unsafeUnwrap();
+      field
+        .setDbFieldName(DbFieldName.rehydrate(links[index].column)._unsafeUnwrap())
+        ._unsafeUnwrap();
     }
 
     const recordIds = Array.from({ length: 252 }, (_, i) =>
@@ -777,9 +780,11 @@ describe('PostgresTableRecordRepository.updateMany (pglite)', () => {
       )
     );
     expect(result._unsafeUnwrap().totalUpdated).toBe(250);
-    const junctionWrites = queries.slice(writeStart).filter(
-      (query) => /^(delete from|insert into)\b/i.test(query) && /"junction_[ab]"/.test(query)
-    );
+    const junctionWrites = queries
+      .slice(writeStart)
+      .filter(
+        (query) => /^(delete from|insert into)\b/i.test(query) && /"junction_[ab]"/.test(query)
+      );
     expect(junctionWrites).toHaveLength(4);
 
     for (const [index, link] of links.entries()) {

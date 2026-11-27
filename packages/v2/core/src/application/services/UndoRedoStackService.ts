@@ -179,6 +179,7 @@ type UndoRedoReplayProgressState = {
   leafOffset?: number;
   skipAlreadyExecuted?: boolean;
   onLeafExecuted?: (index: number) => Promise<Result<void, DomainError>>;
+  refreshViewInverse?: DeleteViewCommand['refreshInverse'];
   deferredSelfLinksByTableId?: Map<string, IDeferredSelfReferentialLinkRecord[]>;
   skippedSelfLinkCandidatesByTableId?: Map<string, IDeferredSelfReferentialLinkRecord[]>;
   tableSelfLinkFieldIds?: Map<string, ReadonlySet<string>>;
@@ -748,6 +749,11 @@ export class UndoRedoStackService {
                     index
                   );
                   yield* checkLease();
+                  const inverse = mode === 'undo' ? entry.redoCommand : entry.undoCommand;
+                  // create, duplicate and delete each record one view command per entry.
+                  progressState.refreshViewInverse = inverse.type === 'ApplyViewSnapshot'
+                    ? (next) => service.undoRedoStore.replaceReservedInverse(scope, reserved.token, index, next)
+                    : undefined;
                   const command = mode === 'undo' ? entry.undoCommand : entry.redoCommand;
                   const leafCount = command.type === 'Batch' ? command.payload.length : 1;
                   progressState.leafOffset = leafOffset;
@@ -1001,10 +1007,12 @@ export class UndoRedoStackService {
         return ApplyFieldSnapshotCommand.create(commandData.payload);
       case 'ReplayFieldTypeConversion':
         return ReplayFieldTypeConversionCommand.create(commandData.payload);
-      case 'ApplyViewSnapshot':
-        return ApplyViewSnapshotCommand.create(commandData.payload);
+      case 'ApplyViewSnapshot': {
+        const { clearedLinkFilters, ...snapshotInput } = commandData.payload;
+        return ApplyViewSnapshotCommand.create(snapshotInput, clearedLinkFilters);
+      }
       case 'DeleteView':
-        return DeleteViewCommand.create(commandData.payload);
+        return DeleteViewCommand.create(commandData.payload, progressState?.refreshViewInverse);
       case 'EnableViewShare':
         return EnableViewShareCommand.create(commandData.payload);
       case 'DisableViewShare':

@@ -141,9 +141,8 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     try {
       await expect(
         maintenance.connection().execute(async (session) => {
-          backendPid = (
-            await sql<{ pid: number }>`SELECT pg_backend_pid() AS pid`.execute(session)
-          ).rows[0].pid;
+          backendPid = (await sql<{ pid: number }>`SELECT pg_backend_pid() AS pid`.execute(session))
+            .rows[0].pid;
           await sql`SELECT pg_advisory_lock(hashtext('teable.table_query_ops.search_vector.data'), hashtext(${tableId}))`.execute(
             session
           );
@@ -155,13 +154,15 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         await sql<{ pid: number }>`SELECT pg_backend_pid() AS pid`.execute(maintenance)
       ).rows[0].pid;
       expect(replacement).not.toBe(backendPid);
-      expect((await sql<{ healthy: number }>`SELECT 1 AS healthy`.execute(db)).rows[0].healthy).toBe(
-        1
-      );
+      expect(
+        (await sql<{ healthy: number }>`SELECT 1 AS healthy`.execute(db)).rows[0].healthy
+      ).toBe(1);
       await vi.waitFor(
         async () => {
           const probe = await sql<{ available: boolean }>`SELECT pg_try_advisory_xact_lock(
-            hashtext('teable.table_query_ops.search_vector.data'), hashtext(${tableId})) AS available`.execute(db);
+            hashtext('teable.table_query_ops.search_vector.data'), hashtext(${tableId})) AS available`.execute(
+            db
+          );
           expect(probe.rows[0].available).toBe(true);
         },
         { timeout: 5000 }
@@ -1147,23 +1148,33 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     const suffix = `${Date.now()}${Math.floor(Math.random() * 100000)}`;
     const spaceId = `spc_capacity_${suffix}`;
     const otherSpaceId = `spc_capacity_other_${suffix}`;
-    const bases = [`bse_capacity_a_${suffix}`, `bse_capacity_b_${suffix}`, `bse_capacity_c_${suffix}`];
+    const bases = [
+      `bse_capacity_a_${suffix}`,
+      `bse_capacity_b_${suffix}`,
+      `bse_capacity_c_${suffix}`,
+    ];
     const { promise: held, resolve: release } = Promise.withResolvers<void>();
     let worker: TableQueryOpsRunnerHandle | undefined;
     try {
       await sql`INSERT INTO space (id, name, created_by) VALUES
-        (${spaceId}, 'Capacity', 'test'), (${otherSpaceId}, 'Capacity other', 'test')`.execute(meta);
+        (${spaceId}, 'Capacity', 'test'), (${otherSpaceId}, 'Capacity other', 'test')`.execute(
+        meta
+      );
       await sql`INSERT INTO base (id, space_id, name, "order", created_by) VALUES
         (${bases[0]}, ${spaceId}, 'A', 0, 'test'),
         (${bases[1]}, ${spaceId}, 'B', 0, 'test'),
         (${bases[2]}, ${otherSpaceId}, 'C', 0, 'test')`.execute(meta);
-      const tasks = bases.map((baseId, index) => expectOk(TableQueryRemediationTask.createQueued({
-        tableId: `tbl_capacity_${index}_${suffix}`,
-        baseId,
-        kind: 'rebuild_search_access_path',
-        payload: { trigger: 'schema_change' },
-        now: new Date(Date.now() - (3 - index) * 1000),
-      })));
+      const tasks = bases.map((baseId, index) =>
+        expectOk(
+          TableQueryRemediationTask.createQueued({
+            tableId: `tbl_capacity_${index}_${suffix}`,
+            baseId,
+            kind: 'rebuild_search_access_path',
+            payload: { trigger: 'schema_change' },
+            now: new Date(Date.now() - (3 - index) * 1000),
+          })
+        )
+      );
       for (const task of tasks) {
         recoveryTaskIds.push(task.snapshot().id);
         expectOk(await taskRepository.save(context, task));
@@ -1173,33 +1184,57 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         WHERE id = ${tasks[1].snapshot().id}`.execute(meta);
       const workerContainer = testContainer.container.createChildContainer();
       workerContainer.registerInstance(v2TableOpsTokens.taskWorkerConfig, {
-        enabled: true, intervalMs: 30, workerId: 'capacity-worker', scope: 'search_maintenance',
+        enabled: true,
+        intervalMs: 30,
+        workerId: 'capacity-worker',
+        scope: 'search_maintenance',
         allowedKinds: ['rebuild_search_access_path'],
-        allowManualIndexExecution: false, allowPolicyIndexExecution: false,
+        allowManualIndexExecution: false,
+        allowPolicyIndexExecution: false,
       });
       workerContainer.registerInstance(v2TableOpsTokens.clock, { now: () => new Date() });
-      const execute = vi.fn(async (_context: IExecutionContext, command: RunTableQueryRemediationTaskCommand) => {
-        const task = expectOk(await taskRepository.findById(context, command.taskId));
-        expectOk(await taskRepository.save(context, expectOk(task.start(command.workerId, new Date()))));
-        await held;
-        return { isErr: () => false };
-      });
-      workerContainer.registerInstance(v2CoreTokens.commandBus, { execute } as unknown as ICommandBus);
+      const execute = vi.fn(
+        async (_context: IExecutionContext, command: RunTableQueryRemediationTaskCommand) => {
+          const task = expectOk(await taskRepository.findById(context, command.taskId));
+          expectOk(
+            await taskRepository.save(context, expectOk(task.start(command.workerId, new Date())))
+          );
+          await held;
+          return { isErr: () => false };
+        }
+      );
+      workerContainer.registerInstance(v2CoreTokens.commandBus, {
+        execute,
+      } as unknown as ICommandBus);
       worker = startTableQueryOpsTaskWorkerIfEnabled(workerContainer, context);
-      await vi.waitFor(async () => {
-        expect(execute).toHaveBeenCalledTimes(2);
-        const running = await Promise.all([tasks[0], tasks[2]].map(async (task) =>
-          expectOk(await taskRepository.findById(context, task.snapshot().id)).snapshot().status
-        ));
-        expect(running).toEqual(['running', 'running']);
-      }, { timeout: 5_000 });
+      await vi.waitFor(
+        async () => {
+          expect(execute).toHaveBeenCalledTimes(2);
+          const running = await Promise.all(
+            [tasks[0], tasks[2]].map(
+              async (task) =>
+                expectOk(await taskRepository.findById(context, task.snapshot().id)).snapshot()
+                  .status
+            )
+          );
+          expect(running).toEqual(['running', 'running']);
+        },
+        { timeout: 5_000 }
+      );
       const startedIds = execute.mock.calls.map(([, command]) => command.taskId);
       expect(startedIds).toEqual([tasks[0].snapshot().id, tasks[2].snapshot().id]);
-      expect(expectOk(await taskRepository.claimNextAccepted(context, {
-        scope: 'search_maintenance', workerId: 'third-worker', now: new Date(),
-        allowedKinds: ['rebuild_search_access_path'],
-        allowManualIndexExecution: false, allowPolicyIndexExecution: false,
-      }))).toBeUndefined();
+      expect(
+        expectOk(
+          await taskRepository.claimNextAccepted(context, {
+            scope: 'search_maintenance',
+            workerId: 'third-worker',
+            now: new Date(),
+            allowedKinds: ['rebuild_search_access_path'],
+            allowManualIndexExecution: false,
+            allowPolicyIndexExecution: false,
+          })
+        )
+      ).toBeUndefined();
       worker?.stop();
       const lockAcquired = Promise.withResolvers<void>();
       const unlock = Promise.withResolvers<void>();
@@ -1215,11 +1250,18 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
           WHERE id = ${tasks[0].snapshot().id}`.execute(meta);
         const healthy = expectOk(await taskRepository.findById(context, tasks[2].snapshot().id));
         expectOk(await taskRepository.save(context, expectOk(healthy.succeed({}, new Date()))));
-        expect(expectOk(await taskRepository.claimNextAccepted(context, {
-          scope: 'search_maintenance', workerId: 'replacement-worker', now: new Date(),
-          allowedKinds: ['rebuild_search_access_path'],
-          allowManualIndexExecution: false, allowPolicyIndexExecution: false,
-        }))).toBeUndefined();
+        expect(
+          expectOk(
+            await taskRepository.claimNextAccepted(context, {
+              scope: 'search_maintenance',
+              workerId: 'replacement-worker',
+              now: new Date(),
+              allowedKinds: ['rebuild_search_access_path'],
+              allowManualIndexExecution: false,
+              allowPolicyIndexExecution: false,
+            })
+          )
+        ).toBeUndefined();
       } finally {
         unlock.resolve();
         await lock;
@@ -1227,7 +1269,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
     } finally {
       worker?.stop();
       release();
-      await sql`DELETE FROM table_query_remediation_task WHERE base_id = ANY(${bases})`.execute(meta);
+      await sql`DELETE FROM table_query_remediation_task WHERE base_id = ANY(${bases})`.execute(
+        meta
+      );
       await sql`DELETE FROM base WHERE id = ANY(${bases})`.execute(meta);
       await sql`DELETE FROM space WHERE id IN (${spaceId}, ${otherSpaceId})`.execute(meta);
     }
@@ -2283,8 +2327,7 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       const executionDb = db.withPlugin({
         transformQuery(args) {
           const compiled = new PostgresQueryCompiler().compileQuery(args.node, args.queryId);
-          if (/^(ALTER TABLE|CREATE INDEX|DROP INDEX)\b/.test(compiled.sql))
-            ddl.push(compiled.sql);
+          if (/^(ALTER TABLE|CREATE INDEX|DROP INDEX)\b/.test(compiled.sql)) ddl.push(compiled.sql);
           return args.node;
         },
         async transformResult(args) {
@@ -2357,7 +2400,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       );
       expect(departed.snapshot()).toMatchObject({ status: 'running', attempts: 3, maxAttempts: 3 });
       ddl.length = 0;
-      expectOk(await executor.execute(context, { task: departed, allowManualIndexExecution: false }));
+      expectOk(
+        await executor.execute(context, { task: departed, allowManualIndexExecution: false })
+      );
       // Crash after both real DDL and the reclaimed metadata receipt committed,
       // before the task owner can save succeeded.
       expect(ddl.some((statement) => statement.includes('DROP COLUMN'))).toBe(true);
@@ -2417,7 +2462,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         (executionContext: IExecutionContext, command: RunTableQueryRemediationTaskCommand) =>
           handler.handle(executionContext, command)
       );
-      workerContainer.registerInstance(v2CoreTokens.commandBus, { execute } as unknown as ICommandBus);
+      workerContainer.registerInstance(v2CoreTokens.commandBus, {
+        execute,
+      } as unknown as ICommandBus);
       const refusal = new TableQueryOpsExecutionUnavailableError(
         new Error('Completed retirement database route is temporarily unavailable')
       );
@@ -2431,19 +2478,22 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
         resolveExecution
       );
       try {
-        await vi.waitFor(async () => {
-          const deferred = expectOk(await taskRepository.findById(context, taskId)).snapshot();
-          expect(deferred).toMatchObject({
-            id: taskId,
-            status: 'queued',
-            attempts: 3,
-            maxAttempts: 3,
-            resumeAttempt: true,
-            lastError: `Task routing failed: ${String(refusal)}`,
-          });
-          expect(deferred.lockedAt).toBeUndefined();
-          expect(deferred.lockedBy).toBeUndefined();
-        }, { timeout: 5_000 });
+        await vi.waitFor(
+          async () => {
+            const deferred = expectOk(await taskRepository.findById(context, taskId)).snapshot();
+            expect(deferred).toMatchObject({
+              id: taskId,
+              status: 'queued',
+              attempts: 3,
+              maxAttempts: 3,
+              resumeAttempt: true,
+              lastError: `Task routing failed: ${String(refusal)}`,
+            });
+            expect(deferred.lockedAt).toBeUndefined();
+            expect(deferred.lockedBy).toBeUndefined();
+          },
+          { timeout: 5_000 }
+        );
       } finally {
         worker?.stop();
       }
@@ -2469,7 +2519,12 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
           new RunTableQueryRemediationTaskCommand(taskId, false, 'restored-receipt-worker')
         )
       ).snapshot();
-      expect(completed).toMatchObject({ id: taskId, status: 'succeeded', attempts: 3, maxAttempts: 3 });
+      expect(completed).toMatchObject({
+        id: taskId,
+        status: 'succeeded',
+        attempts: 3,
+        maxAttempts: 3,
+      });
       expect(completed.lastError).toBeUndefined();
       expect(ddl).toEqual(completedDdl);
       expect(await receipt()).toEqual(completedReceipt);
@@ -2774,7 +2829,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
             '{configKey}', to_jsonb('obsolete'::text)) WHERE id = ${taskId}`.execute(meta);
           expect(expectOk(await claim())).toBeUndefined();
           await sql`UPDATE table_query_remediation_task SET payload = jsonb_set(payload,
-            '{configKey}', to_jsonb(${previous.candidate_key}::text)) WHERE id = ${taskId}`.execute(meta);
+            '{configKey}', to_jsonb(${previous.candidate_key}::text)) WHERE id = ${taskId}`.execute(
+            meta
+          );
           expect(expectOk(await claim())).toBeUndefined();
           expect(expectOk(await claim())?.snapshot()).toMatchObject({ id: taskId, attempts: 3 });
         }
@@ -2792,7 +2849,12 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
           },
         });
         expect(
-          (await run({ windowUtc, isConnectionUnavailable: (error) => error === earlyFailure }, unavailableMeta)).snapshot()
+          (
+            await run(
+              { windowUtc, isConnectionUnavailable: (error) => error === earlyFailure },
+              unavailableMeta
+            )
+          ).snapshot()
         ).toMatchObject({
           status: 'queued',
           attempts: mode.startsWith('legacy_') ? 3 : 0,
@@ -2816,7 +2878,11 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
             },
           });
           const waiting = (
-            await run({ windowUtc, isConnectionUnavailable: (error) => error === failure }, meta, unavailable)
+            await run(
+              { windowUtc, isConnectionUnavailable: (error) => error === failure },
+              meta,
+              unavailable
+            )
           ).snapshot();
           expect(waiting).toMatchObject({
             status: 'queued',
@@ -2987,13 +3053,21 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
           },
         });
         expect(
-          (await run({ windowUtc, isConnectionUnavailable: (error) => error === connectionFailure }, meta, unavailable)).snapshot()
+          (
+            await run(
+              { windowUtc, isConnectionUnavailable: (error) => error === connectionFailure },
+              meta,
+              unavailable
+            )
+          ).snapshot()
         ).toMatchObject({
           status: 'queued',
           attempts: 1,
           lastError: `Search coverage connection unavailable: ${connectionFailure.message}`,
         });
-        const retained = await sql<{ execution_state: SearchGenerationExecutionState }>`SELECT execution_state
+        const retained = await sql<{
+          execution_state: SearchGenerationExecutionState;
+        }>`SELECT execution_state
           FROM table_query_remediation_task WHERE id = ${taskId}`.execute(meta);
         expect(retained.rows[0].execution_state).toEqual(interrupted);
         expect((await run({})).snapshot()).toMatchObject({ status: 'queued', attempts: 1 });
@@ -3083,7 +3157,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
       const physical = expectOk(getTablePhysicalName(table));
       const tableSql = `${quoteIdentifier(physical.schema)}.${quoteIdentifier(physical.tableName)}`;
       await sql
-        .raw(`DROP INDEX ${quoteIdentifier(physical.schema)}.${quoteIdentifier(previous.index_name)}`)
+        .raw(
+          `DROP INDEX ${quoteIdentifier(physical.schema)}.${quoteIdentifier(previous.index_name)}`
+        )
         .execute(db);
       const noteId = FieldId.mustGenerate().toString();
       table = expectOk(
@@ -3247,9 +3323,9 @@ describeWithDb('generated substring search document schema lifecycle (db)', () =
           .toString()
           .padStart(2, '0')}:${(n % 60).toString().padStart(2, '0')}`;
       const windowUtc = `${time((minute + 1410) % 1440)}-${time((minute + 30) % 1440)}`;
-      expect(
-        (await run(continuationId, { windowUtc }, 'expansion-worker')).snapshot().status
-      ).toBe('succeeded');
+      expect((await run(continuationId, { windowUtc }, 'expansion-worker')).snapshot().status).toBe(
+        'succeeded'
+      );
       const expanded = await expectReadyConfig(table);
       expect(expanded.search_scope).toBe('all_fields');
       expect(asStringArray(expanded.field_ids).sort()).toEqual(

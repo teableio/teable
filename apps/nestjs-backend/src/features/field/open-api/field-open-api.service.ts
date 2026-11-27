@@ -63,11 +63,11 @@ import { IDataDbRoutingOptions } from '../../../global/data-db-client-manager.se
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
+import type { IOpsMap } from '../../../types/ops-map';
 import { baseDisplayName } from '../../../utils/base-name';
 import { majorFieldKeysChanged } from '../../../utils/major-field-keys-changed';
 import { Timing } from '../../../utils/timing';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { FieldPeriodicRefreshStateService } from '../../field-periodic-refresh/field-periodic-refresh-state.service';
 import { FieldReferenceAdmissionService } from '../../field-reference-admission/field-reference-admission.service';
 import { GraphService } from '../../graph/graph.service';

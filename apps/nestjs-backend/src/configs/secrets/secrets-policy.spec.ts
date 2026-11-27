@@ -1,6 +1,7 @@
 import { createRequire } from 'node:module';
 import { runInNewContext } from 'node:vm';
 import { describe, expect, it } from 'vitest';
+import { buildDataDbUrlCipher } from '../../features/space/data-db-url-secret';
 import { resolveSecret } from './resolve-secret';
 import { ALL_SECRET_SPECS, SECRET_SPECS } from './secret-specs';
 import {
@@ -14,6 +15,7 @@ import {
   findPublicDefaultSecrets,
   findWrongLengthCipherValues,
 } from './secrets-policy';
+import { resolveStoredSecretRoots, STORED_SECRET_PURPOSES } from './stored-secret-roots';
 
 const fullEnv = {
   SECRET_KEY: 'strong-secret',
@@ -38,7 +40,7 @@ describe('secrets guard', () => {
     expect(findMissingSecrets(ALL_SECRET_SPECS, fullEnv)).toEqual([]);
   });
 
-  it('reports every secret missing on an empty environment, with pin teaching', () => {
+  it('reports every secret missing on an empty environment, and offers none of the public values to set', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
     // EE/cloud-only secrets (requiredWhen) are not nagged about on an empty
     // community env; everything else is required.
@@ -79,27 +81,146 @@ describe('secrets guard', () => {
     for (const envKey of superseded) expect(message).not.toContain(`${envKey} (or`);
     for (const envKey of superseded.slice(1)) expect(message).not.toContain(envKey);
     expect(message).toContain('BACKEND_JWT_SECRET (or SECRET_KEY)');
-    expect(message).toContain('533Cr3tK3yF0rH4sh1nGJ4W773k3n$');
-    expect(message).toContain('dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932');
-    expect(message).toContain('ie21hOKjlXUiGDx9');
     expect(message).toContain('SECRET_KEY: JWT/session fallback');
+    // The built-in values are public and what follows SECRET_KEY needs no variable of its
+    // own: no line sets a secret to the value it has been running on.
+    for (const spec of missing) {
+      expect(message).not.toMatch(new RegExp(`^\\s*${spec.envKey}='`, 'm'));
+    }
+    expect(message).not.toContain('533Cr3tK3yF0rH4sh1nGJ4W773k3n$');
+    expect(message).not.toContain(
+      'dafea6be69af1c1c3b8caf2b609342f6eb4540b554e19539f7643b75b480c932'
+    );
+    expect(message).not.toContain('ie21hOKjlXUiGDx9');
   });
 
-  it('teaches how to COMPUTE the data-db-url values instead of printing derived key material', () => {
-    const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
-    const message = buildMissingSecretsMessage(missing);
-    expect(message).toContain('BACKEND_DATA_DB_URL_ENCRYPTION_KEY');
-    expect(message).toContain("createHash('sha256')");
+  // The env lines the message tells a deployment that already has data to add.
+  const keptReadable = (message: string) =>
+    Object.fromEntries(
+      message
+        .split('\n')
+        .map((line) => /^\s*([A-Z_]+_OLD)='(.+)'$/.exec(line))
+        .filter((match): match is RegExpExecArray => match !== null)
+        .map(([, envKey, value]) => [envKey, value])
+    );
+
+  it('gives an existing deployment _OLD lines that keep what it stored readable', () => {
+    const message = buildMissingSecretsMessage(findMissingSecrets(ALL_SECRET_SPECS, {}));
+    const kept = keptReadable(message);
+    expect(Object.keys(kept)).toEqual([
+      'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD',
+      'BACKEND_INVITATION_SECRET_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD',
+    ]);
+    // No signing secret is kept: its old value is public, so it is cut over.
+    expect(message).not.toContain('BACKEND_JWT_SECRET_OLD=');
+    expect(message).not.toContain('BACKEND_SESSION_SECRET_OLD=');
+
+    // Followed to the letter, the lines open what the deployment wrote with nothing set.
+    const adopted = { SECRET_KEY: 'a-private-root', ...kept };
+    const url = 'postgresql://user:pass@db.example.com:5432/tenant';
+    const storedWithNothingSet = buildDataDbUrlCipher({}).encrypt(url);
+    expect(buildDataDbUrlCipher(adopted).decrypt(storedWithNothingSet)).toBe(url);
+    expect(() =>
+      buildDataDbUrlCipher({ SECRET_KEY: 'a-private-root' }).decrypt(storedWithNothingSet)
+    ).toThrow();
+    for (const purpose of Object.values(STORED_SECRET_PURPOSES)) {
+      expect(resolveStoredSecretRoots(purpose, adopted)).toEqual({
+        primary: 'a-private-root',
+        decryptOnly: [resolveStoredSecretRoots(purpose, {}).primary],
+      });
+    }
   });
 
-  // The env lines the message offers a new deployment to generate.
+  it('says what changes at the switch, by what was unset', () => {
+    const messageFor = (env: Record<string, string>) =>
+      buildMissingSecretsMessage(findMissingSecrets(ALL_SECRET_SPECS, env), env);
+
+    const nothingSet = messageFor({ NEXT_BUILD_ENV_EDITION: 'EE' });
+    expect(nothingSet).toContain('everyone signs in again');
+    expect(nothingSet).toContain('App Builder app credentials signed so far stop being accepted');
+    expect(nothingSet).toContain(
+      'personal access tokens and email unsubscribe links issued so far'
+    );
+
+    // A deployment that set its own signing secrets keeps its sessions and tokens.
+    const ownSigningSecrets = messageFor({
+      BACKEND_JWT_SECRET: 'jwt',
+      BACKEND_SESSION_SECRET: 's',
+    });
+    expect(ownSigningSecrets).toContain('EXISTING deployment');
+    expect(ownSigningSecrets).not.toContain('everyone signs in again');
+    expect(ownSigningSecrets).not.toContain('stop being accepted');
+    expect(ownSigningSecrets).toContain('personal access tokens issued so far keep working');
+
+    // The mail pair keeps its old key whether or not the access-token pair has one of its own.
+    const ownTokenPair = messageFor({
+      NEXT_BUILD_ENV_EDITION: 'EE',
+      BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'k'.repeat(16),
+      BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'v'.repeat(16),
+    });
+    expect(ownTokenPair).toContain('email unsubscribe links issued so far keep working');
+    expect(ownTokenPair).not.toContain('personal access tokens');
+  });
+
+  it('gives no _OLD line for SECRET_KEY where a stored credential root of its own covers the data', () => {
+    // A deployment rotating that root keeps its previous value in the very variable the line sets.
+    const env = {
+      NEXT_BUILD_ENV_EDITION: 'EE',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'a-private-stored-root',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD: 'the-previous-stored-root',
+    };
+    const kept = keptReadable(
+      buildMissingSecretsMessage(findMissingSecrets(ALL_SECRET_SPECS, env), env)
+    );
+    expect(Object.keys(kept)).toEqual([
+      'BACKEND_INVITATION_SECRET_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD',
+    ]);
+    // left as it is, the variable goes on reading what the previous stored root wrote
+    for (const purpose of Object.values(STORED_SECRET_PURPOSES)) {
+      const roots = resolveStoredSecretRoots(purpose, { ...env, SECRET_KEY: 'a-private-root' });
+      expect(roots.primary).toBe('a-private-stored-root');
+      expect(roots.decryptOnly).toContain('the-previous-stored-root');
+    }
+
+    const onDefault = { ...env, SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault };
+    const warning = buildPublicDefaultsWarning(
+      findPublicDefaultSecrets(ALL_SECRET_SPECS, onDefault),
+      onDefault
+    );
+    expect(Object.keys(keptReadable(warning))).toEqual([
+      'BACKEND_INVITATION_SECRET_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD',
+    ]);
+  });
+
+  it('still says what changes at the switch where there is no _OLD line to add', () => {
+    const env = {
+      NEXT_BUILD_ENV_EDITION: 'EE',
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: 'a-private-stored-root',
+      BACKEND_INVITATION_SECRET: 'an-invitation-secret',
+      BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'k'.repeat(16),
+      BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'v'.repeat(16),
+    };
+    const message = buildMissingSecretsMessage(findMissingSecrets(ALL_SECRET_SPECS, env), env);
+    expect(keptReadable(message)).toEqual({});
+    expect(message).toContain('EXISTING deployment');
+    expect(message).toContain('everyone signs in again');
+    expect(message).not.toContain('remove an _OLD line');
+  });
+
+  // The env lines the message offers a deployment to generate.
   const generated = (message: string) =>
     message
       .split('\n')
       .map((line) => line.trim())
       .filter((line) => /^[A-Z_]+=\$\(openssl rand /.test(line));
 
-  it('tells a new deployment to generate SECRET_KEY and what does not follow it, nothing else', () => {
+  it('tells a deployment to generate SECRET_KEY and what does not follow it, nothing else', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, { NEXT_BUILD_ENV_EDITION: 'EE' });
     const message = buildMissingSecretsMessage(missing);
 
@@ -109,10 +230,7 @@ describe('secrets guard', () => {
       'SECRET_KEY=$(openssl rand -base64 32)',
       'SANDBOX_JWT_SECRET=$(openssl rand -base64 32)',
     ]);
-    expect(message).toContain('That is all a new deployment sets.');
-    // an existing deployment is still told, secret by secret, what it has been running on
-    expect(message).toContain("BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY='ie21hOKjlXUiGDx9'");
-    expect(message).toContain('# BACKEND_DATA_DB_URL_ENCRYPTION_KEY — previous effective value');
+    expect(message).toContain('That is all a deployment sets.');
   });
 
   it('with SECRET_KEY set, asks only for what does not follow it', () => {
@@ -124,18 +242,20 @@ describe('secrets guard', () => {
 
     expect(generated(message)).toEqual(['SANDBOX_JWT_SECRET=$(openssl rand -base64 32)']);
     // nothing listed follows SECRET_KEY, so there is nothing to tell to leave unset
-    expect(message).not.toContain('That is all a new deployment sets.');
+    expect(message).not.toContain('That is all a deployment sets.');
+    // and nothing was stored under a built-in value that SECRET_KEY now covers
+    expect(message).not.toContain('EXISTING deployment');
   });
 
-  it('gives a new deployment no line for a deprecated secret, whatever it follows', () => {
+  it('gives no line to generate a deprecated secret, whatever it follows', () => {
     const missing = findMissingSecrets(ALL_SECRET_SPECS, {});
     expect(missing.filter((s) => s.deprecated).map((s) => s.envKey)).toEqual([
       'BACKEND_DATA_DB_URL_ENCRYPTION_KEY',
       'BACKEND_DATA_DB_URL_ENCRYPTION_IV',
     ]);
 
-    // one that nothing covers: it is still pinned for an existing deployment, and with
-    // nothing left to generate the message has no part for a new one
+    // one that nothing covers: it is listed, and with nothing to generate and nothing kept
+    // readable the message has no block to copy
     const message = buildMissingSecretsMessage([
       {
         envKey: 'RETIRING_SECRET',
@@ -144,9 +264,11 @@ describe('secrets guard', () => {
         deprecated: true,
       },
     ]);
-    expect(message).toContain("RETIRING_SECRET='old-value'");
+    expect(message).toContain('  - RETIRING_SECRET: something on its way out');
+    expect(message).not.toContain("RETIRING_SECRET='old-value'");
     expect(generated(message)).toEqual([]);
-    expect(message).not.toContain('NEW deployment');
+    expect(message).not.toContain('Set these');
+    expect(message).not.toContain('EXISTING deployment');
   });
 
   it('accepts SECRET_KEY for jwt, session and what derives from it', () => {
@@ -253,6 +375,96 @@ describe('secrets guard', () => {
       BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET: SECRET_SPECS.secretKey.legacyDefault,
     });
     expect(flagged.map((s) => s.envKey)).toEqual(['BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET']);
+  });
+
+  it('says how a SECRET_KEY left on its default is replaced without stranding what it stored', () => {
+    const env = { ...fullEnv, SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault };
+    const rootOnDefault = findPublicDefaultSecrets(ALL_SECRET_SPECS, env);
+    // Every other secret has a value of its own here: only what follows the root is kept.
+    expect(keptReadable(buildPublicDefaultsWarning(rootOnDefault, env))).toEqual({
+      BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD: 'defaultSecretKey',
+    });
+    const otherOnDefault = findPublicDefaultSecrets(ALL_SECRET_SPECS, {
+      ...fullEnv,
+      BACKEND_JWT_SECRET: SECRET_SPECS.jwtSecret.legacyDefault,
+    });
+    expect(buildPublicDefaultsWarning(otherOnDefault, fullEnv)).not.toContain('_OLD');
+  });
+
+  it('keeps the legacy BYODB pair of a deployment on the default SECRET_KEY readable', () => {
+    // SECRET_KEY set to its public default and nothing else: the BYODB key and iv were both
+    // derived from it, and the stored credential root's _OLD does not read them.
+    const before = { SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault };
+    const warning = buildPublicDefaultsWarning(
+      findPublicDefaultSecrets(ALL_SECRET_SPECS, before),
+      before
+    );
+    const kept = keptReadable(warning);
+    expect(Object.keys(kept)).toEqual([
+      'BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD',
+      'BACKEND_INVITATION_SECRET_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD',
+      'BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD',
+    ]);
+    expect(kept.BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD).toBe(
+      kept.BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD
+    );
+    // the invitation line is verified, not decrypted
+    expect(warning).toContain('They only decrypt or verify');
+    // what follows the old SECRET_KEY changes with it, as for a deployment that never set one
+    expect(warning).toContain('everyone signs in again');
+    expect(warning).toContain('App Builder app credentials signed so far stop being accepted');
+    expect(warning).toContain('personal access tokens issued so far keep working');
+    expect(warning).toContain('remove an _OLD line once nothing is left under it');
+
+    // Followed to the letter, the lines open what the deployment wrote on the default.
+    const url = 'postgresql://user:pass@db.example.com:5432/tenant';
+    const stored = buildDataDbUrlCipher(before).encrypt(url);
+    const adopted = { SECRET_KEY: 'a-private-root', ...kept };
+    expect(buildDataDbUrlCipher(adopted).decrypt(stored)).toBe(url);
+    // the stored credential root's _OLD alone leaves it unreadable
+    expect(() =>
+      buildDataDbUrlCipher({
+        SECRET_KEY: 'a-private-root',
+        BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD: 'defaultSecretKey',
+      }).decrypt(stored)
+    ).toThrow();
+    for (const purpose of Object.values(STORED_SECRET_PURPOSES)) {
+      expect(resolveStoredSecretRoots(purpose, adopted)).toEqual({
+        primary: 'a-private-root',
+        decryptOnly: [resolveStoredSecretRoots(purpose, before).primary],
+      });
+    }
+  });
+
+  it('offers no BYODB pair where the URLs never ran on the one derived from SECRET_KEY', () => {
+    const onDefault = { SECRET_KEY: SECRET_SPECS.secretKey.legacyDefault };
+    const pairs = [
+      // a pair of its own
+      {
+        BACKEND_DATA_DB_URL_ENCRYPTION_KEY: 'k'.repeat(16),
+        BACKEND_DATA_DB_URL_ENCRYPTION_IV: 'v'.repeat(16),
+      },
+      // the access-token pair, which the URLs fall back to before SECRET_KEY
+      {
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY: 'k'.repeat(16),
+        BACKEND_ACCESS_TOKEN_ENCRYPTION_IV: 'v'.repeat(16),
+      },
+    ];
+    for (const pair of pairs) {
+      const env = { ...onDefault, ...pair };
+      const warning = buildPublicDefaultsWarning(
+        findPublicDefaultSecrets(ALL_SECRET_SPECS, env),
+        env
+      );
+      expect(warning).not.toContain('BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD');
+      // and what the deployment stored still opens under a new root with nothing added
+      const url = 'postgresql://user:pass@db.example.com:5432/tenant';
+      const stored = buildDataDbUrlCipher(env).encrypt(url);
+      expect(buildDataDbUrlCipher({ ...env, SECRET_KEY: 'a-private-root' }).decrypt(stored)).toBe(
+        url
+      );
+    }
   });
 
   it('announces the coming startup refusal in production mode, where SECRET_KEY is the cause', () => {
@@ -428,9 +640,11 @@ describe('secrets guard', () => {
       expect(() => enforceSecretsPolicy({}, (message) => logged.push(message))).not.toThrow();
       expect(logged).toHaveLength(1);
       expect(logged[0]).toContain('EXISTING deployment');
-      // Both remediation paths are complete copy-pastable env lines.
-      expect(logged[0]).toContain("BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY='ie21hOKjlXUiGDx9'");
+      // What to set and what an existing deployment adds are complete copy-pastable env lines.
       expect(logged[0]).toContain('SECRET_KEY=$(openssl rand -base64 32)');
+      expect(logged[0]).toContain(
+        "BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD='defaultSecretKey'"
+      );
       // The message must be explicit that boot continues on public defaults.
       expect(logged[0]).toContain('PUBLICLY KNOWN');
     });

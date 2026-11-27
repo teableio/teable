@@ -221,27 +221,28 @@
   },
   "publishBase": {
     "title": "Publish to Template Center",
-    "description": "Publish to the Template Center in one click! Let more people see your ideas.",
-    "configureTitle": "Set up your template",
-    "configureDescription": "Standout templates may be featured in the Template Center",
+    "description": "Publish to the Template Center so others can find and use your template.",
+    "configureTitle": "Publish template",
+    "configureDescription": "Once published, the template can be shared and installed by link. It appears in the Template Center after review.",
     "infoTitle": "Listing details",
     "form": {
-      "title": "Name",
+      "title": "Template name",
       "description": "Description",
       "changelog": "Release notes",
       "changelogPlaceholder": "Describe the changes for existing installs; shown in the upgrade preview",
-      "publishNode": "What it includes",
+      "publishNode": "Includes",
       "includeData": "Include sample records",
       "defaultActiveNode": "Opens by default",
-      "descriptionPlaceholder": "What it solves and how to use it",
-      "titlePlaceholder": "Give it a name",
+      "descriptionPlaceholder": "Describe what it solves and how to use it",
+      "titlePlaceholder": "e.g. Customer follow-up",
       "versionTitle": "Version contents",
-      "addChangelog": "Add release notes"
+      "addChangelog": "Add release notes",
+      "cover": "Cover"
     },
     "publishToCommunity": "Publish to Template Center",
     "publish": "Publish",
-    "publishSuccess": "Publish success!",
-    "previewTips": "Catalogue preview",
+    "publishSuccess": "Template published",
+    "previewTips": "Template Center preview",
     "update": "Update",
     "submit": "Publish template",
     "review": {
@@ -255,23 +256,29 @@
         "trial": "Trial run",
         "content": "Content"
       },
+      "checkLine": {
+        "connectors": "Unsupported: {{providers}}",
+        "estimate": "{{runs}}/mo"
+      },
       "checkMessage": {
         "connectors": "These connections aren't supported: {{providers}}",
         "privacy": "Records are included; check them for personal data",
         "estimate": "About {{runs}} runs a month, above the free plan's {{free}}",
         "trial": "Make sure the automations and routines run without connecting any account",
-        "content": "Still yours alone: {{count}}",
-        "contentMarked": "Marked as samples: {{count}}"
+        "content": "Personal content to replace ({{count}})",
+        "contentMarked": "Marked as sample ({{count}})"
       },
       "withdraw": "Unpublish",
-      "withdrawn": "Unpublished.",
+      "withdrawn": "Unpublished",
       "withdrawConfirmTitle": "Unpublish this template?",
       "withdrawConfirmDescription": "Its link will stop opening and it will leave the Template Center. Installed copies are not affected, and you can publish it again later.",
       "live": "Published · v{{version}}",
-      "listed": "In the Template Center"
+      "listed": "In the Template Center",
+      "allVersions": "All versions ({{count}})",
+      "fewerVersions": "Show less"
     },
     "unPublish": "Unlist",
-    "unPublishSuccess": "Unlisted.",
+    "unPublishSuccess": "Unlisted",
     "unPublishConfirmTitle": "Unlist this template?",
     "unPublishConfirmDescription": "Others can no longer find or install it; existing installs are unaffected. You can submit it again later.",
     "uploadCover": "Upload cover",
@@ -285,29 +292,44 @@
       "atLeastOneNode": "Select at least one item to include",
       "coverRequired": "Add a cover image"
     },
-    "urlCopied": "URL copied to clipboard!",
-    "urlCopiedForDiscord": "URL copied to clipboard! You can paste it in Discord.",
+    "urlCopied": "Link copied",
+    "urlCopiedForDiscord": "Link copied. Paste it in Discord.",
     "featuredLabel": "Featured",
-    "featuredTip": "Officially featured. Your Template will receive more exposure.",
-    "publishSuccessDescription": "Share your work with the world",
+    "featuredTip": "Featured by Teable. Your template gets more visibility.",
+    "publishSuccessDescription": "Copy the link or share it on social media.",
     "shareWith": "Share with",
     "unpublishedApps": {
-      "title": "Unpublished apps detected",
-      "description": "Unpublished apps may cause template preview failures. Publish them now or continue anyway.",
-      "publishAll": "Publish all",
+      "title": "Some apps aren’t published",
+      "description": "Unpublished apps may not open in the template preview.",
+      "publishAll": "Publish all apps",
       "publish": "Publish",
       "published": "Published",
-      "publishing": "Publishing",
+      "publishing": "Publishing…",
       "notPublished": "Not published",
       "publishFailed": "Publish failed",
       "publishFailedTip1": "Check if the source app can be published successfully",
       "publishFailedTip2": "Try publishing this template again",
-      "ignoreAndContinue": "Ignore & continue",
-      "goToFix": "Go to fix",
-      "redeploy": "Redeploy",
+      "ignoreAndContinue": "Continue without publishing",
+      "goToFix": "Open app",
+      "redeploy": "Publish again",
       "unnamedApp": "Unnamed app"
     },
-    "submitVersion": "Publish v{{version}}"
+    "submitVersion": "Publish v{{version}}",
+    "agreeTermsFirst": "Agree to the creator terms to publish.",
+    "preview": {
+      "titleMissing": "Add a template name",
+      "descriptionMissing": "Add a description"
+    },
+    "updateTemplate": "Update template",
+    "timeline": {
+      "versions": "Version history",
+      "published": "Published"
+    },
+    "checksTitle": "Pre-publish checks",
+    "listing": {
+      "title": "Listing",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -478,14 +500,14 @@
     "fromGoogleSheetDesc": "Pick a spreadsheet"
   },
   "templateProject": {
-    "make": "Make a template",
-    "new": "New template project",
+    "make": "Create template",
+    "new": "Create template project",
     "plural": "Template projects",
     "projectsTab": "Projects",
     "empty": "No template projects yet",
     "trialCopy": "Trial copy",
     "wholeProject": "Everything in the project ({{count}})",
-    "sampleRecords": "Sample records: {{count}}",
+    "sampleRecords": "Sample records ({{count}})",
     "noRecords": "No records"
   }
 }

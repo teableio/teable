@@ -4,7 +4,7 @@ import { generateRecordTrashId } from '@teable/core';
 import { v2DataDbTokens } from '@teable/v2-adapter-db-postgres-pg';
 import { DELETED_RECORD_TRASH_MARKER_SNAPSHOT, type IExecutionContext } from '@teable/v2-core';
 import { sql, type RawBuilder } from 'kysely';
-import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
+import type { IDeleteRecordsPayload } from '../../event-emitter/events/delete-records-payload';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { recordTrashResetLockKey } from './record-trash-row';
 

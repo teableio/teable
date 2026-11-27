@@ -721,6 +721,33 @@ describe('FieldToSpecVisitor', () => {
       });
     });
 
+    it('validates every reference before creating a multi-link mutation', () => {
+      const config = LinkFieldConfig.create({
+        relationship: 'manyMany',
+        foreignTableId: 'tbl' + 'x'.repeat(16),
+        lookupFieldId: 'fld' + 'y'.repeat(16),
+        isOneWay: true,
+      })._unsafeUnwrap();
+      const field = LinkField.create({
+        id: createFieldId('l'),
+        name: createFieldName('Related'),
+        config,
+      })._unsafeUnwrap();
+      const first = { id: 'rec' + 'a'.repeat(16), title: 'First' };
+      const second = { id: 'rec' + 'b'.repeat(16) };
+      for (const typecast of [true, false]) {
+        const valid = field.accept(FieldToSpecVisitor.create([second, first], typecast));
+        expect((valid._unsafeUnwrap() as SetLinkValueSpec).value.toValue()).toEqual([
+          second,
+          first,
+        ]);
+        for (const values of [[first, 'Second'], ['First', second], [first, { id: '' }]]) {
+          const result = field.accept(FieldToSpecVisitor.create(values, typecast));
+          expect(result._unsafeUnwrapErr().code).toBe('validation.field.invalid_link_format');
+        }
+      }
+    });
+
     it('rejects non-object array in non-typecast mode', () => {
       const configResult = LinkFieldConfig.create({
         relationship: 'manyOne',

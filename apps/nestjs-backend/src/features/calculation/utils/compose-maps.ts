@@ -1,10 +1,5 @@
-import type { IOtOperation } from '@teable/core';
 import { isEmpty, isEqual } from 'lodash';
-export interface IOpsMap {
-  [tableId: string]: {
-    [keyId: string]: IOtOperation[];
-  };
-}
+import type { IOpsMap } from '../../../types/ops-map';
 
 export function composeOpMaps(opsMaps: (IOpsMap | undefined)[]): IOpsMap {
   return (opsMaps as IOpsMap[]).filter(Boolean).reduce<IOpsMap>((composedMap, currentMap) => {

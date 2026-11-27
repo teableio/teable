@@ -894,7 +894,9 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
       baseImportService as unknown as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[5],
+      {
+        get: vi.fn((key: string) => (key === 'user.id' ? 'usrTest' : undefined)),
+      } as unknown as IServiceArgs[5],
       {} as IServiceArgs[6],
       v2ContainerService as unknown as IServiceArgs[7],
       v2ContextFactory as unknown as IServiceArgs[8],
@@ -1040,7 +1042,9 @@ describe('BaseDuplicateV2Service duplicateBase', () => {
       baseImportService as unknown as IServiceArgs[2],
       {} as IServiceArgs[3],
       {} as IServiceArgs[4],
-      { get: vi.fn().mockReturnValue('usrTest') } as unknown as IServiceArgs[5],
+      {
+        get: vi.fn((key: string) => (key === 'user.id' ? 'usrTest' : undefined)),
+      } as unknown as IServiceArgs[5],
       dataDbClientManager as unknown as IServiceArgs[6],
       v2ContainerService as unknown as IServiceArgs[7],
       v2ContextFactory as unknown as IServiceArgs[8],

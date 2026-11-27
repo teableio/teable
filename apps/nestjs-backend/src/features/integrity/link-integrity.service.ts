@@ -25,13 +25,13 @@ import { InjectModel } from 'nest-knexjs';
 import { CustomHttpException } from '../../custom.exception';
 import { InjectDbProvider } from '../../db-provider/db.provider';
 import { IDbProvider } from '../../db-provider/db.provider.interface';
+import type { IDataPrismaQueryExecutor } from '../../global/database-router.service';
 import { DatabaseRouter } from '../../global/database-router.service';
 import { DATA_KNEX } from '../../global/knex/knex.module';
 import { baseDisplayName } from '../../utils/base-name';
 import { createFieldInstanceByRaw } from '../field/model/factory';
 import type { LinkFieldDto } from '../field/model/field-dto/link-field.dto';
 import { FieldOpenApiV2Service } from '../field/open-api/field-open-api-v2.service';
-import { TableDomainQueryService } from '../table-domain';
 import { ForeignKeyIntegrityService } from './foreign-key.service';
 import { IntegrityPrimaryRepairService } from './integrity-primary-repair.service';
 import { LinkFieldIntegrityService } from './link-field.service';
@@ -47,7 +47,6 @@ export class LinkIntegrityService {
     private readonly foreignKeyIntegrityService: ForeignKeyIntegrityService,
     private readonly linkFieldIntegrityService: LinkFieldIntegrityService,
     private readonly uniqueIndexService: UniqueIndexService,
-    private readonly tableDomainQueryService: TableDomainQueryService,
     private readonly fieldOpenApiService: FieldOpenApiV2Service,
     private readonly primaryRepairService: IntegrityPrimaryRepairService,
     @InjectDbProvider() private readonly dbProvider: IDbProvider,
@@ -507,9 +506,6 @@ export class LinkIntegrityService {
     }
 
     const linkField = createFieldInstanceByRaw(fieldRaw) as LinkFieldDto;
-    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(fieldRaw.tableId, {
-      useTransaction: true,
-    });
     const options = linkField.options;
     const tableMeta = await prisma.tableMeta.findFirst({
       where: { id: fieldRaw.tableId, deletedTime: null },
@@ -525,37 +521,30 @@ export class LinkIntegrityService {
       return;
     }
 
-    const tableDomain = await this.tableDomainQueryService.getTableDomainById(fieldRaw.tableId);
-    const relatedTables = await prisma.tableMeta.findMany({
-      where: { id: { in: [fieldRaw.tableId, options.foreignTableId] } },
-      select: { id: true, dbTableName: true },
-    });
-    const tableNameMap = new Map(relatedTables.map((table) => [table.id, table.dbTableName]));
-    const foreignDbTableName = tableNameMap.get(options.foreignTableId);
+    const foreignTable =
+      options.foreignTableId === fieldRaw.tableId
+        ? tableMeta
+        : await prisma.tableMeta.findUnique({
+            where: { id: options.foreignTableId },
+            select: { dbTableName: true },
+          });
+    const foreignDbTableName = foreignTable?.dbTableName;
 
     if (!foreignDbTableName) {
       return;
     }
 
-    const queries = this.dbProvider.createColumnSchema(
-      tableMeta.dbTableName,
-      linkField,
-      tableDomain,
-      false,
-      fieldRaw.tableId,
-      tableNameMap,
-      false,
-      true
-    );
+    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(fieldRaw.tableId, {
+      useTransaction: true,
+    });
 
     const hostExistsResult = await dataPrisma.$queryRawUnsafe<{ exists: boolean }[]>(
       this.dbProvider.checkTableExist(options.fkHostTableName)
     );
     const hostAlreadyExists = hostExistsResult[0]?.exists;
 
-    const orderColumnName = linkField.getOrderColumnName();
-
     if (hostAlreadyExists) {
+      const orderColumnName = linkField.getOrderColumnName();
       const [selfKeyExists, foreignKeyExists, orderColumnExists] = await Promise.all([
         this.dbProvider.checkColumnExist(options.fkHostTableName, options.selfKeyName, dataPrisma),
         this.dbProvider.checkColumnExist(
@@ -658,7 +647,9 @@ export class LinkIntegrityService {
         await dataPrisma.$executeRawUnsafe(sql);
       }
     } else {
-      const sqls = queries.filter((sql) => sql && !sql.startsWith('PRAGMA'));
+      const sqls = this.dbProvider
+        .createLinkForeignKeySchema(options, tableMeta.dbTableName, foreignDbTableName)
+        .filter((sql) => sql && !sql.startsWith('PRAGMA'));
       if (!sqls.length) {
         return;
       }
@@ -680,8 +671,7 @@ export class LinkIntegrityService {
       }
     }
 
-    await this.backfillForeignKeysFromLinkColumn({
-      routingTableId: fieldRaw.tableId,
+    await this.backfillForeignKeysFromLinkColumn(dataPrisma, {
       dbTableName: tableMeta.dbTableName,
       linkDbFieldName: linkField.dbFieldName,
       fkHostTableName: options.fkHostTableName,
@@ -698,16 +688,18 @@ export class LinkIntegrityService {
     };
   }
 
-  private async backfillForeignKeysFromLinkColumn(params: {
-    dbTableName: string;
-    linkDbFieldName: string;
-    fkHostTableName: string;
-    selfKeyName: string;
-    foreignKeyName: string;
-    relationship: Relationship;
-    isOneWay?: boolean;
-    routingTableId: string;
-  }) {
+  private async backfillForeignKeysFromLinkColumn(
+    dataPrisma: IDataPrismaQueryExecutor,
+    params: {
+      dbTableName: string;
+      linkDbFieldName: string;
+      fkHostTableName: string;
+      selfKeyName: string;
+      foreignKeyName: string;
+      relationship: Relationship;
+      isOneWay?: boolean;
+    }
+  ) {
     const {
       dbTableName,
       linkDbFieldName,
@@ -716,11 +708,7 @@ export class LinkIntegrityService {
       foreignKeyName,
       relationship,
       isOneWay,
-      routingTableId,
     } = params;
-    const dataPrisma = await this.databaseRouter.dataPrismaExecutorForTable(routingTableId, {
-      useTransaction: true,
-    });
 
     const linkColumnExists = await this.dbProvider.checkColumnExist(
       dbTableName,

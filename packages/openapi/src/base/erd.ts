@@ -22,6 +22,11 @@ export const baseErdTableNodeSchema = z
         isConditionalLookup: true,
         isPrimary: true,
       })
+      .extend({
+        lookupLinkedFieldId: z.string().optional(),
+        /** the foreign field a lookup or rollup reads */
+        lookupFieldId: z.string().optional(),
+      })
       .array(),
   })
   .passthrough();

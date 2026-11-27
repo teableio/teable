@@ -32,7 +32,7 @@ vi.mock('@teable/db-main-prisma', () => ({
   DataPrismaService: class DataPrismaService {},
 }));
 
-import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
+import type { IDeleteRecordsPayload } from '../../event-emitter/events/delete-records-payload';
 import { V2RecordTrashService } from './v2-record-trash.service';
 import {
   V2RecordsDeletedAttachmentProjection,

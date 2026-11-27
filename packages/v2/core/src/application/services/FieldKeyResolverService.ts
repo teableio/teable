@@ -244,14 +244,32 @@ export class FieldKeyResolverService {
       return fields;
     }
 
-    const transformed: Record<string, unknown> = {};
-    const reverseMap = this.buildReverseFieldMap(table, fieldKeyType);
+    return this.transformResponseKeysWithMap(
+      fields,
+      this.buildReverseFieldMap(table, fieldKeyType)
+    );
+  }
 
-    for (const [fieldId, value] of Object.entries(fields)) {
-      const key = reverseMap.get(fieldId) ?? fieldId;
-      transformed[key] = value;
+  static createResponseKeyMap(
+    table: Table,
+    fieldKeyType: FieldKeyType
+  ): ReadonlyMap<string, string> | undefined {
+    if (fieldKeyType === FieldKeyType.Id) {
+      return undefined;
     }
+    return this.buildReverseFieldMap(table, fieldKeyType);
+  }
 
+  static transformResponseKeysWithMap(
+    fields: Record<string, unknown>,
+    reverseMap: ReadonlyMap<string, string>
+  ): Record<string, unknown> {
+    const transformed: Record<string, unknown> = {};
+    for (const fieldId in fields) {
+      if (!Object.prototype.hasOwnProperty.call(fields, fieldId)) continue;
+      const key = reverseMap.get(fieldId) ?? fieldId;
+      transformed[key] = fields[fieldId];
+    }
     return transformed;
   }
 

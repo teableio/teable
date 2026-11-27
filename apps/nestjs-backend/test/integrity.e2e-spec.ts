@@ -490,7 +490,7 @@ describe('OpenAPI integrity (e2e)', () => {
       expect(integrityAfterFix.data.hasIssues).toEqual(false);
     });
 
-    it('should rebuild missing junction table during link integrity fix', async () => {
+    it('should rebuild a missing junction table despite malformed unrelated field metadata', async () => {
       const linkFieldRo: IFieldRo = {
         name: 'many many link (drop table)',
         type: FieldType.Link,
@@ -516,7 +516,18 @@ describe('OpenAPI integrity (e2e)', () => {
         )
       ).toEqual(true);
 
-      await fixBaseIntegrity(baseId2, base2table1.id);
+      const unrelatedField = base2table1.fields[0];
+      const where = { id: unrelatedField.id };
+      const { aiConfig } = await prisma.field.findUniqueOrThrow({
+        where,
+        select: { aiConfig: true },
+      });
+      await prisma.field.update({ where, data: { aiConfig: '{' } });
+      try {
+        await fixBaseIntegrity(baseId2, base2table1.id);
+      } finally {
+        await prisma.field.update({ where, data: { aiConfig } });
+      }
 
       const integrityAfterFix = await checkBaseIntegrity(baseId2, base2table1.id);
       expect(integrityAfterFix.data.hasIssues).toEqual(false);
@@ -917,7 +928,13 @@ describe('OpenAPI integrity (e2e)', () => {
         })
       );
 
-      await fixBaseIntegrity(baseId2, base2table1.id);
+      const { data: fixed } = await fixBaseIntegrity(baseId2, base2table1.id);
+      expect(fixed).toEqual([
+        expect.objectContaining({
+          type: IntegrityIssueType.ForeignKeyNotFound,
+          fieldId: linkField.id,
+        }),
+      ]);
 
       const fkValue = await getColumnValue(
         options.fkHostTableName,
@@ -930,6 +947,15 @@ describe('OpenAPI integrity (e2e)', () => {
       expect(record.data.fields[linkField.name]).toEqual(
         expect.objectContaining({ id: base2table2.records[0].id })
       );
+      expect((await fixBaseIntegrity(baseId2, base2table1.id)).data).toEqual([]);
+
+      await expect(
+        executeKnex(
+          knex(options.fkHostTableName)
+            .where('__id', base2table1.records[1].id)
+            .update({ [options.foreignKeyName]: base2table2.records[0].id })
+        )
+      ).rejects.toMatchObject({ meta: { code: '23505' } });
     });
   });
 

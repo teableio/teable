@@ -1870,6 +1870,7 @@ describe('RecordOpenApiV2Service', () => {
               [statusFieldId]: '',
               [noteFieldId]: null,
               [checkboxFieldId]: false,
+              [createdByFieldId]: null,
             },
             version: 1,
             createdByActorType: null,
@@ -2474,6 +2475,226 @@ describe('RecordOpenApiV2Service', () => {
     });
 
     expect(result.records[0]?.fields[conditionalNumberFieldId]).toBe('1.23');
+  });
+
+  it('emits formatDisplayText span and remaps fieldKeyType=name in cellFormat=text', async () => {
+    const startedSpans: Array<{ name: string; attributes?: Record<string, unknown> }> = [];
+    createContext.mockResolvedValueOnce({
+      tracer: {
+        startSpan: (name: string, attributes?: Record<string, unknown>) => {
+          startedSpans.push({ name, attributes });
+          return {
+            setAttribute: vi.fn(),
+            setAttributes: vi.fn(),
+            recordError: vi.fn(),
+            end: vi.fn(),
+          };
+        },
+        withSpan: async (_span: unknown, fn: () => Promise<unknown>) => fn(),
+        getActiveSpan: () => undefined,
+      },
+    });
+    testTable = createTestTable((builder) => {
+      builder
+        .field()
+        .number()
+        .withId(FieldId.create(formattedNumberFieldId)._unsafeUnwrap())
+        .withName(FieldName.create('Amount')._unsafeUnwrap())
+        .withFormatting(NumberFormatting.create({ type: 'decimal', precision: 2 })._unsafeUnwrap())
+        .done();
+    });
+    tableFindOne.mockResolvedValue({ isErr: () => false, value: testTable });
+    execute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [
+          {
+            id: 'rec1111111111111111',
+            fields: {
+              [primaryFieldId]: 'Alpha',
+              [formattedNumberFieldId]: 12.345,
+            },
+            version: 1,
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ],
+        1,
+        0,
+        1
+      ),
+    });
+
+    const result = await service.getRecords(tableIdText, {
+      fieldKeyType: FieldKeyType.Name,
+      cellFormat: CellFormat.Text,
+      skip: 0,
+      take: 1,
+    });
+
+    expect(result.records[0]?.name).toBe('Alpha');
+    expect(result.records[0]?.fields).toEqual({
+      Title: 'Alpha',
+      Amount: '12.35',
+    });
+    const mapSpan = startedSpans.find(
+      (span) => span.name === 'teable.RecordOpenApiV2Service.mapReadModels'
+    );
+    const textSpan = startedSpans.find(
+      (span) => span.name === 'teable.RecordOpenApiV2Service.formatDisplayText'
+    );
+    const expectedFieldCount = testTable.getFields().length;
+    expect(mapSpan?.attributes?.['record.read.record_count']).toBe(1);
+    expect(mapSpan?.attributes?.['record.read.field_key_type']).toBe(FieldKeyType.Name);
+    expect(mapSpan?.attributes?.['record.read.projection_count']).toBe(expectedFieldCount);
+    expect(textSpan?.attributes?.['record.read.record_count']).toBe(1);
+    expect(textSpan?.attributes?.['record.read.field_key_type']).toBe(FieldKeyType.Name);
+    expect(textSpan?.attributes?.['record.read.projection_count']).toBe(expectedFieldCount);
+    expect(textSpan?.attributes?.['record.read.formatter_count']).toBe(expectedFieldCount);
+  });
+
+  it.each([FieldKeyType.Id, FieldKeyType.Name, FieldKeyType.DbFieldName])(
+    'respects per-row audit field visibility for %s (backfills visible null rows, omits masked rows)',
+    async (fieldKeyType) => {
+      resolveActorProfiles.mockResolvedValue({
+        ['appUser:apu_latest']: { name: 'App Modifier', avatar: null },
+      });
+      const modifierFieldId = `fld${'y'.repeat(16)}`;
+      const modifierFieldName = 'Any modifier';
+      testTable = createTestTable((builder) => {
+        builder
+          .field()
+          .lastModifiedBy()
+          .withId(FieldId.create(modifierFieldId)._unsafeUnwrap())
+          .withName(FieldName.create(modifierFieldName)._unsafeUnwrap())
+          .done();
+      });
+      tableFindOne.mockResolvedValue({ isErr: () => false, value: testTable });
+      const titleField = testTable
+        .getFields()
+        .find((field) => field.id().toString() === primaryFieldId)!;
+      const modifierField = testTable
+        .getFields()
+        .find((field) => field.id().toString() === modifierFieldId)!;
+      const keyFor = (field: typeof titleField) => {
+        if (fieldKeyType === FieldKeyType.Id) return field.id().toString();
+        if (fieldKeyType === FieldKeyType.Name) return field.name().toString();
+        const dbRes = field.dbFieldName();
+        const valRes = dbRes.isOk() ? dbRes.value.value() : undefined;
+        return valRes?.isOk() && valRes.value ? valRes.value : field.name().toString();
+      };
+      const titleKey = keyFor(titleField);
+      const modifierKey = keyFor(modifierField);
+
+      execute.mockResolvedValueOnce({
+        isErr: () => false,
+        value: ListTableRecordsResult.create(
+          [
+            {
+              // Visible row with legacy null DB cell: should backfill from record-level appUser actor.
+              id: 'rec1111111111111111',
+              version: 1,
+              fields: { [primaryFieldId]: 'Visible row', [modifierFieldId]: null },
+              createdBy: undefined,
+              lastModifiedBy: undefined,
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: 'appUser',
+              lastModifiedByActorId: 'apu_latest',
+            },
+            {
+              // Masked row where core deleted modifierFieldId from fields: must never resurrect the key.
+              id: 'rec2222222222222222',
+              version: 1,
+              fields: { [primaryFieldId]: 'Masked row' },
+              createdBy: 'usrExecutor',
+              lastModifiedBy: 'usrExecutor',
+              createdByActorType: null,
+              createdByActorId: null,
+              lastModifiedByActorType: 'appUser',
+              lastModifiedByActorId: 'apu_latest',
+            },
+          ],
+          2,
+          0,
+          2
+        ),
+      });
+
+      const result = await service.getRecords(tableIdText, {
+        fieldKeyType,
+        projection: [titleKey, modifierKey],
+      });
+
+      expect(result.records).toHaveLength(2);
+      expect(result.records[0]?.fields).toEqual({
+        [titleKey]: 'Visible row',
+        [modifierKey]: { id: 'apu_latest', title: 'App Modifier' },
+      });
+      expect(result.records[1]?.fields).toEqual({
+        [titleKey]: 'Masked row',
+      });
+      expect(Object.prototype.hasOwnProperty.call(result.records[1]?.fields, modifierKey)).toBe(
+        false
+      );
+    }
+  );
+
+  it('does not pollute empty cells or names when field names collide with Object.prototype keys', async () => {
+    const userFieldId = `fld${'z'.repeat(16)}`;
+    const builder = Table.builder()
+      .withId(TableId.create(tableIdText)._unsafeUnwrap())
+      .withBaseId(BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap())
+      .withName(TableName.create('Prototype collision')._unsafeUnwrap());
+    builder
+      .field()
+      .singleLineText()
+      .withId(FieldId.create(primaryFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('toString')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .user()
+      .withId(FieldId.create(userFieldId)._unsafeUnwrap())
+      .withName(FieldName.create('valueOf')._unsafeUnwrap())
+      .done();
+    builder.view().defaultGrid().done();
+    testTable = builder.build()._unsafeUnwrap();
+    tableFindOne.mockResolvedValue({ isErr: () => false, value: testTable });
+    execute.mockResolvedValueOnce({
+      isErr: () => false,
+      value: ListTableRecordsResult.create(
+        [
+          {
+            id: 'rec1111111111111111',
+            version: 1,
+            fields: {},
+            createdByActorType: null,
+            createdByActorId: null,
+            lastModifiedByActorType: null,
+            lastModifiedByActorId: null,
+          },
+        ],
+        1,
+        0,
+        1
+      ),
+    });
+
+    const result = await service.getRecords(tableIdText, {
+      fieldKeyType: FieldKeyType.Name,
+      cellFormat: CellFormat.Text,
+      skip: 0,
+      take: 1,
+    });
+
+    expect(result.records[0]?.name).toBe('');
+    expect(result.records[0]?.fields).toEqual({});
+    expect(Object.prototype.hasOwnProperty.call(result.records[0]?.fields, 'valueOf')).toBe(false);
+    expect(Object.prototype.hasOwnProperty.call(result.records[0]?.fields, 'toString')).toBe(false);
   });
 
   it('uses the primary field formatter for JSON record names', async () => {

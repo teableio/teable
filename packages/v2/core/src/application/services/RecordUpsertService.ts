@@ -381,10 +381,12 @@ export class RecordUpsertService {
         (readScope?.readableFieldIds != null && !readScope.readableFieldIds.has(matchFieldId)) ||
         readScope?.fieldMasks?.some((mask) => mask.fieldId === matchFieldId)
       ) {
-        return err(domainError.forbidden({
-          code: 'record.upsert.match_field_not_readable',
-          message: 'The upsert match field must be readable without a conditional mask',
-        }));
+        return err(
+          domainError.forbidden({
+            code: 'record.upsert.match_field_not_readable',
+            message: 'The upsert match field must be readable without a conditional mask',
+          })
+        );
       }
       yield* validateMatchField(matchField);
       const fieldKeyResolutionContext = FieldKeyResolverService.createResolutionContext(

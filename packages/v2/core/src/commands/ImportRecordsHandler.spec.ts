@@ -340,79 +340,129 @@ const createCommand = (
   })._unsafeUnwrap();
 
 describe('ImportRecordsHandler', () => {
-  it.each([false, true])('reports bad dates and preserves the tail with required=%s', async (required) => {
-    const baseId = BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap();
-    const dateFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
-    const titleFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
-    const builder = Table.builder()
-      .withId(TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap())
-      .withBaseId(baseId)
-      .withName(TableName.create('Date diagnostics')._unsafeUnwrap());
-    builder.field().singleLineText().withId(titleFieldId)
-      .withName(FieldName.create('Title')._unsafeUnwrap()).primary().done();
-    const dateBuilder = builder.field().date().withId(dateFieldId)
-      .withName(FieldName.create('Date')._unsafeUnwrap());
-    if (required) dateBuilder.withNotNull(FieldNotNull.required());
-    dateBuilder.done();
-    builder.view().defaultGrid().done();
-    const table = builder.build()._unsafeUnwrap();
-    if (required) {
-      const strict = table.createRecords([new Map([[titleFieldId.toString(), 'missing date']])]);
-      expect(strict.isErr()).toBe(true);
-      expect(strict._unsafeUnwrapErr().code).toBe('validation.field.not_null');
-    }
-    const dataRows = Array.from({ length: 605 }, (_, index) => [
-      `row ${index}`,
-      index < 104 || index === 500
-        ? index % 2 === 0 ? '+010000-01-01T00:00:00.000Z' : 'private-bad-date'
-        : '2025-04-01',
-    ]);
-    const adapter = new FakeImportSourceAdapter(ok({
-      headers: ['Title', 'Date'],
-      rows: [['Title', 'Date'], ...dataRows],
-    }));
-    const repository = new FakeTableRecordRepository();
-    const eventBus = new FakeEventBus();
-    const progress: IImportProgress[] = [];
-    const chunkSizes: number[] = [];
-    const handler = new ImportRecordsHandler(
-      new FakeImportSourceRegistry(adapter), new FakeTableRepository([table]), repository,
-      { resolveCreatedRecords: async (...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>) => ok(input) } as unknown as RecordMutationSpecResolverService,
-      createRecordWritePluginRunner([{
-        name: 'accepted-row-observer',
-        supports: (operation) => operation === RecordWriteOperationKind.importAppend,
-        guard: async (context) => {
-          if (context.kind === RecordWriteOperationKind.importAppend) {
-            chunkSizes.push(context.payload.recordsFieldValues.length);
-          }
-          return ok(undefined);
+  it.each([false, true])(
+    'reports bad dates and preserves the tail with required=%s',
+    async (required) => {
+      const baseId = BaseId.create(`bse${'v'.repeat(16)}`)._unsafeUnwrap();
+      const dateFieldId = FieldId.create(`fld${'d'.repeat(16)}`)._unsafeUnwrap();
+      const titleFieldId = FieldId.create(`fld${'t'.repeat(16)}`)._unsafeUnwrap();
+      const builder = Table.builder()
+        .withId(TableId.create(`tbl${'v'.repeat(16)}`)._unsafeUnwrap())
+        .withBaseId(baseId)
+        .withName(TableName.create('Date diagnostics')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(titleFieldId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      const dateBuilder = builder
+        .field()
+        .date()
+        .withId(dateFieldId)
+        .withName(FieldName.create('Date')._unsafeUnwrap());
+      if (required) dateBuilder.withNotNull(FieldNotNull.required());
+      dateBuilder.done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      if (required) {
+        const strict = table.createRecords([new Map([[titleFieldId.toString(), 'missing date']])]);
+        expect(strict.isErr()).toBe(true);
+        expect(strict._unsafeUnwrapErr().code).toBe('validation.field.not_null');
+      }
+      const dataRows = Array.from({ length: 605 }, (_, index) => [
+        `row ${index}`,
+        index < 104 || index === 500
+          ? index % 2 === 0
+            ? '+010000-01-01T00:00:00.000Z'
+            : 'private-bad-date'
+          : '2025-04-01',
+      ]);
+      const adapter = new FakeImportSourceAdapter(
+        ok({
+          headers: ['Title', 'Date'],
+          rows: [['Title', 'Date'], ...dataRows],
+        })
+      );
+      const repository = new FakeTableRecordRepository();
+      const eventBus = new FakeEventBus();
+      const progress: IImportProgress[] = [];
+      const chunkSizes: number[] = [];
+      const handler = new ImportRecordsHandler(
+        new FakeImportSourceRegistry(adapter),
+        new FakeTableRepository([table]),
+        repository,
+        {
+          resolveCreatedRecords: async (
+            ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+          ) => ok(input),
+        } as unknown as RecordMutationSpecResolverService,
+        createRecordWritePluginRunner([
+          {
+            name: 'accepted-row-observer',
+            supports: (operation) => operation === RecordWriteOperationKind.importAppend,
+            guard: async (context) => {
+              if (context.kind === RecordWriteOperationKind.importAppend) {
+                chunkSizes.push(context.payload.recordsFieldValues.length);
+              }
+              return ok(undefined);
+            },
+          },
+        ]),
+        {
+          execute: () => ok({ table, updateResult: undefined }),
+        } as unknown as RecordWriteSideEffectService,
+        { execute: async () => ok({ table, events: [] }) } as unknown as TableUpdateFlow,
+        new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
+      );
+      const command = ImportRecordsCommand.create({
+        tableId: table.id().toString(),
+        source: { type: 'csv', data: 'ignored' },
+        sourceColumnMap: { [titleFieldId.toString()]: 0, [dateFieldId.toString()]: 1 },
+        options: {
+          batchSize: 500,
+          typecast: true,
+          skipFirstNLines: 1,
+          onProgress: (value) => progress.push(value),
         },
-      }]),
-      { execute: () => ok({ table, updateResult: undefined }) } as unknown as RecordWriteSideEffectService,
-      { execute: async () => ok({ table, events: [] }) } as unknown as TableUpdateFlow,
-      new EventBusDomainWriteTransaction(new FakeUnitOfWork(), eventBus)
-    );
-    const command = ImportRecordsCommand.create({
-      tableId: table.id().toString(), source: { type: 'csv', data: 'ignored' },
-      sourceColumnMap: { [titleFieldId.toString()]: 0, [dateFieldId.toString()]: 1 },
-      options: { batchSize: 500, typecast: true, skipFirstNLines: 1, onProgress: (value) => progress.push(value) },
-    })._unsafeUnwrap();
+      })._unsafeUnwrap();
 
-    const result = (await handler.handle(createContext(), command))._unsafeUnwrap();
-    expect(result.totalImported).toBe(required ? 500 : 605);
-    expect(result.diagnostics).toMatchObject({ invalidDateCells: 105, skippedRows: required ? 105 : 0 });
-    expect(result.diagnostics!.samples).toHaveLength(100);
-    expect(result.diagnostics!.samples[0]).toMatchObject({ rowNumber: 2, fieldId: dateFieldId.toString(), reason: 'invalidDate' });
-    expect(JSON.stringify(result.diagnostics)).not.toContain('+010000');
-    expect(JSON.stringify(result.diagnostics)).not.toContain('private-bad-date');
-    expect(repository.inserted.at(-1)!.fields().get(titleFieldId)?.toValue()).toBe('row 604');
-    expect(repository.inserted[0]!.fields().get(dateFieldId)?.toValue()).toBe(required ? '2025-04-01T00:00:00.000Z' : null);
-    expect(progress.filter((value) => value.phase !== 'completed').every((value) => value.diagnostics === undefined)).toBe(true);
-    expect(progress.at(-1)).toMatchObject({ phase: 'completed', processedRows: result.totalImported, diagnostics: result.diagnostics });
-    expect(chunkSizes.slice(1)).toEqual(required ? [396, 104] : [500, 105]);
-    const batchEvents = eventBus.publishedMany.flat().filter(isRecordsBatchCreatedEvent);
-    expect(batchEvents.reduce((total, event) => total + event.records.length, 0)).toBe(result.totalImported);
-  });
+      const result = (await handler.handle(createContext(), command))._unsafeUnwrap();
+      expect(result.totalImported).toBe(required ? 500 : 605);
+      expect(result.diagnostics).toMatchObject({
+        invalidDateCells: 105,
+        skippedRows: required ? 105 : 0,
+      });
+      expect(result.diagnostics!.samples).toHaveLength(100);
+      expect(result.diagnostics!.samples[0]).toMatchObject({
+        rowNumber: 2,
+        fieldId: dateFieldId.toString(),
+        reason: 'invalidDate',
+      });
+      expect(JSON.stringify(result.diagnostics)).not.toContain('+010000');
+      expect(JSON.stringify(result.diagnostics)).not.toContain('private-bad-date');
+      expect(repository.inserted.at(-1)!.fields().get(titleFieldId)?.toValue()).toBe('row 604');
+      expect(repository.inserted[0]!.fields().get(dateFieldId)?.toValue()).toBe(
+        required ? '2025-04-01T00:00:00.000Z' : null
+      );
+      expect(
+        progress
+          .filter((value) => value.phase !== 'completed')
+          .every((value) => value.diagnostics === undefined)
+      ).toBe(true);
+      expect(progress.at(-1)).toMatchObject({
+        phase: 'completed',
+        processedRows: result.totalImported,
+        diagnostics: result.diagnostics,
+      });
+      expect(chunkSizes.slice(1)).toEqual(required ? [396, 104] : [500, 105]);
+      const batchEvents = eventBus.publishedMany.flat().filter(isRecordsBatchCreatedEvent);
+      expect(batchEvents.reduce((total, event) => total + event.records.length, 0)).toBe(
+        result.totalImported
+      );
+    }
+  );
 
   it('resolves required link titles and user identifiers while skipping only missing inputs', async () => {
     const { table: foreignTable, textFieldId: foreignTitleId } = buildTable();
@@ -424,22 +474,43 @@ describe('ImportRecordsHandler', () => {
       .withId(TableId.create(`tbl${'l'.repeat(16)}`)._unsafeUnwrap())
       .withBaseId(foreignTable.baseId())
       .withName(TableName.create('Required deferred imports')._unsafeUnwrap());
-    builder.field().singleLineText().withId(titleId)
-      .withName(FieldName.create('Title')._unsafeUnwrap()).primary().done();
-    builder.field().link().withId(linkId)
+    builder
+      .field()
+      .singleLineText()
+      .withId(titleId)
+      .withName(FieldName.create('Title')._unsafeUnwrap())
+      .primary()
+      .done();
+    builder
+      .field()
+      .link()
+      .withId(linkId)
       .withName(FieldName.create('Required Link')._unsafeUnwrap())
       .withNotNull(FieldNotNull.required())
-      .withConfig(LinkFieldConfig.create({
-        relationship: 'manyOne', foreignTableId: foreignTable.id().toString(),
-        lookupFieldId: foreignTitleId.toString(), isOneWay: true,
-      })._unsafeUnwrap()).done();
-    builder.field().user().withId(userId)
+      .withConfig(
+        LinkFieldConfig.create({
+          relationship: 'manyOne',
+          foreignTableId: foreignTable.id().toString(),
+          lookupFieldId: foreignTitleId.toString(),
+          isOneWay: true,
+        })._unsafeUnwrap()
+      )
+      .done();
+    builder
+      .field()
+      .user()
+      .withId(userId)
       .withName(FieldName.create('Required User')._unsafeUnwrap())
-      .withNotNull(FieldNotNull.required()).done();
-    builder.field().user().withId(defaultUserId)
+      .withNotNull(FieldNotNull.required())
+      .done();
+    builder
+      .field()
+      .user()
+      .withId(defaultUserId)
       .withName(FieldName.create('Default User')._unsafeUnwrap())
       .withNotNull(FieldNotNull.required())
-      .withDefaultValue(UserDefaultValue.create('me')._unsafeUnwrap()).done();
+      .withDefaultValue(UserDefaultValue.create('me')._unsafeUnwrap())
+      .done();
     builder.view().defaultGrid().done();
     const table = builder.build()._unsafeUnwrap();
     const rows: unknown[][] = [
@@ -457,20 +528,33 @@ describe('ImportRecordsHandler', () => {
       { id: 'system', name: 'Current actor', email: 'system@example.com' },
     ];
     const userLookup: IUserLookupService = {
-      listTableUsersByIdentifiers: async (_tableId, identifiers) => ok(users.filter((user) =>
-        identifiers.some((value) => [user.id, user.name, user.email].includes(value))
-      )),
+      listTableUsersByIdentifiers: async (_tableId, identifiers) =>
+        ok(
+          users.filter((user) =>
+            identifiers.some((value) => [user.id, user.name, user.email].includes(value))
+          )
+        ),
       listUsersByIds: async (ids) => ok(users.filter((user) => ids.includes(user.id))),
-      listUsersByIdentityPairs: async (pairs) => ok(users.filter((user) =>
-        pairs.some((pair) => pair.id === user.id && pair.email === user.email)
-      )),
+      listUsersByIdentityPairs: async (pairs) =>
+        ok(
+          users.filter((user) =>
+            pairs.some((pair) => pair.id === user.id && pair.email === user.email)
+          )
+        ),
     };
     const resolver = new RecordMutationSpecResolverService(
       new LinkTitleResolverService(tables, {
-        find: async () => ok({
-          records: [{ id: foreignRecordId, fields: { [foreignTitleId.toString()]: 'Linked' }, version: 1 }],
-          total: 1,
-        }),
+        find: async () =>
+          ok({
+            records: [
+              {
+                id: foreignRecordId,
+                fields: { [foreignTitleId.toString()]: 'Linked' },
+                version: 1,
+              },
+            ],
+            total: 1,
+          }),
       } as unknown as ITableRecordQueryRepository),
       new AttachmentValueResolverService({
         listAttachmentsByTokens: async () => ok([]),
@@ -479,14 +563,20 @@ describe('ImportRecordsHandler', () => {
       new UserValueResolverService(userLookup)
     );
     const handler = new ImportRecordsHandler(
-      new FakeImportSourceRegistry(adapter), tables, repository, resolver,
+      new FakeImportSourceRegistry(adapter),
+      tables,
+      repository,
+      resolver,
       createRecordWritePluginRunner(),
-      { execute: () => ok({ table, updateResult: undefined }) } as unknown as RecordWriteSideEffectService,
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
       { execute: async () => ok({ table, events: [] }) } as unknown as TableUpdateFlow,
       new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
     const command = ImportRecordsCommand.create({
-      tableId: table.id().toString(), source: { type: 'csv', data: 'ignored' },
+      tableId: table.id().toString(),
+      source: { type: 'csv', data: 'ignored' },
       sourceColumnMap: { [titleId.toString()]: 0, [linkId.toString()]: 1, [userId.toString()]: 2 },
       options: { typecast: true, skipFirstNLines: 0, batchSize: 500 },
     })._unsafeUnwrap();
@@ -495,10 +585,19 @@ describe('ImportRecordsHandler', () => {
     expect(result.totalImported).toBe(2);
     expect(result.diagnostics).toMatchObject({ invalidDateCells: 0, skippedRows: 2 });
     expect(result.diagnostics!.samples.map((sample) => sample.rowNumber)).toEqual([2, 3]);
-    expect(repository.inserted.map((record) => record.fields().get(titleId)?.toValue())).toEqual(['first', 'tail']);
+    expect(repository.inserted.map((record) => record.fields().get(titleId)?.toValue())).toEqual([
+      'first',
+      'tail',
+    ]);
     for (const record of repository.inserted) {
-      expect(record.fields().get(linkId)?.toValue()).toMatchObject({ id: foreignRecordId, title: 'Linked' });
-      expect(record.fields().get(userId)?.toValue()).toMatchObject({ id: 'usr-alice', title: 'Alice' });
+      expect(record.fields().get(linkId)?.toValue()).toMatchObject({
+        id: foreignRecordId,
+        title: 'Linked',
+      });
+      expect(record.fields().get(userId)?.toValue()).toMatchObject({
+        id: 'usr-alice',
+        title: 'Alice',
+      });
       expect(record.fields().get(defaultUserId)?.toValue()).toMatchObject({ id: 'system' });
     }
 
@@ -878,41 +977,57 @@ describe('ImportRecordsHandler', () => {
     expect(tableRecordRepository.inserted[0]!.fields().get(textFieldId)?.toValue()).toBe('tail');
 
     // Skipping data errors must not bypass the existing source-row work limit.
-    const limited = await handler.handle(createContext(), createCommand(
-      table.id().toString(), textFieldId.toString(), 'ignored', { maxRowCount: 1 }
-    ));
+    const limited = await handler.handle(
+      createContext(),
+      createCommand(table.id().toString(), textFieldId.toString(), 'ignored', { maxRowCount: 1 })
+    );
     expect(limited.isErr()).toBe(true);
     expect(limited._unsafeUnwrapErr().details).toMatchObject({ maxRowCount: 1, rowCount: 2 });
   });
 
   it('counts a padded blank Excel source row against the source cap before inserting', async () => {
     const { table, textFieldId } = buildTable();
-    const adapter = new FakeImportSourceAdapter(ok({
-      headers: ['Title'],
-      rowCount: 4,
-      rowsAsync: (async function* () {
-        yield ['Title']; // A1 header
-        yield ['first']; // A2
-        yield ['']; // A3 is emitted by the Excel adapter's original padding policy.
-        yield ['tail']; // A4 exceeds two admitted data rows.
-      })(),
-    }));
+    const adapter = new FakeImportSourceAdapter(
+      ok({
+        headers: ['Title'],
+        rowCount: 4,
+        rowsAsync: (async function* () {
+          yield ['Title']; // A1 header
+          yield ['first']; // A2
+          yield ['']; // A3 is emitted by the Excel adapter's original padding policy.
+          yield ['tail']; // A4 exceeds two admitted data rows.
+        })(),
+      })
+    );
     const repository = new FakeTableRecordRepository();
     const progress: IImportProgress[] = [];
     const handler = new ImportRecordsHandler(
-      new FakeImportSourceRegistry(adapter), new FakeTableRepository([table]), repository,
-      { resolveCreatedRecords: async (...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>) => ok(input) } as unknown as RecordMutationSpecResolverService,
+      new FakeImportSourceRegistry(adapter),
+      new FakeTableRepository([table]),
+      repository,
+      {
+        resolveCreatedRecords: async (
+          ...[, , input]: Parameters<RecordMutationSpecResolverService['resolveCreatedRecords']>
+        ) => ok(input),
+      } as unknown as RecordMutationSpecResolverService,
       createRecordWritePluginRunner(),
-      { execute: () => ok({ table, updateResult: undefined }) } as unknown as RecordWriteSideEffectService,
+      {
+        execute: () => ok({ table, updateResult: undefined }),
+      } as unknown as RecordWriteSideEffectService,
       { execute: async () => ok({ table, events: [] }) } as unknown as TableUpdateFlow,
       new EventBusDomainWriteTransaction(new FakeUnitOfWork(), new FakeEventBus())
     );
     const command = ImportRecordsCommand.create({
-      tableId: table.id().toString(), source: { type: 'excel', data: 'adapter-owned fixture' },
+      tableId: table.id().toString(),
+      source: { type: 'excel', data: 'adapter-owned fixture' },
       sourceColumnMap: { [textFieldId.toString()]: 0 },
       options: {
-        maxRowCount: 2, skipFirstNLines: 1, batchSize: 500,
-        onProgress: (value) => { progress.push(value); },
+        maxRowCount: 2,
+        skipFirstNLines: 1,
+        batchSize: 500,
+        onProgress: (value) => {
+          progress.push(value);
+        },
       },
     })._unsafeUnwrap();
 
@@ -944,7 +1059,12 @@ describe('ImportRecordsHandler', () => {
     );
     const tableRecordRepository = new FakeTableRecordRepository();
     tableRecordRepository.insertManyStream = async () =>
-      err(domainError.validation({ code: 'validation.field.not_null', message: 'write failed before inserting' }));
+      err(
+        domainError.validation({
+          code: 'validation.field.not_null',
+          message: 'write failed before inserting',
+        })
+      );
 
     const handler = new ImportRecordsHandler(
       new FakeImportSourceRegistry(adapter),

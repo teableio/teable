@@ -1,26 +1,13 @@
-import type { IRecord } from '@teable/core';
 import { FieldKeyType } from '@teable/core';
 import type { DataPrismaService } from '@teable/db-data-prisma';
-import type { IRecordRemovalReason } from '@teable/v2-core';
 import type { IDeleteRecordsOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import type { IThresholdConfig } from '../../../configs/threshold.config';
+import type { IDeleteRecordsPayload } from '../../../event-emitter/events/delete-records-payload';
 import type { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { RecordOpenApiService } from '../../record/open-api/record-open-api.service';
 import type { RecordRemovalTombstoneService } from '../../record-removal-cold/record-removal-tombstone.service';
-
-export type { IRecordRemovalReason };
-
-export interface IDeleteRecordsPayload {
-  operationId: string;
-  windowId?: string;
-  tableId: string;
-  userId: string;
-  records: (IRecord & { version?: number; order?: Record<string, number> })[];
-  // 'archived' removals persist their own snapshot before deleting; trash sinks skip them.
-  removalReason?: IRecordRemovalReason;
-}
 
 // Untraced host: event2Operation — Host undo-stack payload capture, not legacy execution.
 @V1EngineService(['undo', 'redo'])

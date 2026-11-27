@@ -764,6 +764,15 @@ describe('OpenAPI BaseController (e2e)', () => {
         lookup: 1,
         rollup: 1,
       });
+      const table1Fields = data.nodes.find((node) => node.id === table1.id)?.fields ?? [];
+      const linkedFieldIds = table1Fields
+        .filter((field) => field.lookupLinkedFieldId)
+        .map((field) => field.lookupLinkedFieldId);
+      expect(linkedFieldIds).toEqual([linkField.id, linkField.id]);
+      const sourceFieldIds = table1Fields
+        .filter((field) => field.lookupFieldId)
+        .map((field) => field.lookupFieldId);
+      expect(sourceFieldIds).toEqual([table2.fields[0].id, table2.fields[0].id]);
     });
 
     it('/api/base/:baseId/erd (GET) - cross base', async () => {

@@ -1932,14 +1932,16 @@ describe('UpdateRecordsHandler', () => {
         { id: firstId, version: 1, fields: { [numberId]: 10, [textId]: 'first' } },
         { id: secondId, version: 1, fields: { [numberId]: 20, [textId]: 'second' } },
       ];
-      vi.spyOn(queryRepository, 'find').mockImplementation(async (context, _table, _spec, options) => {
-        // The second row has changed by the time a transactional read locks it.
-        const visibleRecords =
-          context.transaction && options?.lockForUpdate
-            ? records
-            : [records[0]!, { ...records[1]!, version: 0, fields: { [textId]: 'first' } }];
-        return ok({ records: visibleRecords, total: visibleRecords.length });
-      });
+      vi.spyOn(queryRepository, 'find').mockImplementation(
+        async (context, _table, _spec, options) => {
+          // The second row has changed by the time a transactional read locks it.
+          const visibleRecords =
+            context.transaction && options?.lockForUpdate
+              ? records
+              : [records[0]!, { ...records[1]!, version: 0, fields: { [textId]: 'first' } }];
+          return ok({ records: visibleRecords, total: visibleRecords.length });
+        }
+      );
       const eventBus = new FakeEventBus();
       const undoRedoService = new FakeUndoRedoService();
       const firstFields = new Set([numberId]);

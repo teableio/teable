@@ -845,14 +845,9 @@ describe('LinkTitleResolverService', () => {
     const fieldId = FieldId.create(`fld${'v'.repeat(16)}`)._unsafeUnwrap();
     const result = await service.resolve(
       createContext(),
-      [
-        ['A\nB'],
-        ['A\tB'],
-        ['A\tB', 'A\nB', 'A B'],
-        ['C\nD'],
-        ['C\tD'],
-        ['C\tD', 'C\nD'],
-      ].map((titles) => ({ fieldId, foreignTableId: table.id(), titles }))
+      [['A\nB'], ['A\tB'], ['A\tB', 'A\nB', 'A B'], ['C\nD'], ['C\tD'], ['C\tD', 'C\nD']].map(
+        (titles) => ({ fieldId, foreignTableId: table.id(), titles })
+      )
     );
 
     expect(result._unsafeUnwrap().map(({ resolvedIds }) => resolvedIds)).toEqual([

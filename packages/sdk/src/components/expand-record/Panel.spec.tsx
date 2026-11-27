@@ -70,6 +70,33 @@ describe('Panel (ExpandRecord side panel)', () => {
     expect(panels()[0].style.width).toBe('700px');
   });
 
+  it('keeps a press inside from its opener but lets it reach document, where popovers close', () => {
+    const onOpenerPointerDown = vi.fn();
+    const onOpenerMouseDown = vi.fn();
+    const onDocument = vi.fn();
+    document.addEventListener('pointerdown', onDocument);
+    document.addEventListener('mousedown', onDocument);
+    render(
+      <ExpandRecordPanelHost>
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions */}
+        <div onPointerDown={onOpenerPointerDown} onMouseDown={onOpenerMouseDown}>
+          <Panel visible>
+            <div data-testid="blank" />
+          </Panel>
+        </div>
+      </ExpandRecordPanelHost>
+    );
+
+    fireEvent.pointerDown(screen.getByTestId('blank'));
+    fireEvent.mouseDown(screen.getByTestId('blank'));
+    document.removeEventListener('pointerdown', onDocument);
+    document.removeEventListener('mousedown', onDocument);
+
+    expect(onOpenerPointerDown).not.toHaveBeenCalled();
+    expect(onOpenerMouseDown).not.toHaveBeenCalled();
+    expect(onDocument).toHaveBeenCalledTimes(2);
+  });
+
   it('closes on Escape wherever focus is, unless an open layer owns the key', () => {
     const onClose = vi.fn();
     render(

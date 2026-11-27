@@ -67,6 +67,8 @@ describe('getImageModelConfigByGatewayId', () => {
       '672x1024',
       '1280x720',
       '720x1280',
+      '1344x576',
+      '1568x672',
       '2048x1152',
       '1152x2048',
       '2048x2048',
@@ -74,6 +76,7 @@ describe('getImageModelConfigByGatewayId', () => {
       '1536x2048',
       '2048x1360',
       '1360x2048',
+      '2016x864',
       '2880x2880',
       '3504x2336',
       '2336x3504',
@@ -81,6 +84,7 @@ describe('getImageModelConfigByGatewayId', () => {
       '2448x3264',
       '3840x2160',
       '2160x3840',
+      '3584x1536',
     ]);
     expect(getImageModelConfigByGatewayId(GPT_IMAGE_2_MODEL_ID)?.defaultSize).toBeUndefined();
     expect(getImageModelConfigByGatewayId(GPT_IMAGE_2_MODEL_ID)?.supportsAutoSize).toBe(true);
@@ -350,6 +354,8 @@ describe('getImageModelConfigByModelKey', () => {
       '672x1024',
       '1280x720',
       '720x1280',
+      '1344x576',
+      '1568x672',
       '2048x1152',
       '1152x2048',
       '2048x2048',
@@ -357,6 +363,7 @@ describe('getImageModelConfigByModelKey', () => {
       '1536x2048',
       '2048x1360',
       '1360x2048',
+      '2016x864',
       '2880x2880',
       '3504x2336',
       '2336x3504',
@@ -364,6 +371,7 @@ describe('getImageModelConfigByModelKey', () => {
       '2448x3264',
       '3840x2160',
       '2160x3840',
+      '3584x1536',
     ]);
     expect(
       supportsImageInputForImageModel(resolved!.config, resolved!.modelId, resolved!.tags)

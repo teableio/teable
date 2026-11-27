@@ -379,6 +379,141 @@ describe('public .tea relationship integrity (e2e)', () => {
     }
   }, 60_000);
 
+  it.each(['v1', 'v2'] as const)(
+    'preserves conditional results from a disconnected %s archive',
+    async (sourceEngine) => {
+      const source = await newBase('Conditional export', sourceEngine);
+      const ref = await createTable(source.id, {
+        name: 'Ref',
+        fields: [
+          { name: 'Label', type: FieldType.SingleLineText },
+          { name: 'Score', type: FieldType.Number },
+          {
+            name: 'Tags',
+            type: FieldType.MultipleSelect,
+            options: { choices: [{ name: 'a', color: 'blue' }] },
+          },
+        ],
+        records: [{ fields: { Label: 'Match', Score: 19, Tags: ['a'] } }],
+      });
+      const main = await createTable(source.id, {
+        name: 'Main',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText }],
+        records: [{ fields: { Label: 'Kept' } }],
+      });
+      const link = await createField(main.id, {
+        name: 'Reference',
+        type: FieldType.Link,
+        options: { foreignTableId: ref.id, relationship: Relationship.ManyOne },
+      });
+      await updateRecordByApi(main.id, main.records[0].id, link.id, { id: ref.records[0].id });
+      const lookup = await createField(main.id, {
+        name: 'Imported score',
+        type: FieldType.Number,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: ref.id,
+          linkFieldId: link.id,
+          lookupFieldId: named(ref.fields, 'Score').id,
+        },
+      });
+      const tags = await createField(main.id, {
+        name: 'Imported tags',
+        type: FieldType.MultipleSelect,
+        isLookup: true,
+        lookupOptions: {
+          foreignTableId: ref.id,
+          linkFieldId: link.id,
+          lookupFieldId: named(ref.fields, 'Tags').id,
+        },
+      });
+      const summary = await createTable(source.id, {
+        name: 'Summary',
+        fields: [{ name: 'Label', type: FieldType.SingleLineText }],
+        records: [{ fields: { Label: 'Counts' } }],
+      });
+      const target = { foreignTableId: main.id, lookupFieldId: named(main.fields, 'Label').id };
+      await createField(summary.id, {
+        name: 'Matching',
+        type: FieldType.SingleLineText,
+        isLookup: true,
+        isConditionalLookup: true,
+        lookupOptions: {
+          ...target,
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookup.id, operator: 'isGreater', value: 17 }],
+          },
+        },
+      });
+      await createField(summary.id, {
+        name: 'Matches by tag',
+        type: FieldType.ConditionalRollup,
+        options: {
+          ...target,
+          expression: 'countall({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: tags.id, operator: 'hasAnyOf', value: ['a'] }],
+          },
+        },
+      });
+      await createField(summary.id, {
+        name: 'Independent',
+        type: FieldType.ConditionalRollup,
+        options: {
+          ...target,
+          expression: 'countall({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: target.lookupFieldId, operator: 'is', value: 'Kept' }],
+          },
+        },
+      });
+      await createField(summary.id, {
+        name: 'Present score',
+        type: FieldType.ConditionalRollup,
+        options: {
+          ...target,
+          expression: 'countall({values})',
+          filter: {
+            conjunction: 'and',
+            filterSet: [{ fieldId: lookup.id, operator: 'isNotEmpty', value: null }],
+          },
+        },
+      });
+      const fixture = await exportFixture(source.id);
+      const csvRow = readCsv(fixture, named(fixture.structure.tables, summary.name)).rows[0];
+      const sourceFields = (await getFields(summary.id)).data;
+      expect(csvRow[named(sourceFields, 'Matches by tag').dbFieldName]).toBe('1');
+      expect(csvRow[named(sourceFields, 'Matching').dbFieldName]).toContain('Kept');
+      fixture.structure.tables = fixture.structure.tables.filter((table) => table.id !== ref.id);
+      fixture.structure.nodes = fixture.structure.nodes.filter(
+        (node) => node.resourceId !== ref.id
+      );
+      fixture.entries.delete(`tables/${ref.id}.csv`);
+      for (const engine of ['v1', 'v2'] as const) {
+        const restored = await importFixture(fixture, engine);
+        const id = restored.tableIdMap[summary.id];
+        const fields = (await getFields(id)).data;
+        expect(named(fields, 'Matching').type).toBe(FieldType.SingleLineText);
+        expect(named(fields, 'Matching').isLookup).toBeFalsy();
+        expect(named(fields, 'Matching').isConditionalLookup).toBeFalsy();
+        expect(named(fields, 'Present score').type).toBe(FieldType.ConditionalRollup);
+        expect(named(fields, 'Matches by tag').type).toBe(FieldType.SingleLineText);
+        expect(named(fields, 'Independent').type).toBe(FieldType.ConditionalRollup);
+        const { records } = await getRecords(id, { fieldKeyType: FieldKeyType.Name });
+        expect(records[0].fields.Matching).toBe(
+          csvRow[named(sourceFields, 'Matching').dbFieldName]
+        );
+        expect(records[0].fields['Present score']).toBe(1);
+        expect(records[0].fields['Matches by tag']).toBe('1');
+        expect(records[0].fields.Independent).toBe(1);
+      }
+    },
+    120_000
+  );
+
   it('preserves cached formulas downstream of a disconnected rollup on V1 import', async () => {
     const source = await newBase('Disconnected formula source');
     const targets = await createTable(source.id, {
@@ -399,7 +534,9 @@ describe('public .tea relationship integrity (e2e)', () => {
       type: FieldType.Link,
       options: { foreignTableId: targets.id, relationship: Relationship.ManyMany, isOneWay: true },
     });
-    await updateRecordByApi(hosts.id, hosts.records[0].id, link.id, [{ id: targets.records[0].id }]);
+    await updateRecordByApi(hosts.id, hosts.records[0].id, link.id, [
+      { id: targets.records[0].id },
+    ]);
     const total = await createField(hosts.id, {
       name: 'Total',
       type: FieldType.Rollup,

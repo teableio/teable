@@ -417,7 +417,7 @@ export class TableOpenApiService {
   async getTables(baseId: string, includeTableIds?: string[]): Promise<ITableVo[]> {
     const visibleIds = await this.permissionService.getBaseShareVisibleResourceIds(baseId, 'table');
     const tableIdsInScope = visibleIds
-      ? includeTableIds?.filter((id) => visibleIds.has(id)) ?? [...visibleIds]
+      ? (includeTableIds?.filter((id) => visibleIds.has(id)) ?? [...visibleIds])
       : includeTableIds;
     const tablesMeta = await this.prismaService.txClient().tableMeta.findMany({
       orderBy: { order: 'asc' },

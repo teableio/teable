@@ -224,27 +224,28 @@
   },
   "publishBase": {
     "title": "Pubblica nel centro modelli",
-    "description": "Pubblica il progetto nel centro modelli con un clic! Lascia che più persone vedano, usino e facciano Remix della tua creatività, costruendo insieme un business più potente",
-    "configureTitle": "Configura il modello",
-    "configureDescription": "I modelli migliori possono comparire nel centro modelli",
+    "description": "Pubblica nel centro modelli per permettere ad altri di trovare e usare il tuo modello.",
+    "configureTitle": "Pubblica modello",
+    "configureDescription": "Una volta pubblicato, il modello può essere condiviso e installato tramite link. Comparirà nel centro modelli dopo la revisione.",
     "infoTitle": "Informazioni di base",
     "form": {
-      "title": "Titolo",
+      "title": "Nome del modello",
       "description": "Descrizione",
       "changelog": "Note di rilascio",
       "changelogPlaceholder": "Descrivi le modifiche per le installazioni esistenti; vengono mostrate nell'anteprima dell'aggiornamento",
-      "publishNode": "Pubblica nodi",
+      "publishNode": "Include",
       "includeData": "Includi dati",
       "defaultActiveNode": "Nodo attivo predefinito",
-      "descriptionPlaceholder": "Descrivi brevemente la tua idea...",
-      "titlePlaceholder": "Dai un nome al tuo lavoro...",
+      "descriptionPlaceholder": "Descrivi cosa risolve e come si usa",
+      "titlePlaceholder": "es. Follow-up clienti",
       "versionTitle": "Contenuto della versione",
-      "addChangelog": "Aggiungi note di rilascio"
+      "addChangelog": "Aggiungi note di rilascio",
+      "cover": "Copertina"
     },
     "publishToCommunity": "Pubblica nel centro modelli",
     "publish": "Pubblica",
-    "publishSuccess": "Pubblicazione riuscita!",
-    "previewTips": "Fai vedere al mondo il tuo lavoro",
+    "publishSuccess": "Modello pubblicato",
+    "previewTips": "Anteprima nel centro modelli",
     "update": "Aggiorna",
     "submit": "Pubblica modello",
     "review": {
@@ -258,23 +259,29 @@
         "trial": "Esecuzione di prova",
         "content": "Contenuto"
       },
+      "checkLine": {
+        "connectors": "Non supportato: {{providers}}",
+        "estimate": "{{runs}}/mese"
+      },
       "checkMessage": {
         "connectors": "Non collegabili qui: {{providers}}",
         "privacy": "Sono inclusi dei record; controlla che non contengano dati personali",
         "estimate": "Circa {{runs}} esecuzioni al mese, oltre le {{free}} del piano gratuito",
         "trial": "Le automazioni non richiedono alcun account; verifica che funzionino senza",
-        "content": "Ancora solo tuo: {{count}}",
-        "contentMarked": "Segnato come esempio: {{count}}"
+        "content": "Contenuti personali da sostituire ({{count}})",
+        "contentMarked": "Segnati come esempio ({{count}})"
       },
       "withdraw": "Annulla pubblicazione",
-      "withdrawn": "Pubblicazione annullata.",
+      "withdrawn": "Pubblicazione annullata",
       "withdrawConfirmTitle": "Annullare la pubblicazione di questo modello?",
       "withdrawConfirmDescription": "Il suo link non si aprirà più e non comparirà nel centro modelli. Le copie installate non sono interessate e potrai ripubblicarlo in seguito.",
       "live": "Pubblicato · v{{version}}",
-      "listed": "Nel centro modelli"
+      "listed": "Nel centro modelli",
+      "allVersions": "Tutte le versioni ({{count}})",
+      "fewerVersions": "Mostra meno"
     },
     "unPublish": "Annulla pubblicazione",
-    "unPublishSuccess": "Pubblicazione progetto annullata con successo!",
+    "unPublishSuccess": "Rimosso dal centro modelli",
     "unPublishConfirmTitle": "Conferma annullamento pubblicazione",
     "unPublishConfirmDescription": "Sei sicuro di voler annullare la pubblicazione di questo progetto? Non sarà più visibile nel centro modelli.",
     "uploadCover": "Clicca per caricare l'immagine di copertina",
@@ -288,29 +295,44 @@
       "atLeastOneNode": "Seleziona almeno un nodo da pubblicare",
       "coverRequired": "Aggiungi un’immagine di copertina"
     },
-    "urlCopied": "URL copiato negli appunti!",
-    "urlCopiedForDiscord": "URL copiato negli appunti! Puoi incollarlo su Discord.",
+    "urlCopied": "Link copiato",
+    "urlCopiedForDiscord": "Link copiato. Incollalo su Discord.",
     "featuredLabel": "Featured",
-    "featuredTip": "Ufficialmente selezionato come in evidenza. Il tuo modello riceverà più visibilità.",
-    "publishSuccessDescription": "Condividi il tuo lavoro con il mondo",
+    "featuredTip": "In evidenza su Teable. Il tuo modello ottiene più visibilità.",
+    "publishSuccessDescription": "Copia il link o condividilo sui social.",
     "shareWith": "Condividi con",
     "unpublishedApps": {
-      "title": "App non pubblicate rilevate",
-      "description": "Le app non pubblicate potrebbero causare errori nell'anteprima del modello. Pubblicale ora o continua comunque.",
-      "publishAll": "Pubblica tutte",
+      "title": "Alcune app non sono pubblicate",
+      "description": "Le app non pubblicate potrebbero non aprirsi nell'anteprima del modello.",
+      "publishAll": "Pubblica tutte le app",
       "publish": "Pubblica",
       "published": "Pubblicata",
-      "publishing": "Pubblicazione...",
+      "publishing": "Pubblicazione…",
       "notPublished": "Non pubblicata",
       "publishFailed": "Pubblicazione fallita",
       "publishFailedTip1": "Verifica se l'app di origine può essere pubblicata correttamente",
       "publishFailedTip2": "Prova a ripubblicare questo modello",
-      "ignoreAndContinue": "Ignora e continua",
-      "goToFix": "Vai a correggere",
-      "redeploy": "Ridistribuisci",
+      "ignoreAndContinue": "Continua senza pubblicare",
+      "goToFix": "Apri app",
+      "redeploy": "Pubblica di nuovo",
       "unnamedApp": "App senza nome"
     },
-    "submitVersion": "Pubblica v{{version}}"
+    "submitVersion": "Pubblica v{{version}}",
+    "agreeTermsFirst": "Accetta i termini per i creator per pubblicare.",
+    "preview": {
+      "titleMissing": "Aggiungi un nome al modello",
+      "descriptionMissing": "Aggiungi una descrizione"
+    },
+    "updateTemplate": "Aggiorna modello",
+    "timeline": {
+      "versions": "Cronologia versioni",
+      "published": "Pubblicato"
+    },
+    "checksTitle": "Controlli prima della pubblicazione",
+    "listing": {
+      "title": "Scheda",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -488,14 +510,14 @@
     "fromGoogleSheetDesc": "Scegli un foglio di calcolo"
   },
   "templateProject": {
-    "make": "Crea un modello",
-    "new": "Nuovo progetto modello",
+    "make": "Crea modello",
+    "new": "Crea progetto modello",
     "plural": "Progetti modello",
     "projectsTab": "Progetti",
     "empty": "Ancora nessun progetto modello",
     "trialCopy": "Copia di prova",
     "wholeProject": "Tutto il progetto ({{count}})",
-    "sampleRecords": "Record di esempio: {{count}}",
+    "sampleRecords": "Record di esempio ({{count}})",
     "noRecords": "Nessun record"
   }
 }

@@ -132,6 +132,50 @@ describe('FieldClipboardValueVisitor', () => {
     expect(field.accept(new FieldClipboardValueVisitor(value))._unsafeUnwrap()).toBe(expected);
   });
 
+  it('formats clipboard dates identically across UTC and America/New_York host process timezones', () => {
+    const parisField = DateField.create({
+      id: fieldId('q'),
+      name: fieldName('Paris date'),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD',
+        time: 'HH:mm',
+        timeZone: 'Europe/Paris',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+    const gmtPlus5Field = DateField.create({
+      id: fieldId('r'),
+      name: fieldName('Fixed offset date'),
+      formatting: DateTimeFormatting.create({
+        date: 'YYYY-MM-DD HH:mm Z',
+        time: 'None',
+        timeZone: 'Etc/GMT+5',
+      })._unsafeUnwrap(),
+    })._unsafeUnwrap();
+
+    const previousTz = process.env.TZ;
+    try {
+      for (const hostTz of ['UTC', 'America/New_York']) {
+        process.env.TZ = hostTz;
+        expect(
+          parisField
+            .accept(new FieldClipboardValueVisitor('2024-03-10T06:30:00.000Z'))
+            ._unsafeUnwrap()
+        ).toBe('2024-03-10 07:30');
+        expect(
+          gmtPlus5Field
+            .accept(new FieldClipboardValueVisitor('2024-03-10T07:00:00.000Z'))
+            ._unsafeUnwrap()
+        ).toBe('2024-03-10 02:00 -05:00');
+      }
+    } finally {
+      if (previousTz === undefined) {
+        delete process.env.TZ;
+      } else {
+        process.env.TZ = previousTz;
+      }
+    }
+  });
+
   it('formats computed and lookup date arrays with their field formatting', () => {
     const formatting = DateTimeFormatting.create({
       date: 'ddd, MMMM D YYYY HH:mm:ss.SSS Z',

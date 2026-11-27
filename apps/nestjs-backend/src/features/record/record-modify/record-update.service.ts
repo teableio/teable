@@ -8,13 +8,14 @@ import { EventEmitterService } from '../../../event-emitter/event-emitter.servic
 import { Events } from '../../../event-emitter/events';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
 import type { IClsStore } from '../../../types/cls';
+import type { IOpsMap } from '../../../types/ops-map';
 import { retryOnDeadlock } from '../../../utils/retry-decorator';
 import { Timing } from '../../../utils/timing';
 import { BatchService } from '../../calculation/batch.service';
 import { LinkService } from '../../calculation/link.service';
 import { SystemFieldService } from '../../calculation/system-field.service';
 import type { ICellContext } from '../../calculation/utils/changes';
-import { composeOpMaps, type IOpsMap } from '../../calculation/utils/compose-maps';
+import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { RecordMutationPolicyService } from '../../record-mutation-policy/record-mutation-policy.service';
 import { TableDomainQueryService } from '../../table-domain';
 import { ViewOpenApiService } from '../../view/open-api/view-open-api.service';

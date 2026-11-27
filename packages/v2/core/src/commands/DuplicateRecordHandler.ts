@@ -148,7 +148,9 @@ export class DuplicateRecordHandler implements ICommandHandler<
         );
         const sourceRecord = sourceResult.records[0];
         if (!sourceRecord) {
-          return err(domainError.notFound({ code: 'record.not_found', message: 'Record not found' }));
+          return err(
+            domainError.notFound({ code: 'record.not_found', message: 'Record not found' })
+          );
         }
         const [readableSource] = applyFieldMasksToRecords(
           table,

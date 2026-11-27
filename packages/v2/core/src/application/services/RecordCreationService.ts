@@ -134,7 +134,8 @@ export class RecordCreationService {
       let record = createResult.record;
       let mutateSpec = createResult.mutateSpec;
       if (mutateSpec) {
-        const needsResolution = yield* service.recordMutationSpecResolver.needsResolution(mutateSpec);
+        const needsResolution =
+          yield* service.recordMutationSpecResolver.needsResolution(mutateSpec);
         if (needsResolution) {
           mutateSpec = yield* await service.recordMutationSpecResolver.resolveAndReplace(
             context,

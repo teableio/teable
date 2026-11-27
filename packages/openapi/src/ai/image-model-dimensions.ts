@@ -20,6 +20,7 @@ export const ALL_IMAGE_SIZES = [
   '1216x832',
   '1280x720',
   '1280x1024',
+  '1344x576',
   '1344x768',
   '1365x1024',
   '1360x2048',
@@ -30,6 +31,7 @@ export const ALL_IMAGE_SIZES = [
   '1707x1024',
   '1792x1024',
   '1820x1024',
+  '2016x864',
   '2048x1024',
   '2048x1360',
   '2048x1152',
@@ -39,6 +41,7 @@ export const ALL_IMAGE_SIZES = [
   '2880x2880',
   '3264x2448',
   '3504x2336',
+  '3584x1536',
   '3840x2160',
   // Portrait sizes.
   '672x1024',
@@ -280,7 +283,7 @@ export const OPENAI_GPT_IMAGE_2_SIZE_TIERS = ['standard', '2K', '4K'] as const;
 export type IOpenAIGptImage2SizeTier = (typeof OPENAI_GPT_IMAGE_2_SIZE_TIERS)[number];
 export type IOpenAIGptImage2AspectRatio = Extract<
   IAspectRatio,
-  '1:1' | '3:2' | '2:3' | '4:3' | '3:4' | '16:9' | '9:16'
+  '1:1' | '3:2' | '2:3' | '4:3' | '3:4' | '16:9' | '9:16' | '21:9'
 >;
 
 export interface IOpenAIGptImage2SizePreset {
@@ -304,6 +307,8 @@ export const OPENAI_GPT_IMAGE_2_PRESETS = [
   { size: '672x1024', ratio: '2:3', tier: 'standard' },
   { size: '1280x720', ratio: '16:9', tier: 'standard' },
   { size: '720x1280', ratio: '9:16', tier: 'standard' },
+  { size: '1344x576', ratio: '21:9', tier: 'standard' },
+  { size: '1568x672', ratio: '21:9', tier: 'standard' },
   { size: '2048x1152', ratio: '16:9', tier: '2K' },
   { size: '1152x2048', ratio: '9:16', tier: '2K' },
   { size: '2048x2048', ratio: '1:1', tier: '2K' },
@@ -311,6 +316,7 @@ export const OPENAI_GPT_IMAGE_2_PRESETS = [
   { size: '1536x2048', ratio: '3:4', tier: '2K' },
   { size: '2048x1360', ratio: '3:2', tier: '2K' },
   { size: '1360x2048', ratio: '2:3', tier: '2K' },
+  { size: '2016x864', ratio: '21:9', tier: '2K' },
   { size: '2880x2880', ratio: '1:1', tier: '4K' },
   { size: '3504x2336', ratio: '3:2', tier: '4K' },
   { size: '2336x3504', ratio: '2:3', tier: '4K' },
@@ -318,6 +324,7 @@ export const OPENAI_GPT_IMAGE_2_PRESETS = [
   { size: '2448x3264', ratio: '3:4', tier: '4K' },
   { size: '3840x2160', ratio: '16:9', tier: '4K' },
   { size: '2160x3840', ratio: '9:16', tier: '4K' },
+  { size: '3584x1536', ratio: '21:9', tier: '4K' },
 ] as const satisfies readonly IOpenAIGptImage2SizePreset[];
 
 export const OPENAI_GPT_IMAGE_2_SIZES = OPENAI_GPT_IMAGE_2_PRESETS.map(

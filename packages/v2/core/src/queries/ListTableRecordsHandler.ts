@@ -13,7 +13,7 @@ import { domainError, isNotFoundError, type DomainError } from '../domain/shared
 import { composeAndSpecsOrUndefined } from '../domain/shared/specification/composeAndSpecs';
 import type { ISpecification } from '../domain/shared/specification/ISpecification';
 import { FieldId } from '../domain/table/fields/FieldId';
-import { FieldKeyType } from '../domain/table/fields/FieldKeyType';
+import type { FieldKeyType } from '../domain/table/fields/FieldKeyType';
 import type { RecordId } from '../domain/table/records/RecordId';
 import type { ITableRecordConditionSpecVisitor } from '../domain/table/records/specs/ITableRecordConditionSpecVisitor';
 import type { TableRecord } from '../domain/table/records/TableRecord';
@@ -71,6 +71,45 @@ const supportsAggregation = (
   repository: TableRecordQueryRepositoryPort.ITableRecordQueryRepository
 ): repository is TableRecordQueryRepositoryPort.ITableRecordAggregationQueryRepository =>
   'aggregate' in repository && typeof repository.aggregate === 'function';
+
+const stripDisallowedRecordFields = (
+  records: ReadonlyArray<TableRecordReadModel>,
+  allowedFieldIds: ReadonlySet<string>
+): ReadonlyArray<TableRecordReadModel> => {
+  let copied: TableRecordReadModel[] | undefined;
+  for (let i = 0; i < records.length; i++) {
+    const record = records[i]!;
+    const rawFields = record.fields;
+    let needsStrip = false;
+    for (const fieldId in rawFields) {
+      if (
+        Object.prototype.hasOwnProperty.call(rawFields, fieldId) &&
+        !allowedFieldIds.has(fieldId)
+      ) {
+        needsStrip = true;
+        break;
+      }
+    }
+    if (!needsStrip) {
+      if (copied) copied.push(record);
+      continue;
+    }
+    if (!copied) {
+      copied = records.slice(0, i);
+    }
+    const nextFields: Record<string, unknown> = {};
+    for (const fieldId in rawFields) {
+      if (
+        Object.prototype.hasOwnProperty.call(rawFields, fieldId) &&
+        allowedFieldIds.has(fieldId)
+      ) {
+        nextFields[fieldId] = rawFields[fieldId];
+      }
+    }
+    copied.push({ ...record, fields: nextFields });
+  }
+  return copied ?? records;
+};
 
 export class ListTableRecordsResult {
   private constructor(
@@ -934,6 +973,7 @@ export class ListTableRecordsHandler implements IQueryHandler<
             projectionFieldIds,
             visibleRowSearch,
             searchAccessEvent,
+            outputFieldIds,
             options,
           } = yield* await this.prepare(context, query);
           observabilityEvent = searchAccessEvent;
@@ -980,14 +1020,7 @@ export class ListTableRecordsHandler implements IQueryHandler<
           const requestedProjection =
             query.projection === undefined
               ? undefined
-              : new Set(
-                  (yield* resolveProjectionFieldIds(
-                    table,
-                    query.projection,
-                    query.fieldKeyType,
-                    enabledFieldIds
-                  ))?.map((id) => id.toString()) ?? []
-                );
+              : new Set(outputFieldIds?.map((id) => id.toString()) ?? []);
           // Field ids available for mask evaluation (readable + deps). Used for
           // fail-closed checks when a dependency was not projected.
           const evaluationFieldIds = projectionFieldIds
@@ -995,7 +1028,7 @@ export class ListTableRecordsHandler implements IQueryHandler<
             : enabledFieldIds
               ? new Set(enabledFieldIds)
               : undefined;
-          let maskedRecords = applyFieldMasksToRecords(
+          let maskedRecords: ReadonlyArray<TableRecordReadModel> = applyFieldMasksToRecords(
             table,
             queryResult.records,
             query.queryScope?.fieldMasks,
@@ -1008,44 +1041,29 @@ export class ListTableRecordsHandler implements IQueryHandler<
             query.searchIndexMode ?? 'matched',
             query.pagination.offset().toNumber()
           );
-          // Strip mask dependency fields that were only loaded for evaluation.
-          if (requestedProjection) {
-            maskedRecords = maskedRecords.map((record) => {
-              const nextFields: Record<string, unknown> = {};
-              for (const [fieldId, value] of Object.entries(record.fields)) {
-                if (requestedProjection.has(fieldId)) {
-                  nextFields[fieldId] = value;
-                }
-              }
-              return { ...record, fields: nextFields };
-            });
-          } else if (enabledFieldIds != null) {
-            // No explicit client projection: return only allow-listed fields
-            // (never leak internal mask dependency columns).
-            maskedRecords = maskedRecords.map((record) => {
-              const nextFields: Record<string, unknown> = {};
-              for (const [fieldId, value] of Object.entries(record.fields)) {
-                if (enabledFieldIds.has(fieldId)) {
-                  nextFields[fieldId] = value;
-                }
-              }
-              return { ...record, fields: nextFields };
-            });
+          // Strip mask dependency or unprojected fields only when a record actually carries them.
+          const allowedFieldIds = requestedProjection ?? enabledFieldIds;
+          if (allowedFieldIds != null) {
+            maskedRecords = stripDisallowedRecordFields(maskedRecords, allowedFieldIds);
           }
-          maskedRecords = [
-            ...(yield* presentRecordReadModels(table, maskedRecords, query.cellFormat)),
-          ];
-          const transformedRecords =
-            query.fieldKeyType !== FieldKeyType.Id
-              ? maskedRecords.map((record) => ({
-                  ...record,
-                  fields: FieldKeyResolverService.transformResponseKeys(
-                    table,
-                    record.fields,
-                    query.fieldKeyType
-                  ),
-                }))
-              : maskedRecords;
+          const presentedRecords = yield* presentRecordReadModels(
+            table,
+            maskedRecords,
+            query.cellFormat
+          );
+          const responseKeyMap = FieldKeyResolverService.createResponseKeyMap(
+            table,
+            query.fieldKeyType
+          );
+          const transformedRecords = responseKeyMap
+            ? presentedRecords.map((record) => ({
+                ...record,
+                fields: FieldKeyResolverService.transformResponseKeysWithMap(
+                  record.fields,
+                  responseKeyMap
+                ),
+              }))
+            : presentedRecords;
 
           logger.debug('ListTableRecordsHandler.success', {
             count: queryResult.records.length,

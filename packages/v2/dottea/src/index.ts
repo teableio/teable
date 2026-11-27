@@ -7,6 +7,7 @@ import {
   type DotTeaStructure,
   type DotTeaSource,
   type IDotTeaParser,
+  type NormalizedDotTeaField,
   type NormalizedDotTeaStructure,
 } from '@teable/v2-core';
 import { injectable } from '@teable/v2-di';
@@ -14,6 +15,7 @@ import { err, ok } from 'neverthrow';
 import type { Result } from 'neverthrow';
 import unzipper from 'unzipper';
 import { z } from 'zod';
+import { normalizeImportedConditions } from './normalizer/normalizeImportedConditions';
 import { normalizeFields } from './normalizer';
 
 const dotTeaFieldSchema = z
@@ -132,13 +134,15 @@ export class DotTeaParser implements IDotTeaParser {
       )
     );
 
-    // Normalize all tables and their fields using table-local field IDs so
-    // legacy formulas and relation dependencies can be downgraded safely.
-    const normalizedTables = structure.tables.map((table) => {
+    const normalizedFields: NormalizedDotTeaField[][] = structure.tables.map((table) => [
+      ...normalizeFields(table.fields, { availableTableIds, fieldIdsByTableId }),
+    ]);
+    normalizeImportedConditions(structure.tables, normalizedFields);
+    const normalizedTables = structure.tables.map((table, index) => {
       return {
         ...(table.id ? { id: table.id } : {}),
         name: table.name,
-        fields: normalizeFields(table.fields, { availableTableIds, fieldIdsByTableId }),
+        fields: normalizedFields[index],
         views: table.views
           ?.filter((view) => (view.type ? allowedViewTypes.has(view.type) : true))
           .map((view) => ({

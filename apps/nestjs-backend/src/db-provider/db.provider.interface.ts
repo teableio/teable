@@ -3,6 +3,7 @@ import type {
   FieldCore,
   FieldType,
   IFilter,
+  ILinkFieldOptions,
   ILookupLinkOptionsVo,
   ISortItem,
   TableDomain,
@@ -59,6 +60,11 @@ export type ICalendarDailyCollectionQueryProps = {
 export type IRawQueryExecutor = {
   $queryRawUnsafe<T = unknown>(query: string, ...args: unknown[]): Promise<T>;
 };
+
+export type ILinkForeignKeySchemaOptions = Pick<
+  ILinkFieldOptions,
+  'relationship' | 'fkHostTableName' | 'selfKeyName' | 'foreignKeyName' | 'isOneWay'
+>;
 
 export interface IDbProvider {
   driver: DriverClient;
@@ -137,6 +143,12 @@ export interface IDbProvider {
     tableNameMap: Map<string, string>,
     isSymmetricField?: boolean,
     skipBaseColumnCreation?: boolean
+  ): string[];
+
+  createLinkForeignKeySchema(
+    options: ILinkForeignKeySchemaOptions,
+    dbTableName: string,
+    foreignDbTableName: string
   ): string[];
 
   duplicateTable(
