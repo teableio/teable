@@ -28,4 +28,6 @@ export enum LocalStorageKeys {
   Sidebar = 'ls_sidebar',
   SpaceBaseListViewMode = 'ls_space_base_list_view_mode',
   NotificationFilter = 'ls_notification_filter',
+  ErdLineageMaximized = 'ls_erd_lineage_maximized',
+  ErdLineageHeight = 'ls_erd_lineage_height',
 }

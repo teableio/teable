@@ -19,6 +19,7 @@ import { DATA_KNEX } from '../../global/knex/knex.module';
 import { RawOpType } from '../../share-db/interface';
 import { RawOpStagingService } from '../../share-db/raw-op-staging.service';
 import { V1EngineService } from '../../tracing/decorators/v1-engine';
+import type { IOpsMap } from '../../types/ops-map';
 import { handleDBValidationErrors } from '../../utils/db-validation-error';
 import { Timing } from '../../utils/timing';
 import type { IFieldInstance } from '../field/model/factory';
@@ -26,7 +27,6 @@ import { createFieldInstanceByRaw, fieldCore2FieldInstance } from '../field/mode
 import { dbType2knexFormat, SchemaType } from '../field/util';
 import { RecordQueryService } from '../record/record-query.service';
 import { TableDomainQueryService } from '../table-domain/table-domain-query.service';
-import { IOpsMap } from './utils/compose-maps';
 
 const LAST_MODIFIED_ACTOR_COLUMNS = [
   '__last_modified_by_actor_type',

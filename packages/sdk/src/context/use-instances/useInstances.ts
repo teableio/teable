@@ -101,6 +101,8 @@ const schemaRefreshFieldProperties = new Set([
   'rollupConfig',
   'linkConfig',
   'linkRelationship',
+  // attachment values carry their public links only while the field gives them
+  'isPublic',
 ]);
 
 // Normalize query params into a stable, comparable string key

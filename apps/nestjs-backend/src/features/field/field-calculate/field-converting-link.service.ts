@@ -17,8 +17,8 @@ import { IDbProvider } from '../../../db-provider/db.provider.interface';
 import { DropColumnOperationType } from '../../../db-provider/drop-database-column-query/drop-database-column-field-visitor.interface';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
+import type { IOpsMap } from '../../../types/ops-map';
 import { FieldCalculationService } from '../../calculation/field-calculation.service';
-import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { TableDomainQueryService } from '../../table-domain/table-domain-query.service';
 import type { IFieldInstance } from '../model/factory';
 import {

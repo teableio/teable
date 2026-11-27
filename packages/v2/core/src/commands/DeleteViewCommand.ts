@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import { ViewId } from '../domain/table/views/ViewId';
+import type { UndoRedoApplyViewSnapshotCommandData } from '../ports/UndoRedoStore';
 import { PublicCommand } from './PublicCommand';
 
 export const deleteViewInputSchema = z.object({
@@ -17,12 +18,13 @@ export type IDeleteViewCommandInput = z.input<typeof deleteViewInputSchema>;
 export class DeleteViewCommand extends PublicCommand {
   private constructor(
     readonly tableId: TableId,
-    readonly viewId: ViewId
+    readonly viewId: ViewId,
+    readonly refreshInverse?: (inverse: UndoRedoApplyViewSnapshotCommandData) => Promise<Result<void, DomainError>>
   ) {
     super();
   }
 
-  static create(raw: unknown): Result<DeleteViewCommand, DomainError> {
+  static create(raw: unknown, refreshInverse?: DeleteViewCommand['refreshInverse']): Result<DeleteViewCommand, DomainError> {
     const parsed = deleteViewInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -34,7 +36,7 @@ export class DeleteViewCommand extends PublicCommand {
     }
 
     return TableId.create(parsed.data.tableId).andThen((tableId) =>
-      ViewId.create(parsed.data.viewId).map((viewId) => new DeleteViewCommand(tableId, viewId))
+      ViewId.create(parsed.data.viewId).map((viewId) => new DeleteViewCommand(tableId, viewId, refreshInverse))
     );
   }
 }

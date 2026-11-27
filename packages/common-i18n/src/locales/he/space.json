@@ -224,27 +224,28 @@
   },
   "publishBase": {
     "title": "פרסום במרכז התבניות",
-    "description": "פרסום הפרויקט במרכז התבניות בלחיצה אחת! כך עוד אנשים יוכלו לראות את היצירה שלך, להשתמש בה ולהתאים אותה לעצמם, ויחד נבנה עסק חזק יותר",
-    "configureTitle": "הגדרת פרטי התבנית",
-    "configureDescription": "תבניות מצטיינות עשויות להופיע במרכז התבניות",
+    "description": "פרסום במרכז התבניות כדי שאחרים יוכלו למצוא את התבנית ולהשתמש בה.",
+    "configureTitle": "פרסום תבנית",
+    "configureDescription": "לאחר הפרסום אפשר לשתף את התבנית ולהתקין אותה באמצעות קישור. היא תופיע במרכז התבניות לאחר בדיקה.",
     "infoTitle": "פרטים בסיסיים",
     "form": {
-      "title": "שם היצירה",
+      "title": "שם התבנית",
       "description": "תיאור",
       "changelog": "הערות גרסה",
       "changelogPlaceholder": "תיאור השינויים עבור התקנות קיימות; מוצג בתצוגה המקדימה של השדרוג",
-      "publishNode": "פריטים לפרסום",
+      "publishNode": "תוכן כלול",
       "includeData": "כולל נתונים",
       "defaultActiveNode": "הפריט הפעיל כברירת מחדל",
-      "descriptionPlaceholder": "תיאור קצר של הרעיון...",
-      "titlePlaceholder": "שם ליצירה שלך...",
+      "descriptionPlaceholder": "מה התבנית פותרת ואיך משתמשים בה",
+      "titlePlaceholder": "לדוגמה: מעקב לקוחות",
       "versionTitle": "תוכן הגרסה",
-      "addChangelog": "הוספת הערות גרסה"
+      "addChangelog": "הוספת הערות גרסה",
+      "cover": "תמונת שער"
     },
     "publishToCommunity": "פרסום במרכז התבניות",
     "publish": "פרסום",
-    "publishSuccess": "הפרסום הצליח!",
-    "previewTips": "שהעולם יראה את היצירה שלך",
+    "publishSuccess": "התבנית פורסמה",
+    "previewTips": "תצוגה מקדימה במרכז התבניות",
     "update": "עדכון",
     "submit": "פרסום התבנית",
     "review": {
@@ -258,23 +259,29 @@
         "trial": "הרצת ניסיון",
         "content": "תוכן"
       },
+      "checkLine": {
+        "connectors": "לא נתמך: {{providers}}",
+        "estimate": "{{runs}}/חודש"
+      },
       "checkMessage": {
         "connectors": "לא ניתן להתחבר כאן אל: {{providers}}",
         "privacy": "הרשומות נכללות; יש לבדוק שאין בהן מידע אישי",
         "estimate": "כ־{{runs}} הרצות בחודש, יותר מ־{{free}} שבתוכנית החינמית",
         "trial": "האוטומציות אינן דורשות חשבון; יש לוודא שהן פועלות גם בלעדיו",
-        "content": "עדיין רק שלך: {{count}}",
-        "contentMarked": "סומנו כדוגמה: {{count}}"
+        "content": "תוכן אישי להחלפה ({{count}})",
+        "contentMarked": "סומן כדוגמה ({{count}})"
       },
       "withdraw": "ביטול פרסום",
-      "withdrawn": "הפרסום בוטל.",
+      "withdrawn": "הפרסום בוטל",
       "withdrawConfirmTitle": "לבטל את פרסום התבנית?",
       "withdrawConfirmDescription": "לאחר הביטול הקישור לתבנית לא ייפתח והיא לא תופיע במרכז התבניות. עותקים מותקנים לא יושפעו, ואפשר לפרסם אותה שוב בהמשך.",
       "live": "פורסמה · v{{version}}",
-      "listed": "במרכז התבניות"
+      "listed": "במרכז התבניות",
+      "allVersions": "כל הגרסאות ({{count}})",
+      "fewerVersions": "הצג פחות"
     },
     "unPublish": "ביטול פרסום",
-    "unPublishSuccess": "פרסום הפרויקט בוטל בהצלחה!",
+    "unPublishSuccess": "התבנית הוסרה מהרשימה",
     "unPublishConfirmTitle": "אישור ביטול הפרסום",
     "unPublishConfirmDescription": "האם לבטל את פרסום הפרויקט? הוא לא יופיע יותר במרכז התבניות.",
     "uploadCover": "לחיצה להעלאת תמונת שער",
@@ -288,29 +295,44 @@
       "atLeastOneNode": "יש לבחור לפחות פריט אחד לפרסום",
       "coverRequired": "הוסיפו תמונת שער"
     },
-    "urlCopied": "כתובת ה-URL הועתקה ללוח!",
-    "urlCopiedForDiscord": "כתובת ה-URL הועתקה ללוח! אפשר להדביק אותה ב-Discord.",
+    "urlCopied": "הקישור הועתק",
+    "urlCopiedForDiscord": "הקישור הועתק. אפשר להדביק אותו ב-Discord.",
     "featuredLabel": "מובחר",
-    "featuredTip": "התבנית סומנה כמובחרת באופן רשמי ותקבל חשיפה רבה יותר.",
-    "publishSuccessDescription": "שיתוף היצירה שלך עם העולם",
+    "featuredTip": "התבנית נבחרה כמובחרת על ידי Teable ותקבל חשיפה רבה יותר.",
+    "publishSuccessDescription": "אפשר להעתיק את הקישור או לשתף אותו ברשתות החברתיות.",
     "shareWith": "שיתוף עם",
     "unpublishedApps": {
-      "title": "זוהו אפליקציות שלא פורסמו",
-      "description": "אפליקציות שלא פורסמו עלולות לגרום לכשלים בתצוגה המקדימה של התבנית. אפשר לפרסם אותן עכשיו או להמשיך בכל זאת.",
-      "publishAll": "פרסום הכול",
+      "title": "חלק מהאפליקציות לא פורסמו",
+      "description": "ייתכן שאפליקציות שלא פורסמו לא ייפתחו בתצוגה המקדימה של התבנית.",
+      "publishAll": "פרסום כל האפליקציות",
       "publish": "פרסום",
       "published": "פורסם",
-      "publishing": "בפרסום",
+      "publishing": "בפרסום…",
       "notPublished": "לא פורסם",
       "publishFailed": "הפרסום נכשל",
       "publishFailedTip1": "כדאי לבדוק אם ניתן לפרסם את אפליקציית המקור בהצלחה",
       "publishFailedTip2": "כדאי לנסות לפרסם את התבנית מחדש",
-      "ignoreAndContinue": "התעלמות והמשך",
-      "goToFix": "מעבר לתיקון",
-      "redeploy": "פריסה מחדש",
+      "ignoreAndContinue": "המשך ללא פרסום",
+      "goToFix": "פתיחת האפליקציה",
+      "redeploy": "פרסום מחדש",
       "unnamedApp": "אפליקציה ללא שם"
     },
-    "submitVersion": "פרסום v{{version}}"
+    "submitVersion": "פרסום v{{version}}",
+    "agreeTermsFirst": "כדי לפרסם, יש לאשר את תנאי היוצרים.",
+    "preview": {
+      "titleMissing": "הוסיפו שם לתבנית",
+      "descriptionMissing": "הוסיפו תיאור"
+    },
+    "updateTemplate": "עדכון תבנית",
+    "timeline": {
+      "versions": "היסטוריית גרסאות",
+      "published": "פורסמה"
+    },
+    "checksTitle": "בדיקות לפני פרסום",
+    "listing": {
+      "title": "פרטי תצוגה",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -488,14 +510,14 @@
     "fromGoogleSheetDesc": "בחירת גיליון"
   },
   "templateProject": {
-    "make": "הפיכה לתבנית",
-    "new": "פרויקט תבנית חדש",
+    "make": "יצירת תבנית",
+    "new": "יצירת פרויקט תבנית",
     "plural": "פרויקטי תבנית",
     "projectsTab": "פרויקטים",
     "empty": "עדיין אין פרויקטי תבנית",
     "trialCopy": "עותק ניסיון",
     "wholeProject": "כל מה שבפרויקט ({{count}})",
-    "sampleRecords": "רשומות לדוגמה: {{count}}",
+    "sampleRecords": "רשומות לדוגמה ({{count}})",
     "noRecords": "אין רשומות"
   }
 }

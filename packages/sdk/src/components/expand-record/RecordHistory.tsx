@@ -691,8 +691,8 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
       {
         accessorKey: 'arrow',
         header: '',
-        size: 24,
-        minSize: 24,
+        size: 32,
+        minSize: 32,
         cell: () => {
           return (
             <div className="-mx-4 flex min-h-6 w-[calc(100%+2rem)] items-center justify-center">
@@ -799,7 +799,7 @@ const RecordHistoryContent = (props: IRecordHistoryContentProps) => {
       <InfiniteTable
         rows={allRows}
         columns={columns}
-        className="min-h-0 flex-1 sm:overflow-x-hidden [&_table]:table-fixed [&_td]:items-start [&_td]:py-3 [&_tr]:min-w-0 [&_tr]:leading-5"
+        className="min-h-0 flex-1 [&_table]:table-fixed [&_td]:items-start [&_td]:py-3 [&_tr]:leading-5"
         fetchNextPage={fetchNextPageInner}
         isLoading={isLoading}
       />

@@ -391,7 +391,9 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
                 }
                 linksById.set(
                   id,
-                  typeof title === 'string' || typeof title === 'number' || typeof title === 'boolean'
+                  typeof title === 'string' ||
+                    typeof title === 'number' ||
+                    typeof title === 'boolean'
                     ? { id, title: String(title) }
                     : { id }
                 );
@@ -661,7 +663,9 @@ export class LinkTitleResolverService implements ICellValueSpecResolver<SetLinkV
     visit: (id: string, value: unknown) => void
   ): Promise<Result<void, DomainError>> {
     const titleFieldKey = titleField.id().toString();
-    const readBatch = async (spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>) => {
+    const readBatch = async (
+      spec: ISpecification<TableRecord, ITableRecordConditionSpecVisitor>
+    ) => {
       const result = await (readRecords
         ? readRecords(context, table, titleField, spec)
         : this.recordQueryRepository.find(context, table, spec, { mode: 'stored' }));

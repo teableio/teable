@@ -1,7 +1,7 @@
 import { FieldType } from '@teable/core';
 import type { IConvertFieldRo, IFieldVo, IOtOperation } from '@teable/core';
 import type { IConvertFieldV2Operation } from '../../../cache/types';
-import type { IOpsMap } from '../../calculation/utils/compose-maps';
+import type { IOpsMap } from '../../../types/ops-map';
 import type { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 
 export class ConvertFieldV2Operation {

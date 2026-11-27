@@ -34,6 +34,9 @@ const sourceFilterSymbolOperatorMap = new Map<string, RecordFilterOperator>([
   ['IS NOT NULL', 'isNotEmpty'],
 ]);
 
+export const canonicalViewSymbolOperator = (operator: string): RecordFilterOperator | undefined =>
+  sourceFilterSymbolOperatorMap.get(operator);
+
 const sourceFilterSymbolOperatorSchema = z.enum([
   '=',
   '!=',
@@ -273,7 +276,7 @@ export const normalizeSavedViewCondition = (condition: RecordFilterCondition): R
 const mapCondition = (condition: ViewSourceFilterConditionDTO): RecordFilterNode | null => {
   const operator =
     condition.isSymbol === true
-      ? sourceFilterSymbolOperatorMap.get(condition.operator)
+      ? canonicalViewSymbolOperator(condition.operator)
       : condition.operator;
   if (!operator) return null;
 

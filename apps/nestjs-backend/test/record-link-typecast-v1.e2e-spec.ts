@@ -179,7 +179,13 @@ describe('v1 link typecast over record HTTP', () => {
     const [created, updated] = await post(
       {
         [singleLink.id]: legacyId,
-        [multipleLink.id]: [{ id: other.id }, { id: 'recipe' }, 'recipe', 'missing title', legacyId],
+        [multipleLink.id]: [
+          { id: other.id },
+          { id: 'recipe' },
+          'recipe',
+          'missing title',
+          legacyId,
+        ],
       },
       { [singleLink.id]: other.id }
     );

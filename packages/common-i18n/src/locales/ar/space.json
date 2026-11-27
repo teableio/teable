@@ -236,27 +236,28 @@
   },
   "publishBase": {
     "title": "النشر في مركز القوالب",
-    "description": "انشر مشروعك في مركز القوالب بنقرة واحدة! دع المزيد من الأشخاص يرون إبداعك ويستخدمونه ويعيدون تشكيله، ولنبنِ معًا أعمالًا أقوى",
-    "configureTitle": "إعداد معلومات القالب",
-    "configureDescription": "قد تُعرض القوالب المميزة في مركز القوالب",
+    "description": "انشر القالب في مركز القوالب ليتمكن الآخرون من العثور عليه واستخدامه.",
+    "configureTitle": "نشر القالب",
+    "configureDescription": "بعد النشر، يمكن مشاركة القالب وتثبيته عبر رابط، ويظهر في مركز القوالب بعد المراجعة.",
     "infoTitle": "المعلومات الأساسية",
     "form": {
-      "title": "عنوان العمل",
+      "title": "اسم القالب",
       "description": "الوصف",
       "changelog": "ملاحظات الإصدار",
       "changelogPlaceholder": "صِف التغييرات للتثبيتات الحالية؛ تُعرض في معاينة الترقية",
-      "publishNode": "العُقد المنشورة",
+      "publishNode": "المحتوى المضمَّن",
       "includeData": "تضمين البيانات",
       "defaultActiveNode": "العقدة النشطة الافتراضية",
-      "descriptionPlaceholder": "صف فكرتك باختصار...",
-      "titlePlaceholder": "سمِّ عملك...",
+      "descriptionPlaceholder": "صف المشكلة التي يحلها القالب وطريقة استخدامه",
+      "titlePlaceholder": "مثال: متابعة العملاء",
       "versionTitle": "محتويات الإصدار",
-      "addChangelog": "إضافة ملاحظات الإصدار"
+      "addChangelog": "إضافة ملاحظات الإصدار",
+      "cover": "الغلاف"
     },
     "publishToCommunity": "النشر في مركز القوالب",
     "publish": "نشر",
-    "publishSuccess": "تم النشر بنجاح!",
-    "previewTips": "دع العالم يرى عملك",
+    "publishSuccess": "تم نشر القالب",
+    "previewTips": "معاينة مركز القوالب",
     "update": "تحديث",
     "submit": "نشر القالب",
     "review": {
@@ -270,23 +271,29 @@
         "trial": "تشغيل تجريبي",
         "content": "المحتوى"
       },
+      "checkLine": {
+        "connectors": "غير مدعوم: {{providers}}",
+        "estimate": "{{runs}}/شهر"
+      },
       "checkMessage": {
         "connectors": "يتعذّر الربط هنا: {{providers}}",
         "privacy": "السجلات مُضمَّنة؛ تحقّق من خلوّها من البيانات الشخصية",
         "estimate": "نحو {{runs}} تشغيل شهريًا، أي أكثر من {{free}} في الخطة المجانية",
         "trial": "لا تحتاج الأتمتة إلى أي حساب؛ تأكد من أنها تعمل بدونه",
-        "content": "ما زال خاصًا بك: {{count}}",
-        "contentMarked": "مُعلَّم كمثال: {{count}}"
+        "content": "محتوى شخصي يلزم استبداله ({{count}})",
+        "contentMarked": "مُعلَّم كمثال ({{count}})"
       },
       "withdraw": "إلغاء النشر",
-      "withdrawn": "تم إلغاء النشر.",
+      "withdrawn": "تم إلغاء النشر",
       "withdrawConfirmTitle": "إلغاء نشر هذا القالب؟",
       "withdrawConfirmDescription": "بعد إلغاء النشر لن يفتح رابط القالب ولن يظهر في مركز القوالب. النسخ المثبّتة لا تتأثر، ويمكنك نشره مرة أخرى لاحقًا.",
       "live": "منشور · v{{version}}",
-      "listed": "معروض في مركز القوالب"
+      "listed": "معروض في مركز القوالب",
+      "allVersions": "كل الإصدارات ({{count}})",
+      "fewerVersions": "عرض أقل"
     },
     "unPublish": "إلغاء النشر",
-    "unPublishSuccess": "تم إلغاء نشر المشروع بنجاح!",
+    "unPublishSuccess": "تم إلغاء إدراج القالب",
     "unPublishConfirmTitle": "تأكيد إلغاء النشر",
     "unPublishConfirmDescription": "هل أنت متأكد من إلغاء نشر هذا المشروع؟ لن يعود ظاهرًا في مركز القوالب.",
     "uploadCover": "انقر لرفع صورة الغلاف",
@@ -300,29 +307,44 @@
       "atLeastOneNode": "اختر عقدة واحدة على الأقل للنشر",
       "coverRequired": "أضف صورة غلاف"
     },
-    "urlCopied": "تم نسخ الرابط إلى الحافظة!",
-    "urlCopiedForDiscord": "تم نسخ الرابط إلى الحافظة! يمكنك لصقه في Discord.",
+    "urlCopied": "تم نسخ الرابط",
+    "urlCopiedForDiscord": "تم نسخ الرابط. الصقه في Discord.",
     "featuredLabel": "مميّز",
-    "featuredTip": "مميّز رسميًا. سيحصل قالبك على مزيد من الظهور.",
-    "publishSuccessDescription": "شارك عملك مع العالم",
+    "featuredTip": "اختارته Teable ضمن القوالب المميزة، وسيحظى قالبك بظهور أكبر.",
+    "publishSuccessDescription": "انسخ الرابط أو شاركه على وسائل التواصل الاجتماعي.",
     "shareWith": "المشاركة عبر",
     "unpublishedApps": {
-      "title": "تم اكتشاف تطبيقات غير منشورة",
-      "description": "قد تسبب التطبيقات غير المنشورة فشل معاينة القالب. انشرها الآن أو تابع على أي حال.",
-      "publishAll": "نشر الكل",
+      "title": "بعض التطبيقات غير منشورة",
+      "description": "قد لا تفتح التطبيقات غير المنشورة في معاينة القالب.",
+      "publishAll": "نشر كل التطبيقات",
       "publish": "نشر",
       "published": "منشور",
-      "publishing": "جارٍ النشر",
+      "publishing": "جارٍ النشر…",
       "notPublished": "غير منشور",
       "publishFailed": "فشل النشر",
       "publishFailedTip1": "تحقق مما إذا كان التطبيق المصدر يمكن نشره بنجاح",
       "publishFailedTip2": "جرّب إعادة نشر هذا القالب",
-      "ignoreAndContinue": "تجاهل ومتابعة",
-      "goToFix": "الانتقال للإصلاح",
+      "ignoreAndContinue": "المتابعة دون نشر",
+      "goToFix": "فتح التطبيق",
       "redeploy": "إعادة النشر",
       "unnamedApp": "تطبيق بلا اسم"
     },
-    "submitVersion": "نشر v{{version}}"
+    "submitVersion": "نشر v{{version}}",
+    "agreeTermsFirst": "وافق على شروط المنشئين للنشر.",
+    "preview": {
+      "titleMissing": "أضف اسمًا للقالب",
+      "descriptionMissing": "أضف وصفًا"
+    },
+    "updateTemplate": "تحديث القالب",
+    "timeline": {
+      "versions": "سجل الإصدارات",
+      "published": "منشور"
+    },
+    "checksTitle": "فحوصات قبل النشر",
+    "listing": {
+      "title": "معلومات العرض",
+      "separator": "، "
+    }
   },
   "dataDb": {
     "create": {
@@ -521,14 +543,14 @@
     "integrationRequired": "تكامل Google Sheets غير مُعدّ على هذا الخادم. اطلب من المسؤول إعداده."
   },
   "templateProject": {
-    "make": "تحويل إلى قالب",
-    "new": "مشروع قالب جديد",
+    "make": "إنشاء قالب",
+    "new": "إنشاء مشروع قالب",
     "plural": "مشاريع القوالب",
     "projectsTab": "المشاريع",
     "empty": "لا توجد مشاريع قوالب بعد",
     "trialCopy": "نسخة تجريبية",
     "wholeProject": "كل ما في المشروع ({{count}})",
-    "sampleRecords": "سجلات نموذجية: {{count}}",
+    "sampleRecords": "سجلات نموذجية ({{count}})",
     "noRecords": "لا توجد سجلات"
   }
 }

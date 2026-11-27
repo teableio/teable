@@ -6,6 +6,7 @@ import { domainError, type DomainError } from '../domain/shared/DomainError';
 import { TableId } from '../domain/table/TableId';
 import type { ViewSnapshotValue } from '../domain/table/views/ViewSnapshot';
 import { viewSortItemSchema } from '../domain/table/views/ViewSort';
+import type { ClearedViewLinkFilters } from '../ports/UndoRedoStore';
 import { PublicCommand } from './PublicCommand';
 
 export const viewSnapshotSchema = z
@@ -68,12 +69,16 @@ const applyViewSnapshotInputSchema = z
 export class ApplyViewSnapshotCommand extends PublicCommand {
   private constructor(
     readonly tableId: TableId,
-    readonly snapshot: ViewSnapshotValue
+    readonly snapshot: ViewSnapshotValue,
+    readonly clearedLinkFilters: ReadonlyArray<ClearedViewLinkFilters>
   ) {
     super();
   }
 
-  static create(raw: unknown): Result<ApplyViewSnapshotCommand, DomainError> {
+  static create(
+    raw: unknown,
+    clearedLinkFilters: ReadonlyArray<ClearedViewLinkFilters> = []
+  ): Result<ApplyViewSnapshotCommand, DomainError> {
     const parsed = applyViewSnapshotInputSchema.safeParse(raw);
     if (!parsed.success) {
       return err(
@@ -85,7 +90,8 @@ export class ApplyViewSnapshotCommand extends PublicCommand {
     }
 
     return TableId.create(parsed.data.tableId).map(
-      (tableId) => new ApplyViewSnapshotCommand(tableId, parsed.data.snapshot as ViewSnapshotValue)
+      (tableId) =>
+        new ApplyViewSnapshotCommand(tableId, parsed.data.snapshot as ViewSnapshotValue, clearedLinkFilters)
     );
   }
 }

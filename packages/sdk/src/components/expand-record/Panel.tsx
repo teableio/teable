@@ -17,6 +17,7 @@ import { LocalStorageKeys } from '../../config/local-storage-keys';
 import { ModalContext } from './ModalContext';
 import type { IExpandRecordCrumb } from './PanelContext';
 import { ExpandRecordPanelHostContext, ExpandRecordPanelStackContext } from './PanelContext';
+import { stopReactPropagation } from './stopReactPropagation';
 
 // eslint-disable-next-line @typescript-eslint/naming-convention
 const MIN_WIDTH = 320;
@@ -213,8 +214,8 @@ export const Panel: FC<
         // the panel sits inside its opener in the React tree: keys must not reach the grid
         onKeyDown={(e) => e.stopPropagation()}
         onPaste={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={stopReactPropagation}
+        onPointerDown={stopReactPropagation}
       >
         {/* the sidebar's handle: 4px astride the edge, line and grip on hover and while dragging */}
         <div

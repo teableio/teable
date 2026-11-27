@@ -12,6 +12,7 @@ import { Table } from '../../domain/table/Table';
 import { TableId } from '../../domain/table/TableId';
 import { TableName } from '../../domain/table/TableName';
 import type { TableSortKey } from '../../domain/table/TableSortKey';
+import { ViewName } from '../../domain/table/views/ViewName';
 import type { IExecutionContext } from '../../ports/ExecutionContext';
 import type { IFindOptions } from '../../ports/RepositoryQuery';
 import {
@@ -143,6 +144,49 @@ const createViewsPerTableOnlyPlugin = (repository: ITableRepository) =>
       }),
     ])
   );
+
+// A new table may start with 2 views; an existing table may hold 3.
+const createCopyLimitPlugin = (repository: ITableRepository) =>
+  new TableDataSafetyLimitTableOperationPlugin(
+    repository,
+    new TableDataSafetyLimitComposer([
+      new StaticTableDataSafetyLimitPlugin({
+        displayText: { maxNameLength: 10 },
+        tableSchema: { maxCreateTableViews: 2, maxViewsPerTable: 3 },
+      }),
+    ])
+  );
+
+const createTableWithGridViews = (idSeed: string, viewCount: number): Table => {
+  const builder = Table.builder()
+    .withId(TableId.create(`tbl${idSeed.repeat(16)}`)._unsafeUnwrap())
+    .withBaseId(baseId)
+    .withName(TableName.create('Copy')._unsafeUnwrap());
+  builder
+    .field()
+    .singleLineText()
+    .withName(FieldName.create('Title')._unsafeUnwrap())
+    .primary()
+    .done();
+  for (let index = 0; index < viewCount; index += 1) {
+    builder
+      .view()
+      .grid()
+      .withName(ViewName.create(`Grid ${index}`)._unsafeUnwrap())
+      .done();
+  }
+  return builder.build()._unsafeUnwrap();
+};
+
+const builtTablePayload = (table: Table) => ({
+  baseId,
+  tableName: table.name(),
+  table,
+  fieldCount: table.getFields().length,
+  viewCount: table.views().length,
+  recordCount: 0,
+  viewNames: table.views().map((view) => view.name().toString()),
+});
 
 const createFieldsPerTableOnlyPlugin = (repository: ITableRepository) =>
   new TableDataSafetyLimitTableOperationPlugin(
@@ -431,6 +475,50 @@ describe('TableDataSafetyLimitTableOperationPlugin', () => {
 
     expect(result.isErr()).toBe(true);
     expect(result._unsafeUnwrapErr().code).toBe('validation.limit.views_per_table_max');
+  });
+
+  it.each([
+    TableOperationCreateManySource.duplicateBase,
+    TableOperationCreateManySource.importDotTea,
+  ])('lets %s copy a table with more views than a new table may start with', async (source) => {
+    const result = await runPlugin(
+      createCopyLimitPlugin(new FakeTableRepository()),
+      createContext(TableOperationKind.createMany, {
+        baseId,
+        source,
+        tables: [builtTablePayload(createTableWithGridViews('f', 3))],
+      })
+    );
+
+    expect(result.isOk()).toBe(true);
+  });
+
+  it('still holds a copied table to the views-per-table limit', async () => {
+    const result = await runPlugin(
+      createCopyLimitPlugin(new FakeTableRepository()),
+      createContext(TableOperationKind.createMany, {
+        baseId,
+        source: TableOperationCreateManySource.duplicateBase,
+        tables: [builtTablePayload(createTableWithGridViews('g', 4))],
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.views_per_table_max');
+  });
+
+  it('keeps the new-table view budget for tables created from definitions', async () => {
+    const result = await runPlugin(
+      createCopyLimitPlugin(new FakeTableRepository()),
+      createContext(TableOperationKind.createMany, {
+        baseId,
+        source: TableOperationCreateManySource.createTables,
+        tables: [builtTablePayload(createTableWithGridViews('h', 3))],
+      })
+    );
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('validation.limit.create_table_views_max');
   });
 
   it('rejects create when the field count exceeds the configured fields-per-table limit', async () => {

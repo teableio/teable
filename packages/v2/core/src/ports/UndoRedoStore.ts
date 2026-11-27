@@ -129,9 +129,15 @@ export type UndoRedoApplyFieldSnapshotPayload = {
 
 export type UndoRedoReplayFieldTypeConversionPayload = UndoRedoApplyFieldSnapshotPayload;
 
+export type ClearedViewLinkFilters = {
+  readonly tableId: string;
+  readonly fieldIds: ReadonlyArray<string>;
+};
+
 export type UndoRedoApplyViewSnapshotPayload = {
   readonly tableId: string;
   readonly snapshot: ViewSnapshotValue;
+  readonly clearedLinkFilters?: ReadonlyArray<ClearedViewLinkFilters>;
 };
 
 export type UndoRedoDeleteViewPayload = {
@@ -501,6 +507,12 @@ export interface IUndoRedoStore {
     token: string,
     entryIndex: number
   ): Promise<Result<UndoEntry, DomainError>>;
+  replaceReservedInverse(
+    scope: UndoScope,
+    token: string,
+    entryIndex: number,
+    inverse: UndoRedoCommandData
+  ): Promise<Result<void, DomainError>>;
   markSucceeded(scope: UndoScope, token: string): Promise<Result<void, DomainError>>;
   /**
    * Checkpoint the matching reservation's progress and extend its lease to the store's

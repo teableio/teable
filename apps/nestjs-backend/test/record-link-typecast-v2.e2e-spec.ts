@@ -18,7 +18,10 @@ const legacyId = 'recLegacy';
 const archiveId = 'rec-Legacy';
 const idShapedTitle = 'recXXXXXXXXXXXXXXXX';
 
-const expectV2 = (response: { status: number; headers: Record<string, unknown> }, status: number) => {
+const expectV2 = (
+  response: { status: number; headers: Record<string, unknown> },
+  status: number
+) => {
   expect(response.status).toBe(status);
   expect(response.headers['x-teable-v2']).toBe('true');
 };
@@ -155,7 +158,9 @@ describe('V2 record URL link typecast (T8794)', () => {
     });
 
     const other = await postRecord({ [singleLinkFieldId]: { id: canonicalId } });
-    expect((await readRecord(other.id)).fields[singleLinkFieldId]).toMatchObject({ id: canonicalId });
+    expect((await readRecord(other.id)).fields[singleLinkFieldId]).toMatchObject({
+      id: canonicalId,
+    });
     const updated = await patchRecord(other.id, { [singleLinkFieldId]: 'recipe' });
     expect(updated.fields[singleLinkFieldId]).toMatchObject({ id: recipeId });
     expect((await readRecord(other.id)).fields[singleLinkFieldId]).toEqual({
@@ -187,7 +192,9 @@ describe('V2 record URL link typecast (T8794)', () => {
     expect((await readRecord(created.id)).fields[singleLinkFieldId]).toEqual(expected);
 
     const other = await postRecord({ [singleLinkFieldId]: canonicalId });
-    expect((await readRecord(other.id)).fields[singleLinkFieldId]).toMatchObject({ id: canonicalId });
+    expect((await readRecord(other.id)).fields[singleLinkFieldId]).toMatchObject({
+      id: canonicalId,
+    });
     await patchRecord(other.id, { [singleLinkFieldId]: legacyId });
     expect((await readRecord(other.id)).fields[singleLinkFieldId]).toEqual(expected);
     await patchRecord(created.id, { [singleLinkFieldId]: { id: canonicalId } });
@@ -252,6 +259,34 @@ describe('V2 record URL link typecast (T8794)', () => {
       { id: targets.records[7].id },
       { id: targets.records[8].id },
     ]);
+  });
+
+  it('preserves ordered references when a subsequent write fails validation (T8810)', async () => {
+    const fields = { [multipleLinkFieldId]: [{ id: legacyId }, { id: recipeId }] };
+    const created = await postRecord(fields);
+    const expected = [
+      { id: legacyId, title: 'Legacy ID target' },
+      { id: recipeId, title: 'recipe' },
+    ];
+    expect((await readRecord(created.id)).fields[multipleLinkFieldId]).toEqual(expected);
+    for (const [typecast, input] of [
+      [true, ['recipe', { id: legacyId }]],
+      [false, [{ id: '' }]],
+    ] as const) {
+      const rejected = await axios.patch(
+        urlBuilder(UPDATE_RECORD, { tableId: sources.id, recordId: created.id }),
+        {
+          typecast,
+          fieldKeyType: FieldKeyType.Id,
+          record: { fields: { [multipleLinkFieldId]: input } },
+        },
+        { validateStatus: () => true }
+      );
+      expect(rejected.status).toBe(400);
+      expect((await readRecord(created.id)).fields[multipleLinkFieldId]).toEqual(expected);
+    }
+    await patchRecord(created.id, { [multipleLinkFieldId]: null });
+    expect((await readRecord(created.id)).fields[multipleLinkFieldId]).toBeUndefined();
   });
 
   it('rejects a missing generated-format ID when no display title matches it', async () => {

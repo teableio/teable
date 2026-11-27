@@ -63,11 +63,8 @@ export const clearViewFilterDependencies = function (
 ): Result<TableUpdateResult | undefined, DomainError> {
   const specs: UpdateLinkConfigSpec[] = [];
 
-  for (const fieldId of fieldIds) {
-    const fieldResult = this.getField((field) => field.id().equals(fieldId));
-    if (fieldResult.isErr() || !(fieldResult.value instanceof LinkField)) continue;
-
-    const field = fieldResult.value;
+  const requested = new Set(fieldIds.map((id) => id.toString()));
+  for (const field of this.getFields((f): f is LinkField => f instanceof LinkField && requested.has(f.id().toString()))) {
     const filterByViewId = field.filterByViewId();
     if (!filterByViewId || !filterByViewId.equals(viewId)) continue;
 

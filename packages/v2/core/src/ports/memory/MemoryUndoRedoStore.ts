@@ -8,6 +8,7 @@ import {
   type IUndoRedoStore,
   type UndoEntry,
   type UndoEntryInput,
+  type UndoRedoCommandData,
   type UndoRedoListOptions,
   type UndoRedoReplayMode,
   type UndoRedoReservation,
@@ -208,6 +209,14 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     token: string,
     entryIndex: number
   ): Promise<Result<UndoEntry, DomainError>> {
+    return this.accessReservedEntry(scope, token, entryIndex);
+  }
+
+  async replaceReservedInverse(scope: UndoScope, token: string, entryIndex: number, inverse: UndoRedoCommandData) {
+    return this.accessReservedEntry(scope, token, entryIndex, inverse).map(() => undefined);
+  }
+
+  private accessReservedEntry(scope: UndoScope, token: string, entryIndex: number, inverse?: UndoRedoCommandData): Result<UndoEntry, DomainError> {
     const state = this.getState(scope);
     const reservation = state.reservation;
     if (
@@ -224,7 +233,14 @@ export class MemoryUndoRedoStore implements IUndoRedoStore {
     const index =
       reservation.mode === 'undo' ? state.cursor - 1 - entryIndex : state.cursor + entryIndex;
     const entry = state.entries[index];
-    return entry ? ok(entry) : err(reservationConflict('Undo/redo reserved entry is missing'));
+    if (!entry) return err(reservationConflict('Undo/redo reserved entry is missing'));
+    if (inverse) {
+      const next = { ...entry, [reservation.mode === 'undo' ? 'redoCommand' : 'undoCommand']: inverse };
+      if (this.groupStarts.has(entry)) this.groupStarts.add(next);
+      state.entries[index] = next;
+      return ok(next);
+    }
+    return ok(entry);
   }
 
   async renew(scope: UndoScope, token: string): Promise<Result<void, DomainError>> {

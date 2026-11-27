@@ -14,7 +14,6 @@ import type {
   IViewOptions,
   IFilter,
   IKanbanViewOptions,
-  IFilterSet,
   IGalleryViewOptions,
   ICalendarViewOptions,
   IColumn,
@@ -32,6 +31,7 @@ import {
   DbFieldType,
   CellValueType,
   HttpErrorCode,
+  removeFilterConditionsByFieldIds,
 } from '@teable/core';
 import type { Prisma, View } from '@teable/db-main-prisma';
 import { PrismaService } from '@teable/db-main-prisma';
@@ -92,8 +92,6 @@ type IViewOpContext = IUpdateViewColumnMetaOpContext | ISetViewPropertyOpContext
   'generateViewOrderColumnMeta',
   'initViewColumnMeta',
   'deleteViewRelativeByFields',
-  'getDeleteFilterByFieldIdOps',
-  'getDeletedFilterByFieldId',
 ])
 export class ViewService implements IReadonlyAdapterService {
   constructor(
@@ -1194,6 +1192,7 @@ export class ViewService implements IReadonlyAdapterService {
     }
 
     const opsMap: { [viewId: string]: IOtOperation[] } = {};
+    const deletedFieldIds = new Set(fieldIds);
     for (let i = 0; i < view.length; i++) {
       const ops: IOtOperation[] = [];
       const viewId = view[i].id;
@@ -1203,17 +1202,23 @@ export class ViewService implements IReadonlyAdapterService {
       const curSort: ISort = view[i].sort ? JSON.parse(view[i].sort!) : null;
       const curGroup: IGroup = view[i].group ? JSON.parse(view[i].group!) : null;
       const curOptions: IViewOptions = view[i].options ? JSON.parse(view[i].options!) : null;
-      const curFilter: IFilter = view[i].filter ? JSON.parse(view[i].filter!) : null;
+      const rawFilter = view[i].filter;
+      if (rawFilter && fieldIds.some((fieldId) => rawFilter.includes(fieldId))) {
+        const filter = JSON.parse(rawFilter) as IFilter;
+        if (filter) {
+          ops.push(
+            ViewOpBuilder.editor.setViewProperty.build({
+              key: 'filter',
+              newValue: removeFilterConditionsByFieldIds(filter, deletedFieldIds),
+              oldValue: filter,
+            })
+          );
+        }
+      }
 
       fieldIds.forEach((fieldId) => {
         const columnOps = this.getDeleteColumnMetaByFieldIdOps(curColumnMeta, fieldId);
         ops.push(columnOps);
-
-        // filter
-        if (view[i].filter?.includes(fieldId) && curFilter) {
-          const filterOps = this.getDeleteFilterByFieldIdOps(curFilter, fieldId);
-          ops.push(filterOps);
-        }
 
         // sort
         if (curSort && Array.isArray(curSort.sortObjs)) {
@@ -1240,33 +1245,6 @@ export class ViewService implements IReadonlyAdapterService {
     await this.batchUpdateViewByOps(tableId, opsMap);
   }
 
-  getDeleteFilterByFieldIdOps(filter: IFilterSet, fieldId: string) {
-    const newFilter = this.getDeletedFilterByFieldId(filter, fieldId);
-    return ViewOpBuilder.editor.setViewProperty.build({
-      key: 'filter',
-      newValue: newFilter,
-      oldValue: filter,
-    });
-  }
-  getDeletedFilterByFieldId(filter: IFilterSet, fieldId: string) {
-    const removeItemsByFieldId = (filter: IFilterSet, fieldId: string) => {
-      if (Array.isArray(filter.filterSet)) {
-        filter.filterSet = filter.filterSet.filter((item) => {
-          if ('fieldId' in item && item.fieldId === fieldId) {
-            return false;
-          }
-          if ('filterSet' in item && item.filterSet) {
-            removeItemsByFieldId(item, fieldId);
-            return item.filterSet.length > 0;
-          }
-          return true;
-        });
-      }
-      return filter;
-    };
-    const newFilter = removeItemsByFieldId({ ...filter }, fieldId) as IFilter;
-    return newFilter?.filterSet?.length ? newFilter : null;
-  }
   private getDeleteSortByFieldIdOps(sort: NonNullable<ISort>, fieldId: string) {
     const newSort: ISort = {
       sortObjs: sort.sortObjs.filter((sortItem) => sortItem.fieldId !== fieldId),

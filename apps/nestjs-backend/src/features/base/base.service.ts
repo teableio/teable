@@ -451,7 +451,10 @@ export class BaseService {
     return spaceAggregate._max.order || 0;
   }
 
-  async createBase(createBaseRo: ICreateBaseRo, execution?: { onAllocated?: (baseId: string) => void }) {
+  async createBase(
+    createBaseRo: ICreateBaseRo,
+    execution?: { onAllocated?: (baseId: string) => void }
+  ) {
     const userId = this.cls.get('user.id');
     const { name, spaceId, icon } = createBaseRo;
     await this.assertSpaceWritable(spaceId);
@@ -517,13 +520,14 @@ export class BaseService {
     }
     const schemaSql = this.dbProvider.dropSchema(baseId);
     if (schemaSql) {
-      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, { useTransaction: true });
+      const scopedDataPrisma = await this.dataDbClientManager.dataPrismaForBase(baseId, {
+        useTransaction: true,
+      });
       await this.getDataPrismaExecutor(scopedDataPrisma).$executeRawUnsafe(schemaSql);
     }
     await this.purgeComputedOutboxForBase(baseId, []);
     await this.prismaService.$tx(async () => this.cleanBaseRelatedData(baseId));
   }
-
 
   async updateBase(baseId: string, updateBaseRo: IUpdateBaseRo) {
     await this.assertBaseWritable(baseId);

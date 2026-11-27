@@ -68,13 +68,20 @@ export const InfiniteTable = <T extends { [key: string]: unknown }>(
 
   const cellPaddingClass = density === 'compact' ? 'px-2.5' : 'px-4';
 
+  // Rows are flex boxes, so the table has to be as wide as its columns' minimum widths
+  // for the header, row borders and horizontal scrolling to cover every column.
+  const minTableWidth = table.getVisibleLeafColumns().reduce((sum, column) => {
+    const width = column.getSize();
+    return sum + (width === Number.MAX_SAFE_INTEGER ? (column.columnDef.minSize ?? 0) : width);
+  }, 0);
+
   return (
     <div
       ref={listRef}
       className={cn('relative size-full overflow-auto', className)}
       onScroll={(e) => fetchMoreOnBottomReached(e.target as HTMLDivElement)}
     >
-      <Table className="relative w-full scroll-smooth">
+      <Table className="relative w-full scroll-smooth" style={{ minWidth: minTableWidth }}>
         <TableHeader className="sticky top-0 z-10 bg-muted">
           {table.getHeaderGroups().map((headerGroup) => (
             <TableRow

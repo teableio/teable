@@ -141,14 +141,6 @@ const getPasteContentColumnCount = (content: IPasteByIdRo['content']) => {
     .reduce((max, row) => Math.max(max, row.length ? row.split('\t').length : 0), 0);
 };
 
-const getPasteContentRowCount = (content: IPasteByIdRo['content']) => {
-  if (Array.isArray(content)) {
-    return content.length;
-  }
-
-  return parseClipboardText(content).length;
-};
-
 type StreamDialogStatus = 'running' | 'success' | 'partial' | 'error';
 type StreamDialogMode = 'confirm' | 'progress';
 type PendingDeleteSelection = {
@@ -853,14 +845,10 @@ export const useSelectionOperation = (props?: {
     async (
       selection: CombinedSelection,
       recordMap: IRecordIndexMap,
-      content: IPasteByIdRo['content'],
       fieldIds: string[],
       affectedRows: number
     ) => {
-      const rowRanges = getPasteSelectionRowRanges(
-        selection,
-        Math.max(getPasteContentRowCount(content), affectedRows)
-      );
+      const rowRanges = getPasteSelectionRowRanges(selection, affectedRows);
 
       return buildSelectionIdRequest(selection, recordMap, {
         fieldIds,
@@ -1109,19 +1097,13 @@ export const useSelectionOperation = (props?: {
             ...(await buildPasteSelectionIdRequest(
               selection,
               recordMap,
-              content,
               [header[0].id],
               affectedRows
             )),
             content,
             header,
           } as IPasteByIdRo;
-          await executePasteSelectionRequest(
-            pasteRo,
-            Math.max(getPasteContentRowCount(content), affectedRows),
-            updateTemporaryData,
-            ranges
-          );
+          await executePasteSelectionRequest(pasteRo, affectedRows, updateTemporaryData, ranges);
         },
       });
     },
@@ -1145,22 +1127,11 @@ export const useSelectionOperation = (props?: {
           }
           const fieldIds = getPasteTargetFieldIds(selection, content);
           const pasteRo = {
-            ...(await buildPasteSelectionIdRequest(
-              selection,
-              recordMap,
-              content,
-              fieldIds,
-              affectedRows
-            )),
+            ...(await buildPasteSelectionIdRequest(selection, recordMap, fieldIds, affectedRows)),
             content,
             header,
           } as IPasteByIdRo;
-          await executePasteSelectionRequest(
-            pasteRo,
-            Math.max(getPasteContentRowCount(content), affectedRows),
-            updateTemporaryData,
-            ranges
-          );
+          await executePasteSelectionRequest(pasteRo, affectedRows, updateTemporaryData, ranges);
         }
       );
     },
@@ -1258,15 +1229,17 @@ export const useSelectionOperation = (props?: {
         return;
       }
 
-      const { cellValues } = getCellPasteInfo(e);
+      const selectionRows = getEffectRows(selection, rowCount);
+      const htmlRows = hasHtml ? (getCellPasteInfo(e).cellValues?.length ?? 0) : 0;
+      const confirmationRows = Math.max(selectionRows, htmlRows);
+      const contentRows = hasHtml ? htmlRows : parseClipboardText(text).length;
+      const affectedRows = Math.max(selectionRows, contentRows);
+      // Temporary rows use their own confirmation flow after preparation.
+      const shouldUsePasteStream = shouldUsePasteSelectionStream(
+        updateTemporaryData ? confirmationRows : affectedRows
+      );
 
-      const pasteRecordLength = cellValues?.length ?? 0;
-      const effectRows = getEffectRows(selection, rowCount);
-      const affectedRows = Math.max(pasteRecordLength, effectRows);
-
-      const shouldUsePasteStream = shouldUsePasteSelectionStream(affectedRows);
-
-      const confirmed = await confirmPasteSelectionIfNeeded(affectedRows, shouldUsePasteStream);
+      const confirmed = await confirmPasteSelectionIfNeeded(confirmationRows, shouldUsePasteStream);
       if (!confirmed) {
         return;
       }

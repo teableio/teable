@@ -841,38 +841,6 @@
   },
   {
     "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
-    "symbol": "TableDomainQueryModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/integrity/integrity.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.module.ts",
-    "symbol": "TableDomainQueryModule",
-    "kind": "provider",
-    "owner": "IntegrityModule:imports"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
-    "symbol": "TableDomainQueryService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "community/apps/nestjs-backend/src/features/integrity/link-integrity.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/table-domain/table-domain-query.service.ts",
-    "symbol": "TableDomainQueryService",
-    "kind": "injection",
-    "owner": "LinkIntegrityService"
-  },
-  {
-    "scope": "external-consumer",
     "source": "community/apps/nestjs-backend/src/features/share/share.module.ts",
     "target": "community/apps/nestjs-backend/src/features/aggregation/aggregation.module.ts",
     "symbol": "AggregationModule",
@@ -1802,22 +1770,6 @@
   {
     "scope": "external-consumer",
     "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
-    "symbol": "FieldModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field.module.ts",
-    "symbol": "FieldModule",
-    "kind": "provider",
-    "owner": "FieldEnhanceModule:imports"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
     "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
     "symbol": "FieldOpenApiModule",
     "kind": "import",
@@ -1828,22 +1780,6 @@
     "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
     "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.module.ts",
     "symbol": "FieldOpenApiModule",
-    "kind": "provider",
-    "owner": "FieldEnhanceModule:imports"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
-    "symbol": "ViewModule",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.module.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/view.module.ts",
-    "symbol": "ViewModule",
     "kind": "provider",
     "owner": "FieldEnhanceModule:imports"
   },
@@ -1882,22 +1818,6 @@
   {
     "scope": "external-consumer",
     "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
-    "symbol": "FieldService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
-    "target": "community/apps/nestjs-backend/src/features/field/field.service.ts",
-    "symbol": "FieldService",
-    "kind": "injection",
-    "owner": "FieldEnhanceService"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
     "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
     "symbol": "FieldOpenApiService",
     "kind": "import",
@@ -1908,22 +1828,6 @@
     "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
     "target": "community/apps/nestjs-backend/src/features/field/open-api/field-open-api.service.ts",
     "symbol": "FieldOpenApiService",
-    "kind": "injection",
-    "owner": "FieldEnhanceService"
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
-    "symbol": "ViewService",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "external-consumer",
-    "source": "enterprise/backend-ee/src/features/enhance/field/field-enhance.server.ts",
-    "target": "community/apps/nestjs-backend/src/features/view/view.service.ts",
-    "symbol": "ViewService",
     "kind": "injection",
     "owner": "FieldEnhanceService"
   },
@@ -2454,30 +2358,6 @@
     "symbol": "ViewModule",
     "kind": "provider",
     "owner": "TrashModule:imports"
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/trash/v2-record-trash.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/undo-redo/operations/delete-records.operation.ts",
-    "symbol": "IDeleteRecordsPayload",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/trash/v2-table-trash.service.ts",
-    "target": "community/apps/nestjs-backend/src/features/undo-redo/operations/delete-records.operation.ts",
-    "symbol": "IDeleteRecordsPayload",
-    "kind": "import",
-    "owner": ""
-  },
-  {
-    "scope": "v2-host",
-    "source": "community/apps/nestjs-backend/src/features/undo-redo/operations/convert-field-v2.operation.ts",
-    "target": "community/apps/nestjs-backend/src/features/calculation/utils/compose-maps.ts",
-    "symbol": "IOpsMap",
-    "kind": "import",
-    "owner": ""
   },
   {
     "scope": "v2-host",

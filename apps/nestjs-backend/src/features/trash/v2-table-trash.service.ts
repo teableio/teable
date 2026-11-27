@@ -24,7 +24,7 @@ import type { DependencyContainer } from '@teable/v2-di';
 import type { V1TeableDatabase } from '@teable/v2-postgres-schema';
 import type { Kysely } from 'kysely';
 import { nanoid } from 'nanoid';
-import type { IDeleteRecordsPayload } from '../undo-redo/operations/delete-records.operation';
+import type { IDeleteRecordsPayload } from '../../event-emitter/events/delete-records-payload';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ProjectionRegistrar, type IV2ProjectionRegistrar } from '../v2/v2-projection-registrar';
 import { V2RecordTrashService } from './v2-record-trash.service';

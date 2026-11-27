@@ -3,6 +3,7 @@ import type { IFilter } from './filter';
 import {
   analyzeFilterValidationIssues,
   filterSchema,
+  removeFilterConditionsByFieldIds,
   stripFilterByReadableFieldIds,
   stripInProgressFilterItems,
 } from './filter';
@@ -119,6 +120,48 @@ describe('Filter Parse', () => {
         },
       ],
     });
+  });
+});
+
+describe('removeFilterConditionsByFieldIds', () => {
+  it('prunes empty nested groups and removes all invalidated conditions without mutation', () => {
+    const first = { fieldId: 'fldFirst', operator: 'is', value: 'first' } as const;
+    const second = { fieldId: 'fldSecond', operator: 'is', value: 'second' } as const;
+    const retained = { fieldId: 'fldRetained', operator: 'is', value: 'retained' } as const;
+    const other = { fieldId: 'fldOther', operator: 'is', value: 'other' } as const;
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        first,
+        { conjunction: 'or', filterSet: [second, retained] },
+        { conjunction: 'or', filterSet: [first, { conjunction: 'and', filterSet: [second] }] },
+        other,
+      ],
+    };
+    const original = structuredClone(filter);
+
+    const removed = new Set([first.fieldId, second.fieldId]);
+    const result = removeFilterConditionsByFieldIds(filter, removed);
+
+    expect(result).toEqual({
+      conjunction: 'and',
+      filterSet: [{ conjunction: 'or', filterSet: [retained] }, other],
+    });
+    expect(filter).toEqual(original);
+  });
+
+  it('returns null when the last condition is invalidated', () => {
+    const filter: IFilter = {
+      conjunction: 'and',
+      filterSet: [
+        {
+          conjunction: 'or',
+          filterSet: [{ fieldId: 'fldRemoved', operator: 'isEmpty', value: null }],
+        },
+      ],
+    };
+
+    expect(removeFilterConditionsByFieldIds(filter, new Set(['fldRemoved']))).toBeNull();
   });
 });
 

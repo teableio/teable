@@ -34,6 +34,7 @@ import type { LastModifiedTimeFieldDto } from '../../features/field/model/field-
 import type { LinkFieldDto } from '../../features/field/model/field-dto/link-field.dto';
 import { SchemaType } from '../../features/field/util';
 import type { IFormulaConversionContext } from '../../features/record/query-builder/sql-conversion.visitor';
+import type { ILinkForeignKeySchemaOptions } from '../db.provider.interface';
 import { GeneratedColumnQuerySupportValidatorPostgres } from '../generated-column-query/postgres/generated-column-query-support-validator.postgres';
 import type { ICreateDatabaseColumnContext } from './create-database-column-field-visitor.interface';
 import { validateGeneratedColumnSupport } from './create-database-column-field.util';
@@ -242,9 +243,8 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
   }
 
   private createForeignKeyForLinkField(field: LinkFieldCore): void {
-    const options = field.options as ILinkFieldOptions;
-    const { relationship, fkHostTableName, selfKeyName, foreignKeyName, isOneWay, foreignTableId } =
-      options;
+    const options = field.options;
+    const { foreignTableId } = options;
 
     if (
       !this.context.knex ||
@@ -263,95 +263,19 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       throw new Error(`Foreign table not found: ${foreignTableId}`);
     }
 
-    let alterTableSchema: Knex.SchemaBuilder | undefined;
+    const schema = buildPostgresLinkForeignKeySchema(
+      this.context.knex,
+      options,
+      dbTableName,
+      foreignDbTableName
+    );
 
-    if (relationship === Relationship.ManyMany) {
-      alterTableSchema = this.context.knex.schema.createTable(fkHostTableName, (table) => {
-        table.increments('__id').primary();
-        table
-          .string(selfKeyName)
-          .references('__id')
-          .inTable(dbTableName)
-          .withKeyName(`fk_${selfKeyName}`);
-        table
-          .string(foreignKeyName)
-          .references('__id')
-          .inTable(foreignDbTableName)
-          .withKeyName(`fk_${foreignKeyName}`);
-        // Add order column for maintaining insertion order
-        table.integer('__order').nullable();
-      });
-      // Set metadata to indicate this field has order column
+    if (options.relationship !== Relationship.OneMany || !options.isOneWay) {
       (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
     }
 
-    if (relationship === Relationship.ManyOne) {
-      alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
-        table
-          .string(foreignKeyName)
-          .references('__id')
-          .inTable(foreignDbTableName)
-          .withKeyName(`fk_${foreignKeyName}`);
-        // Add order column for maintaining insertion order
-        table.integer(`${foreignKeyName}_order`).nullable();
-      });
-      // Set metadata to indicate this field has order column
-      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
-    }
-
-    if (relationship === Relationship.OneMany) {
-      if (isOneWay) {
-        alterTableSchema = this.context.knex.schema.createTable(fkHostTableName, (table) => {
-          table.increments('__id').primary();
-          table
-            .string(selfKeyName)
-            .references('__id')
-            .inTable(dbTableName)
-            .withKeyName(`fk_${selfKeyName}`);
-          table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
-          table.unique([selfKeyName, foreignKeyName], {
-            indexName: `index_${selfKeyName}_${foreignKeyName}`,
-          });
-        });
-      } else {
-        alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
-          table
-            .string(selfKeyName)
-            .references('__id')
-            .inTable(dbTableName)
-            .withKeyName(`fk_${selfKeyName}`);
-          // Add order column for maintaining insertion order
-          table.integer(`${selfKeyName}_order`).nullable();
-        });
-        // Set metadata to indicate this field has order column
-        (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
-      }
-    }
-
-    // assume options is from the main field (user created one)
-    if (relationship === Relationship.OneOne) {
-      alterTableSchema = this.context.knex.schema.alterTable(fkHostTableName, (table) => {
-        if (foreignKeyName === '__id') {
-          throw new Error('can not use __id for foreignKeyName');
-        }
-        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
-        table.unique([foreignKeyName], {
-          indexName: `index_${foreignKeyName}`,
-        });
-        // Add order column for maintaining insertion order
-        table.integer(`${foreignKeyName}_order`).nullable();
-      });
-      // Set metadata to indicate this field has order column
-      (this.context.field as LinkFieldDto).setMetadata({ hasOrderColumn: true });
-    }
-
-    if (!alterTableSchema) {
-      throw new Error('alterTableSchema is undefined');
-    }
-
-    // Store the SQL queries to be executed later
-    for (const sql of alterTableSchema.toSQL()) {
-      this.sql.push(sql.sql);
+    for (const { sql } of schema.toSQL()) {
+      this.sql.push(sql);
     }
   }
 
@@ -448,4 +372,84 @@ export class CreatePostgresDatabaseColumnFieldVisitor implements IFieldVisitor<v
       persistedAsGeneratedColumn: false,
     });
   }
+}
+
+export function buildPostgresLinkForeignKeySchema(
+  knex: Knex,
+  options: ILinkForeignKeySchemaOptions,
+  dbTableName: string,
+  foreignDbTableName: string
+): Knex.SchemaBuilder {
+  const { relationship, fkHostTableName, selfKeyName, foreignKeyName, isOneWay } = options;
+  let schema: Knex.SchemaBuilder;
+
+  switch (relationship) {
+    case Relationship.ManyMany:
+      schema = knex.schema.createTable(fkHostTableName, (table) => {
+        table.increments('__id').primary();
+        table
+          .string(selfKeyName)
+          .references('__id')
+          .inTable(dbTableName)
+          .withKeyName(`fk_${selfKeyName}`);
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
+        table.integer('__order').nullable();
+      });
+      break;
+    case Relationship.ManyOne:
+      schema = knex.schema.alterTable(fkHostTableName, (table) => {
+        table
+          .string(foreignKeyName)
+          .references('__id')
+          .inTable(foreignDbTableName)
+          .withKeyName(`fk_${foreignKeyName}`);
+        table.integer(`${foreignKeyName}_order`).nullable();
+      });
+      break;
+    case Relationship.OneMany:
+      if (isOneWay) {
+        schema = knex.schema.createTable(fkHostTableName, (table) => {
+          table.increments('__id').primary();
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
+          table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+          table.unique([selfKeyName, foreignKeyName], {
+            indexName: `index_${selfKeyName}_${foreignKeyName}`,
+          });
+        });
+      } else {
+        schema = knex.schema.alterTable(fkHostTableName, (table) => {
+          table
+            .string(selfKeyName)
+            .references('__id')
+            .inTable(dbTableName)
+            .withKeyName(`fk_${selfKeyName}`);
+          table.integer(`${selfKeyName}_order`).nullable();
+        });
+      }
+      break;
+    case Relationship.OneOne:
+      if (foreignKeyName === '__id') {
+        throw new Error('can not use __id for foreignKeyName');
+      }
+      schema = knex.schema.alterTable(fkHostTableName, (table) => {
+        table.string(foreignKeyName).references('__id').inTable(foreignDbTableName);
+        table.unique([foreignKeyName], {
+          indexName: `index_${foreignKeyName}`,
+        });
+        table.integer(`${foreignKeyName}_order`).nullable();
+      });
+      break;
+    default:
+      throw new Error('alterTableSchema is undefined');
+  }
+
+  return schema;
 }

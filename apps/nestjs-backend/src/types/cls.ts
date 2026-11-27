@@ -163,6 +163,9 @@ export interface IClsStore extends ClsStore {
     }[];
   };
   tempAuthBaseId?: string; // for automation robot
+  // Told which project a v2 project copy is about to fill, so a caller that must not keep a
+  // half-made copy (a template extract) can remove it when the copy fails.
+  onBaseCopyCreated?: (baseId: string) => void;
   authSource?: 'sandbox'; // temp user token minted for an AI sandbox
   sandboxPrincipal?: { principalType: string; principalId: string; chatId?: string }; // whose chat minted the sandbox token; credentials resolve for it, audit rows name the chat
   appId?: string; // for app internal call

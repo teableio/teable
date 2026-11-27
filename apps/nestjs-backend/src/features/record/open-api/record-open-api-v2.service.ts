@@ -218,11 +218,13 @@ interface IRecordsWithVersions {
   appliedGroupBy: IGetRecordsRo['groupBy'];
 }
 
-interface IIdRecordResponsePlan {
+interface IRecordResponsePlan {
+  fieldKeyById?: ReadonlyMap<string, string>;
   checkboxFieldIds: ReadonlySet<string>;
   includeEmptyCells: boolean;
   auditFallbacks: ReadonlyArray<{
     fieldId: string;
+    key: string;
     source: 'createdBy' | 'lastModifiedBy';
   }>;
 }
@@ -696,39 +698,49 @@ export class RecordOpenApiV2Service {
     );
 
     const primaryFieldId = table.primaryFieldId().toString();
+    const responseFieldIds = new Set(projectionFieldIds);
+    const responsePlan = this.createRecordResponsePlan(
+      table,
+      requestedFieldKeyType,
+      responseFieldIds,
+      options?.includeEmptyCells
+    );
+    const primaryKey = responsePlan.fieldKeyById?.get(primaryFieldId) ?? primaryFieldId;
     const displayFormatters = new Map<string, FieldDisplayValueFormatter>();
     const displayVisitor = new FieldDisplayValueVisitor();
     for (const field of table.getFields()) {
       const fieldId = field.id().toString();
-      if (query.cellFormat !== CellFormat.Text && fieldId !== primaryFieldId) continue;
+      if (
+        fieldId !== primaryFieldId &&
+        (query.cellFormat !== CellFormat.Text || !responseFieldIds.has(fieldId))
+      ) {
+        continue;
+      }
       const formatter = field.accept(displayVisitor);
-      if (formatter.isOk()) displayFormatters.set(fieldId, formatter.value);
+      if (formatter.isOk()) {
+        const key = responsePlan.fieldKeyById?.get(fieldId) ?? fieldId;
+        displayFormatters.set(key, formatter.value);
+      }
     }
-    const primaryFormatter = displayFormatters.get(primaryFieldId);
-    const responseFieldIds = new Set(projectionFieldIds);
+    const primaryFormatter = displayFormatters.get(primaryKey);
     let records = this.withRecordReadSyncSpan(
       context,
       'teable.RecordOpenApiV2Service.mapReadModels',
       {
         'record.read.record_count': listResult.records.length,
         'record.read.field_key_type': requestedFieldKeyType,
+        'record.read.projection_count': responseFieldIds.size,
       },
-      () => {
-        const idResponsePlan = this.isIdFieldKeyType(requestedFieldKeyType)
-          ? this.createIdRecordResponsePlan(table, options?.includeEmptyCells, responseFieldIds)
-          : undefined;
-        return listResult.records.map((record) =>
+      () =>
+        listResult.records.map((record) =>
           this.mapTableRecordReadModelToIRecord(
             table,
             record,
             primaryFieldId,
-            requestedFieldKeyType,
-            idResponsePlan,
-            primaryFormatter,
-            responseFieldIds
+            responsePlan,
+            primaryFormatter
           )
-        );
-      }
+        )
     );
     records = await this.hydrateLegacyUserCells(container, table, records, requestedFieldKeyType);
 
@@ -752,11 +764,16 @@ export class RecordOpenApiV2Service {
     // Pure-V2 presentation: no FieldService / RecordService. Attachment URLs
     // via IAttachmentUrlSignerService + free-function presign helpers.
     if (query.cellFormat === CellFormat.Text) {
-      normalizedRecords = this.formatRecordFieldsAsDisplayText(
-        table,
-        normalizedRecords,
-        requestedFieldKeyType,
-        displayFormatters
+      normalizedRecords = this.withRecordReadSyncSpan(
+        context,
+        'teable.RecordOpenApiV2Service.formatDisplayText',
+        {
+          'record.read.record_count': normalizedRecords.length,
+          'record.read.field_key_type': requestedFieldKeyType,
+          'record.read.projection_count': responseFieldIds.size,
+          'record.read.formatter_count': displayFormatters.size,
+        },
+        () => this.formatRecordFieldsAsDisplayText(normalizedRecords, displayFormatters, primaryKey)
       );
     } else {
       normalizedRecords = await this.presignAttachmentFieldsFromTable(
@@ -1662,7 +1679,7 @@ export class RecordOpenApiV2Service {
       table
         .getFields()
         .filter((field) => this.isAttachmentValueField(field))
-        .map((field) => this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType))
+        .map((field) => this.resolveFieldResponseKey(field, fieldKeyType))
     );
     if (!attachmentFieldKeys.size) {
       return records;
@@ -1708,7 +1725,7 @@ export class RecordOpenApiV2Service {
     const publicFields = table.getFields().flatMap((field) => {
       const fieldId = field.id().toString();
       return isPublicAttachment(field)
-        ? [{ fieldId, key: this.resolveResponseFieldKey(table, fieldId, fieldKeyType) }]
+        ? [{ fieldId, key: this.resolveFieldResponseKey(field, fieldKeyType) }]
         : [];
     });
     if (!publicFields.length) return fieldMaps;
@@ -1762,21 +1779,45 @@ export class RecordOpenApiV2Service {
     fieldKeys: ReadonlyArray<string>
   ): Promise<T[]> {
     if (!fieldKeys.length || !records.length) return [...records];
+    const resolvedUsers = await this.resolveSelectedUsers(tableId, container, records, fieldKeys);
+    return records.map((record) => {
+      let hasAnyKey = false;
+      for (const key of fieldKeys) {
+        if (Object.prototype.hasOwnProperty.call(record.fields, key)) {
+          hasAnyKey = true;
+          break;
+        }
+      }
+      if (!hasAnyKey) return record;
+      const fields = { ...record.fields };
+      for (const key of fieldKeys) {
+        if (Object.prototype.hasOwnProperty.call(fields, key)) {
+          fields[key] = this.normalizePublicUserValue(fields[key], resolvedUsers);
+        }
+      }
+      return { ...record, fields };
+    });
+  }
+
+  private async resolveSelectedUsers<T extends { fields: Record<string, unknown> }>(
+    tableId: string,
+    container: DependencyContainer,
+    records: ReadonlyArray<T>,
+    fieldKeys: ReadonlyArray<string>
+  ): Promise<Map<string, { id: string; title: string; email?: string }>> {
     const userIds = new Set<string>();
     for (const record of records) {
-      for (const key of fieldKeys) this.collectLegacyUserIds(record.fields[key], userIds);
+      for (const key of fieldKeys) {
+        if (Object.prototype.hasOwnProperty.call(record.fields, key)) {
+          this.collectLegacyUserIds(record.fields[key], userIds);
+        }
+      }
     }
     const resolvedUsers = userIds.size
       ? await this.resolvePublicUsers(container, userIds)
       : new Map<string, { id: string; title: string; email?: string }>();
     await this.resolveAppPrincipals(tableId, userIds, resolvedUsers);
-    return records.map((record) => {
-      const fields = { ...record.fields };
-      for (const key of fieldKeys) {
-        if (key in fields) fields[key] = this.normalizePublicUserValue(fields[key], resolvedUsers);
-      }
-      return { ...record, fields };
-    });
+    return resolvedUsers;
   }
 
   /** App labels come only from the table-scoped, permission-checked business profile projection. */
@@ -1802,11 +1843,27 @@ export class RecordOpenApiV2Service {
     records: IRecord[],
     fieldKeyType: FieldKeyType
   ): Promise<IRecord[]> {
+    if (!records.length) return records;
     const keys = table
       .getFields()
       .filter((field) => this.isPublicUserValueField(field))
-      .map((field) => this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType));
-    return this.hydrateSelectedUserCells(table.id().toString(), container, records, keys);
+      .map((field) => this.resolveFieldResponseKey(field, fieldKeyType));
+    if (!keys.length) return records;
+    const resolvedUsers = await this.resolveSelectedUsers(
+      table.id().toString(),
+      container,
+      records,
+      keys
+    );
+    for (const record of records) {
+      const fields = record.fields;
+      for (const key of keys) {
+        if (Object.prototype.hasOwnProperty.call(fields, key)) {
+          fields[key] = this.normalizePublicUserValue(fields[key], resolvedUsers);
+        }
+      }
+    }
+    return records;
   }
 
   private collectLegacyUserIds(value: unknown, target: Set<string>): void {
@@ -1917,32 +1974,22 @@ export class RecordOpenApiV2Service {
    * Does not load V1 FieldService.
    */
   private formatRecordFieldsAsDisplayText(
-    table: Table,
     records: IRecord[],
-    fieldKeyType: FieldKeyType,
-    formattersById: ReadonlyMap<string, FieldDisplayValueFormatter>
+    formatterByKey: ReadonlyMap<string, FieldDisplayValueFormatter>,
+    primaryKey: string
   ): IRecord[] {
     if (!records.length) {
       return records;
     }
 
-    let formatterByKey = formattersById;
-    if (!this.isIdFieldKeyType(fieldKeyType)) {
-      const formatterByName = new Map<string, FieldDisplayValueFormatter>();
-      for (const [fieldId, formatter] of formattersById) {
-        formatterByName.set(this.resolveResponseFieldKey(table, fieldId, fieldKeyType), formatter);
-      }
-      formatterByKey = formatterByName;
-    }
-    const primaryKey = this.resolveResponseFieldKey(
-      table,
-      table.primaryFieldId().toString(),
-      fieldKeyType
-    );
+    const primaryFormatter = formatterByKey.get(primaryKey);
 
     return records.map((record) => {
+      const rawFields = record.fields;
       const nextFields: IRecord['fields'] = {};
-      for (const [key, value] of Object.entries(record.fields)) {
+      for (const key in rawFields) {
+        if (!Object.prototype.hasOwnProperty.call(rawFields, key)) continue;
+        const value = rawFields[key];
         if (value == null) {
           continue;
         }
@@ -1951,13 +1998,9 @@ export class RecordOpenApiV2Service {
       return {
         ...record,
         fields: nextFields,
-        name:
-          primaryKey in record.fields
-            ? this.formatCellValueWithField(
-                formatterByKey.get(primaryKey),
-                record.fields[primaryKey]
-              )
-            : this.primaryValueToRecordName(record.name),
+        name: Object.prototype.hasOwnProperty.call(rawFields, primaryKey)
+          ? this.formatCellValueWithField(primaryFormatter, rawFields[primaryKey])
+          : this.primaryValueToRecordName(record.name),
       };
     });
   }
@@ -2544,19 +2587,15 @@ export class RecordOpenApiV2Service {
     table: Table,
     record: TableRecordReadModel,
     primaryFieldId: string,
-    fieldKeyType: FieldKeyType,
-    idResponsePlan: IIdRecordResponsePlan | undefined,
-    primaryFormatter: FieldDisplayValueFormatter | undefined,
-    responseFieldIds: ReadonlySet<string>
+    responsePlan: IRecordResponsePlan,
+    primaryFormatter: FieldDisplayValueFormatter | undefined
   ): IRecord {
-    const fields = idResponsePlan
-      ? this.normalizeIdKeyedRecordFields(record, idResponsePlan)
-      : this.mapNonIdRecordFields(table, record, fieldKeyType, responseFieldIds);
-    const primaryKey = idResponsePlan
-      ? primaryFieldId
-      : this.resolveResponseFieldKey(table, primaryFieldId, fieldKeyType);
-    const primaryValue = fields[primaryKey] ?? record.fields[primaryFieldId];
-    this.applyAppPrincipalActorFields(table, record, fields, fieldKeyType);
+    const fields = this.normalizeRecordFields(record, responsePlan);
+    const primaryKey = responsePlan.fieldKeyById?.get(primaryFieldId) ?? primaryFieldId;
+    const primaryValue =
+      (Object.prototype.hasOwnProperty.call(fields, primaryKey) ? fields[primaryKey] : undefined) ??
+      record.fields[primaryFieldId];
+    this.applyAppPrincipalActorFields(table, record, fields, responsePlan.fieldKeyById);
     return {
       id: record.id,
       fields,
@@ -2573,85 +2612,77 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  private createIdRecordResponsePlan(
+  private createRecordResponsePlan(
     table: Table,
-    includeEmptyCells = false,
-    responseFieldIds: ReadonlySet<string>
-  ): IIdRecordResponsePlan {
+    fieldKeyType: FieldKeyType,
+    responseFieldIds: ReadonlySet<string>,
+    includeEmptyCells = false
+  ): IRecordResponsePlan {
+    const isIdKey = this.isIdFieldKeyType(fieldKeyType);
     const checkboxFieldIds = new Set<string>();
-    const auditFallbacks: Array<IIdRecordResponsePlan['auditFallbacks'][number]> = [];
+    const fieldKeyById = isIdKey ? undefined : new Map<string, string>();
+    const auditFallbacks: Array<IRecordResponsePlan['auditFallbacks'][number]> = [];
 
     for (const field of table.getFields()) {
       const fieldId = field.id().toString();
-      if (!responseFieldIds.has(fieldId)) continue;
+      const key = isIdKey ? fieldId : this.resolveFieldResponseKey(field, fieldKeyType);
+      if (fieldKeyById) {
+        fieldKeyById.set(fieldId, key);
+      }
       const fieldType = field.type().toString();
       if (fieldType === 'checkbox') {
         checkboxFieldIds.add(fieldId);
-      } else if (fieldType === 'createdBy') {
-        auditFallbacks.push({ fieldId, source: 'createdBy' });
-      } else if (fieldType === 'lastModifiedBy' && (field as LastModifiedByField).isTrackAll()) {
-        auditFallbacks.push({ fieldId, source: 'lastModifiedBy' });
+      } else if (fieldType === 'createdBy' && responseFieldIds.has(fieldId)) {
+        auditFallbacks.push({ fieldId, key, source: 'createdBy' });
+      } else if (
+        fieldType === 'lastModifiedBy' &&
+        (field as LastModifiedByField).isTrackAll() &&
+        responseFieldIds.has(fieldId)
+      ) {
+        auditFallbacks.push({ fieldId, key, source: 'lastModifiedBy' });
       }
     }
 
     return {
+      fieldKeyById,
       checkboxFieldIds,
       includeEmptyCells,
       auditFallbacks,
     };
   }
 
-  private normalizeIdKeyedRecordFields(
+  private normalizeRecordFields(
     record: TableRecordReadModel,
-    plan: IIdRecordResponsePlan
+    plan: IRecordResponsePlan
   ): Record<string, unknown> {
     const fields: Record<string, unknown> = {};
-    for (const [fieldId, value] of Object.entries(record.fields)) {
+    const rawFields = record.fields;
+    const fieldKeyById = plan.fieldKeyById;
+
+    for (const fieldId in rawFields) {
+      if (!Object.prototype.hasOwnProperty.call(rawFields, fieldId)) continue;
+      const value = rawFields[fieldId];
+      const key = fieldKeyById ? (fieldKeyById.get(fieldId) ?? fieldId) : fieldId;
       if (value == null || (value === false && plan.checkboxFieldIds.has(fieldId))) {
-        if (plan.includeEmptyCells) fields[fieldId] = null;
+        if (plan.includeEmptyCells) fields[key] = null;
         continue;
       }
-      fields[fieldId] = value;
+      fields[key] = value;
     }
 
     for (const fallback of plan.auditFallbacks) {
-      if (record.fields[fallback.fieldId] != null) {
+      if (
+        !Object.prototype.hasOwnProperty.call(rawFields, fallback.fieldId) ||
+        rawFields[fallback.fieldId] != null
+      ) {
         continue;
       }
       const userId = this.auditActorId(record, fallback.source);
       if (userId) {
-        fields[fallback.fieldId] = this.systemAuditUserFallback(userId);
+        fields[fallback.key] = this.systemAuditUserFallback(userId);
       }
     }
     return fields;
-  }
-
-  private mapNonIdRecordFields(
-    table: Table,
-    record: TableRecordReadModel,
-    fieldKeyType: FieldKeyType,
-    responseFieldIds: ReadonlySet<string>
-  ): Record<string, unknown> {
-    const rawFields = { ...record.fields };
-    for (const field of table.getFields()) {
-      const fieldId = field.id().toString();
-      if (!responseFieldIds.has(fieldId)) continue;
-      if (rawFields[fieldId] != null) {
-        continue;
-      }
-      const fieldType = field.type().toString();
-      const createdByActor = this.auditActorId(record, 'createdBy');
-      if (fieldType === 'createdBy' && createdByActor) {
-        rawFields[fieldId] = this.systemAuditUserFallback(createdByActor);
-      } else if (
-        fieldType === 'lastModifiedBy' &&
-        (field as LastModifiedByField).isTrackAll() &&
-        record.lastModifiedBy
-      ) {
-        rawFields[fieldId] = this.systemAuditUserFallback(record.lastModifiedBy);
-      }
-    }
-    return this.remapRecordFieldsFromTable(table, rawFields, fieldKeyType);
   }
 
   /**
@@ -2662,8 +2693,11 @@ export class RecordOpenApiV2Service {
     table: Table,
     record: TableRecordReadModel,
     fields: Record<string, unknown>,
-    fieldKeyType: FieldKeyType
+    fieldKeyById?: ReadonlyMap<string, string>
   ): void {
+    if (record.createdByActorType !== 'appUser' && record.lastModifiedByActorType !== 'appUser') {
+      return;
+    }
     for (const field of table.getFields()) {
       const type = field.type().toString();
       if (type !== 'createdBy' && type !== 'lastModifiedBy') continue;
@@ -2674,7 +2708,8 @@ export class RecordOpenApiV2Service {
       const actorId =
         source === 'createdBy' ? record.createdByActorId : record.lastModifiedByActorId;
       if (actorType !== 'appUser' || !actorId?.startsWith(APP_PRINCIPAL_ID_PREFIX)) continue;
-      const key = this.resolveResponseFieldKey(table, field.id().toString(), fieldKeyType);
+      const fieldId = field.id().toString();
+      const key = fieldKeyById?.get(fieldId) ?? fieldId;
       if (!Object.prototype.hasOwnProperty.call(fields, key)) continue;
       const current = fields[key];
       fields[key] = typeof current === 'string' ? actorId : { id: actorId, title: actorId };
@@ -2704,57 +2739,13 @@ export class RecordOpenApiV2Service {
     };
   }
 
-  /**
-   * Remap id-keyed cell map to the requested OpenAPI fieldKeyType using the
-   * V2 table aggregate only (names / dbFieldNames live on domain fields).
-   *
-   * V1 parity: omit null/undefined cells (and unchecked checkbox `false`) so
-   * clients and e2e asserts see missing keys, not explicit nulls.
-   */
-  private remapRecordFieldsFromTable(
-    table: Table,
-    fields: Record<string, unknown>,
-    fieldKeyType: FieldKeyType
-  ): Record<string, unknown> {
-    const byId = new Map(table.getFields().map((field) => [field.id().toString(), field]));
-    const remapped: Record<string, unknown> = {};
-    for (const [fieldId, value] of Object.entries(fields)) {
-      if (value == null) {
-        continue;
-      }
-      const field = byId.get(fieldId);
-      // Unchecked checkbox is null in V1 JSON responses.
-      if (value === false && field?.type().toString() === 'checkbox') {
-        continue;
-      }
-      if (this.isIdFieldKeyType(fieldKeyType)) {
-        remapped[fieldId] = value;
-        continue;
-      }
-      if (!field) {
-        remapped[fieldId] = value;
-        continue;
-      }
-      remapped[this.resolveResponseFieldKey(table, fieldId, fieldKeyType)] = value;
-    }
-    return remapped;
-  }
-
   private isIdFieldKeyType(fieldKeyType: FieldKeyType): boolean {
     return fieldKeyType === FieldKeyType.Id || (fieldKeyType as string) === 'id';
   }
 
-  private resolveResponseFieldKey(
-    table: Table,
-    fieldId: string,
-    fieldKeyType: FieldKeyType
-  ): string {
+  private resolveFieldResponseKey(field: V2Field, fieldKeyType: FieldKeyType): string {
     if (this.isIdFieldKeyType(fieldKeyType)) {
-      return fieldId;
-    }
-    const field = table.getFields().find((item) => item.id().toString() === fieldId);
-    if (!field) {
-      return fieldId;
+      return field.id().toString();
     }
     if (fieldKeyType === FieldKeyType.Name || (fieldKeyType as string) === 'name') {
       return field.name().toString();

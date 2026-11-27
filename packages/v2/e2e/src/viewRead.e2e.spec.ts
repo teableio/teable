@@ -153,6 +153,60 @@ describe('v2 http View read contracts (e2e)', () => {
     if (ctx && foreignTableId) await ctx.deleteTable(foreignTableId).catch(() => undefined);
   });
 
+  it('preserves symbolic view predicates and matching rows across text conversions', async () => {
+    const table = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Symbolic text filters',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Note' },
+        { type: 'singleSelect', name: 'Status', options: ['Open', 'Closed'] },
+      ],
+    });
+    try {
+      const note = table.fields.find((field) => field.name === 'Note')!.id;
+      const status = table.fields.find((field) => field.name === 'Status')!.id;
+      const empty = await ctx.createRecord(table.id, { [status]: 'Open' });
+      const match = await ctx.createRecord(table.id, { [status]: 'Open', [note]: 'hello' });
+      const other = await ctx.createRecord(table.id, { [status]: 'Open', [note]: 'world' });
+      await ctx.createRecord(table.id, { [status]: 'Closed', [note]: 'hello' });
+      const views = [];
+      for (const [operator, value, expected] of [
+        ['=', 'hello', [match.id]],
+        ['!=', 'hello', [empty.id, other.id]],
+        ['LIKE', 'ell', [match.id]],
+        ['NOT LIKE', 'ell', [empty.id, other.id]],
+        ['IS NULL', null, [empty.id]],
+        ['IS NOT NULL', null, [match.id, other.id]],
+      ] as const) {
+        const filter = {
+          conjunction: 'and' as const,
+          filterSet: [
+            { fieldId: note, isSymbol: true as const, operator, value },
+            { fieldId: status, operator: 'is' as const, value: 'Open' },
+          ],
+        };
+        const result = await client.tables.createView({
+          tableId: table.id,
+          view: { type: 'grid', name: operator, sourceFilter: filter },
+        });
+        if (!result.ok) throw new Error(result.error.message);
+        views.push({ id: result.data.viewId, filter, expected });
+      }
+      for (const type of [undefined, 'singleLineText', 'longText'] as const) {
+        if (type) await ctx.updateField({ tableId: table.id, fieldId: note, field: { type } });
+        for (const view of views) {
+          const { body } = await getViewRaw(table.id, view.id);
+          expect(getViewOkResponseSchema.parse(body).data.view.filter).toEqual(view.filter);
+          const rows = await ctx.listRecords(table.id, { viewId: view.id });
+          expect(rows.map((row) => row.id).sort()).toEqual([...view.expected].sort());
+        }
+      }
+    } finally {
+      await ctx.deleteTable(table.id);
+    }
+  });
+
   it('gets a rich View child through the Table aggregate projection', async () => {
     const { response, body } = await getViewRaw(tableId, richViewId);
 

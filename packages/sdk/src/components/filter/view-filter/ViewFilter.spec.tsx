@@ -21,15 +21,25 @@ const textFilter: IFilter = {
   filterSet: [{ fieldId: field.id, operator: 'is', value: '111' }],
 };
 
+const twoConditionFilter: IFilter = {
+  conjunction: 'and',
+  filterSet: [
+    { fieldId: field.id, operator: 'is', value: '111' },
+    { fieldId: field.id, operator: 'is', value: '222' },
+  ],
+};
+
 const remoteFilter: IFilter = {
   conjunction: 'and',
   filterSet: [{ fieldId: field.id, operator: 'is', value: 'remote' }],
 };
 
+const viewIdRef = { current: 'viwTest00000000001' };
+
 vi.mock('../../../hooks', () => ({
   useFields: () => [field],
   useTableId: () => 'tblTest00000000001',
-  useViewId: () => 'viwTest00000000001',
+  useViewId: () => viewIdRef.current,
 }));
 
 vi.mock('@teable/ui-lib', () => ({
@@ -66,10 +76,20 @@ vi.mock('../../adaptive-panel', () => ({
 vi.mock('../../ReadOnlyTip', () => ({ ReadOnlyTip: () => null }));
 
 vi.mock('./BaseViewFilter', () => ({
-  BaseViewFilter: ({ onChange }: { onChange: (filter: IFilter) => void }) => (
+  BaseViewFilter: ({
+    value,
+    onChange,
+  }: {
+    value: IFilter;
+    onChange: (filter: IFilter) => void;
+  }) => (
     <>
+      <span data-testid="filter-value">{JSON.stringify(value)}</span>
       <button type="button" onClick={() => onChange(textFilter)}>
         add filter
+      </button>
+      <button type="button" onClick={() => onChange(twoConditionFilter)}>
+        add second filter
       </button>
       <button type="button" onClick={() => onChange(null)}>
         clear filter
@@ -103,6 +123,7 @@ describe('ViewFilter', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+    viewIdRef.current = 'viwTest00000000001';
   });
 
   it('updates the toolbar summary before the parent filter prop changes', () => {
@@ -145,5 +166,156 @@ describe('ViewFilter', () => {
     });
 
     expect(screen.getByTestId('filter-label')).toHaveTextContent('Filter by Single line text');
+  });
+
+  it('keeps a newer local edit when the echo of an earlier save arrives late', async () => {
+    const saves: Array<() => void> = [];
+    const onChange = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          saves.push(resolve);
+        })
+    );
+    const view = renderViewFilter(null, onChange);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'add second filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(onChange).toHaveBeenLastCalledWith(twoConditionFilter);
+
+    // The first save's echo arrives while the second save is still in flight.
+    view.rerender(
+      <ViewFilter filters={textFilter} onChange={onChange}>
+        {(text) => <span data-testid="filter-label">{text}</span>}
+      </ViewFilter>
+    );
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(
+      JSON.stringify(twoConditionFilter)
+    );
+  });
+
+  it('saves an edit that returns to the parent value while an earlier save is in flight', async () => {
+    const onChange = vi.fn(() => new Promise<void>(() => undefined));
+    renderViewFilter(null, onChange);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'clear filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(onChange).toHaveBeenCalledTimes(2);
+    expect(onChange).toHaveBeenLastCalledWith(null);
+  });
+
+  it('shows the next view filters when switching views while a save is in flight', async () => {
+    const onChange = vi.fn(() => new Promise<void>(() => undefined));
+    const view = renderViewFilter(null, onChange);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    viewIdRef.current = 'viwTest00000000002';
+    view.rerender(
+      <ViewFilter filters={remoteFilter} onChange={onChange}>
+        {(text) => <span data-testid="filter-label">{text}</span>}
+      </ViewFilter>
+    );
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(JSON.stringify(remoteFilter));
+  });
+
+  it('applies a collaborator update that arrived during a save once the save settles', async () => {
+    const saves: Array<() => void> = [];
+    const onChange = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          saves.push(resolve);
+        })
+    );
+    const view = renderViewFilter(null, onChange);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    view.rerender(
+      <ViewFilter filters={remoteFilter} onChange={onChange}>
+        {(text) => <span data-testid="filter-label">{text}</span>}
+      </ViewFilter>
+    );
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(JSON.stringify(textFilter));
+
+    await act(async () => {
+      saves[0]();
+    });
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(JSON.stringify(remoteFilter));
+  });
+
+  it('keeps the local filter when only the echo of its own save arrived during the save', async () => {
+    const saves: Array<() => void> = [];
+    const onChange = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          saves.push(resolve);
+        })
+    );
+    const view = renderViewFilter(null, onChange);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'add second filter' }));
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+    // Echo of the first save, then both saves settle before the second echo arrives.
+    view.rerender(
+      <ViewFilter filters={textFilter} onChange={onChange}>
+        {(text) => <span data-testid="filter-label">{text}</span>}
+      </ViewFilter>
+    );
+    await act(async () => {
+      saves[0]();
+      saves[1]();
+    });
+
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(
+      JSON.stringify(twoConditionFilter)
+    );
+  });
+
+  it('saves an edit made just before a view switch to the view it was made in', async () => {
+    const saveToFirstView = vi.fn();
+    const saveToSecondView = vi.fn();
+    const view = renderViewFilter(null, saveToFirstView);
+
+    fireEvent.click(screen.getByRole('button', { name: 'add filter' }));
+    viewIdRef.current = 'viwTest00000000002';
+    view.rerender(
+      <ViewFilter filters={remoteFilter} onChange={saveToSecondView}>
+        {(text) => <span data-testid="filter-label">{text}</span>}
+      </ViewFilter>
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(300);
+    });
+
+    expect(saveToFirstView).toHaveBeenCalledWith(textFilter);
+    expect(saveToSecondView).not.toHaveBeenCalled();
+    expect(screen.getByTestId('filter-value')).toHaveTextContent(JSON.stringify(remoteFilter));
   });
 });

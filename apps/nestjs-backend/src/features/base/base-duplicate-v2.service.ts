@@ -17,6 +17,7 @@ import {
   type V1TeableDatabase,
 } from '@teable/v2-adapter-repository-postgres';
 import type { HostPreviewConcern, PreviewEffect, PreviewIssue } from '@teable/v2-command-explain';
+import { mapDomainErrorToHttpStatus } from '@teable/v2-contract-http';
 import {
   DeleteTableCommand,
   DuplicateBaseCommand,
@@ -26,6 +27,7 @@ import {
   v2CoreTokens,
   type BulkCopySourceLinkField,
   type DuplicateBaseRecordReadOptions,
+  type DomainError,
   type DotTeaFieldInput,
   type DuplicateBaseResult,
   type DuplicateBaseSource,
@@ -56,6 +58,7 @@ import { AuditScope } from '../audit/audit-scope';
 import { withStagedTemplateSnapshot } from '../template/template-snapshot.helper';
 import { V2ContainerService } from '../v2/v2-container.service';
 import { V2ExecutionContextFactory } from '../v2/v2-execution-context.factory';
+import { throwV2Error } from '../v2/v2-http-error';
 import { BaseExportStructureService } from './base-export-structure.service';
 import type { BaseImportProgressCallback, IBaseHostIdMaps } from './base-import-contract';
 import {
@@ -74,6 +77,14 @@ const v2DuplicateCopyBatchSize = 500;
 const v2DuplicateLinkFieldBatchSize = 500;
 
 const v2DuplicateTableIdQueryChunkSize = 100;
+
+// A refused copy (a limit, a missing table) reaches the caller with its own status and message;
+// an internal failure stays a bare 500 so its diagnostics never reach the response.
+function throwDuplicateError(error: DomainError): never {
+  const status = mapDomainErrorToHttpStatus(error);
+  if (status < 500) throwV2Error(error, status);
+  throw new Error(error.message);
+}
 
 type DuplicateStructureConfig = IBaseJson;
 
@@ -787,6 +798,7 @@ export class BaseDuplicateV2Service {
         !isCopyToExistingBaseMode(duplicateMode) && !applyToExistingBase
       );
       this.audit.setResourceId(base.id);
+      this.cls.get('onBaseCopyCreated')?.(base.id);
       if (withRecords && !applyToExistingBase) {
         await prisma.base.update({
           where: { id: base.id },
@@ -807,7 +819,7 @@ export class BaseDuplicateV2Service {
         batchSize: v2DuplicateCopyBatchSize,
       });
       if (commandResult.isErr()) {
-        throw new Error(commandResult.error.message);
+        throwDuplicateError(commandResult.error);
       }
       let fieldIdMap: Record<string, string> = {};
       let viewIdMap: Record<string, string> = {};
@@ -818,12 +830,13 @@ export class BaseDuplicateV2Service {
           commandResult.value
         );
         if (result.isErr()) {
-          throw new Error(result.error.message);
+          throwDuplicateError(result.error);
         }
 
         for await (const event of result.value) {
           if (event.id === 'error') {
             failedTableIds = event.tableIdMap ? Object.values(event.tableIdMap) : undefined;
+            if (event.error) throwDuplicateError(event.error);
             throw new Error(event.message);
           }
 

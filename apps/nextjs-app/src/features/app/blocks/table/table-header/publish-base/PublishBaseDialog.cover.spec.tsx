@@ -13,6 +13,11 @@ vi.mock('@teable/openapi', async (importOriginal) => ({
   getTemplateByBaseId: vi.fn().mockResolvedValue({ data: null }),
   getBaseNodeTree: vi.fn().mockResolvedValue({ data: { nodes: [], maxFolderDepth: 2 } }),
 }));
+// The catalogue card itself is the template centre's; here only its cover matters.
+vi.mock('@/features/app/components/space/template/TemplateCard', () => ({
+  TemplateCard: ({ template }: { template: { cover?: { presignedUrl?: string } | null } }) =>
+    template.cover?.presignedUrl ? <img src={template.cover.presignedUrl} alt="" /> : null,
+}));
 vi.mock('@teable/sdk/components', () => ({
   AttachmentManager: class {
     upload(
@@ -59,7 +64,8 @@ const Harness = () => {
   );
 };
 
-const coverPreview = () => screen.queryByAltText('published project preview');
+// The catalogue preview on the right; the cover is picked in the form and only shown there.
+const coverPreview = () => document.querySelector<HTMLImageElement>('aside img');
 
 const openDialog = async () => {
   render(
@@ -74,7 +80,7 @@ const openDialog = async () => {
 };
 
 describe('PublishBaseDialog cover', () => {
-  it('is picked in one place, the catalogue preview', async () => {
+  it('is picked in one place, beside the name and description', async () => {
     const { pick } = await openDialog();
     expect(screen.getAllByText('publishBase.uploadCover')).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'publishBase.uploadCover' }));

@@ -2,6 +2,7 @@ import { Dialog, DialogContent, DialogOverlay, cn } from '@teable/ui-lib';
 import { type FC, type PropsWithChildren } from 'react';
 import { useRef } from 'react';
 import { ModalContext } from './ModalContext';
+import { stopReactPropagation } from './stopReactPropagation';
 
 export const Modal: FC<
   PropsWithChildren<{
@@ -54,8 +55,8 @@ export const Modal: FC<
           e.stopPropagation();
         }}
         onPaste={(e) => e.stopPropagation()}
-        onMouseDown={(e) => e.stopPropagation()}
-        onPointerDown={(e) => e.stopPropagation()}
+        onMouseDown={stopReactPropagation}
+        onPointerDown={stopReactPropagation}
         onPointerDownOutside={(e) => e.preventDefault()}
         onInteractOutside={(e) => {
           e.stopPropagation();

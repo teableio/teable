@@ -17,7 +17,10 @@ import type {
   ITableOperationPlugin,
   TableOperationPluginContext,
 } from '../../ports/TableOperationPlugin';
-import { TableOperationKind } from '../../ports/TableOperationPlugin';
+import {
+  TableOperationCreateManySource,
+  TableOperationKind,
+} from '../../ports/TableOperationPlugin';
 import type { ITableRepository } from '../../ports/TableRepository';
 import type { TableDataSafetyLimitComposer } from './TableDataSafetyLimitComposer';
 import { ensureTableDataSafetyFieldLimits } from './TableDataSafetyLimitFieldOperationPlugin';
@@ -113,12 +116,15 @@ export class TableDataSafetyLimitTableOperationPlugin implements ITableOperation
         );
         if (tableCountResult.isErr()) return tableCountResult;
 
+        // A copied table already exists, so it answers to the limits every table lives under
+        // (like a single-table duplicate), not to the smaller budget a new table starts with.
+        const copiesExistingTables =
+          context.payload.source !== TableOperationCreateManySource.createTables;
         for (const table of context.payload.tables) {
-          const result = this.ensureCreatePayloadLimits(
-            table,
-            limits,
-            preparedState?.domainContext
-          );
+          const result =
+            copiesExistingTables && table.table
+              ? this.ensureTableStructureLimits(table.table, limits, preparedState?.domainContext)
+              : this.ensureCreatePayloadLimits(table, limits, preparedState?.domainContext);
           if (result.isErr()) return result;
         }
         return ok(undefined);
@@ -166,10 +172,17 @@ export class TableDataSafetyLimitTableOperationPlugin implements ITableOperation
         );
       case TableOperationKind.restore: {
         const tableCountResult = await this.ensureTablesPerBaseLimit(
-          context.executionContext, context.payload.baseId, 1, limits
+          context.executionContext,
+          context.payload.baseId,
+          1,
+          limits
         );
         if (tableCountResult.isErr()) return tableCountResult;
-        return this.ensureTableStructureLimits(context.payload.table, limits, preparedState?.domainContext);
+        return this.ensureTableStructureLimits(
+          context.payload.table,
+          limits,
+          preparedState?.domainContext
+        );
       }
     }
   }

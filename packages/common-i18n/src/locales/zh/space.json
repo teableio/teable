@@ -216,27 +216,28 @@
   },
   "publishBase": {
     "title": "发布到模板中心",
-    "description": "一键发布到模板中心！让更多人看到你的创意",
-    "configureTitle": "配置模板信息",
-    "configureDescription": "精品模板将有机会展示在模板中心",
+    "description": "发布到模板中心，让更多人发现和使用这个模板。",
+    "configureTitle": "发布模板",
+    "configureDescription": "发布后即可通过链接分享和安装，审核通过后会展示在模板中心。",
     "infoTitle": "展示信息",
     "form": {
-      "title": "名称",
-      "description": "详细介绍",
+      "title": "模板名称",
+      "description": "模板简介",
       "changelog": "更新说明",
       "changelogPlaceholder": "面向已安装用户说明本次变更，将显示在升级预览中",
-      "publishNode": "包含的内容",
+      "publishNode": "包含内容",
       "includeData": "包含示例数据",
       "defaultActiveNode": "默认打开",
-      "descriptionPlaceholder": "它解决什么问题、怎么用",
-      "titlePlaceholder": "给它起个名字",
+      "descriptionPlaceholder": "介绍模板解决的问题和使用方式",
+      "titlePlaceholder": "例如：客户跟进",
       "versionTitle": "版本内容",
-      "addChangelog": "添加更新说明"
+      "addChangelog": "添加更新说明",
+      "cover": "封面"
     },
     "publishToCommunity": "发布到模板中心",
     "publish": "发布",
-    "publishSuccess": "发布成功！",
-    "previewTips": "目录预览",
+    "publishSuccess": "模板已发布",
+    "previewTips": "模板中心预览",
     "update": "更新",
     "submit": "发布模板",
     "review": {
@@ -246,32 +247,38 @@
       "check": {
         "connectors": "连接",
         "privacy": "隐私",
-        "estimate": "运行量估算",
+        "estimate": "运行次数预估",
         "trial": "试运行",
         "content": "内容"
+      },
+      "checkLine": {
+        "connectors": "不支持 {{providers}}",
+        "estimate": "{{runs}}/月"
       },
       "checkMessage": {
         "connectors": "以下连接暂不支持：{{providers}}",
         "privacy": "模板包含记录，请检查其中是否有个人信息",
         "estimate": "每月约 {{runs}} 次，超过免费版的 {{free}} 次",
         "trial": "请确认自动化或任务无需连接账号也能运行",
-        "content": "还有 {{count}} 处只属于你的内容",
+        "content": "还有 {{count}} 处个人内容待替换",
         "contentMarked": "{{count}} 处已标为示例"
       },
       "withdraw": "取消发布",
-      "withdrawn": "已取消发布。",
-      "withdrawConfirmTitle": "取消发布？",
+      "withdrawn": "已取消发布",
+      "withdrawConfirmTitle": "取消发布此模板？",
       "withdrawConfirmDescription": "取消发布后，模板链接将无法打开，模板中心也不再展示；已安装的副本不受影响，之后可以重新发布。",
       "live": "已发布 · v{{version}}",
-      "listed": "已收录到模板中心"
+      "listed": "已收录到模板中心",
+      "allVersions": "全部版本（{{count}}）",
+      "fewerVersions": "收起"
     },
     "unPublish": "下架",
-    "unPublishSuccess": "已下架。",
-    "unPublishConfirmTitle": "确认下架？",
+    "unPublishSuccess": "已下架",
+    "unPublishConfirmTitle": "下架此模板？",
     "unPublishConfirmDescription": "下架后其他人无法在目录中找到或安装；已安装的副本不受影响，之后可重新提交上架。",
     "uploadCover": "上传封面",
     "changeCover": "更换封面",
-    "uploading": "图片上传中…",
+    "uploading": "正在上传图片…",
     "uploadSuccess": "图片上传成功",
     "uploadFailed": "上传失败",
     "invalidImageType": "请选择图片文件",
@@ -280,29 +287,44 @@
       "atLeastOneNode": "请至少选择一项包含的内容",
       "coverRequired": "请上传封面"
     },
-    "urlCopied": "链接已复制到剪贴板！",
-    "urlCopiedForDiscord": "链接已复制到剪贴板！你可以在 Discord 中粘贴。",
+    "urlCopied": "已复制链接",
+    "urlCopiedForDiscord": "已复制链接，可粘贴到 Discord",
     "featuredLabel": "精选",
     "featuredTip": "已入选官方精选，你的模板将获得更多曝光与推荐。",
-    "publishSuccessDescription": "把你的作品分享给更多人",
+    "publishSuccessDescription": "复制链接，或分享到社交平台。",
     "shareWith": "分享到",
     "unpublishedApps": {
-      "title": "检测到未发布的应用",
-      "description": "未发布的应用可能导致模板预览失败。可以先发布，也可以直接继续。",
-      "publishAll": "全部发布",
+      "title": "有应用尚未发布",
+      "description": "未发布的应用在模板预览中可能无法打开。",
+      "publishAll": "发布全部应用",
       "publish": "发布",
       "published": "已发布",
-      "publishing": "发布中",
+      "publishing": "正在发布…",
       "notPublished": "未发布",
       "publishFailed": "发布失败",
       "publishFailedTip1": "检查源应用是否能正常发布",
       "publishFailedTip2": "尝试重新发布此模板",
-      "ignoreAndContinue": "忽略并继续",
-      "goToFix": "去修复",
-      "redeploy": "重新部署",
+      "ignoreAndContinue": "不发布应用，继续",
+      "goToFix": "打开应用",
+      "redeploy": "重新发布",
       "unnamedApp": "未命名应用"
     },
-    "submitVersion": "发布 v{{version}}"
+    "submitVersion": "发布 v{{version}}",
+    "agreeTermsFirst": "请先同意创作者条款",
+    "preview": {
+      "titleMissing": "请填写模板名称",
+      "descriptionMissing": "请填写模板简介"
+    },
+    "updateTemplate": "更新模板",
+    "timeline": {
+      "versions": "版本历史",
+      "published": "已发布"
+    },
+    "checksTitle": "发布前检查",
+    "listing": {
+      "title": "展示信息",
+      "separator": "、"
+    }
   },
   "dataDb": {
     "create": {
@@ -466,14 +488,14 @@
     "fromGoogleSheetDesc": "选择一个表格"
   },
   "templateProject": {
-    "make": "做成模板",
-    "new": "新建模板项目",
+    "make": "创建模板",
+    "new": "创建模板项目",
     "plural": "模板项目",
     "projectsTab": "项目",
     "empty": "还没有模板项目",
     "trialCopy": "试用副本",
-    "wholeProject": "项目里的全部 {{count}} 项",
+    "wholeProject": "项目中的全部 {{count}} 项",
     "sampleRecords": "{{count}} 条示例记录",
-    "noRecords": "没有记录"
+    "noRecords": "无记录"
   }
 }

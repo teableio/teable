@@ -615,6 +615,14 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
   }
 
   async readReservedEntry(scope: UndoScope, token: string, entryIndex: number) {
+    return this.accessReservedEntry(scope, token, entryIndex);
+  }
+
+  async replaceReservedInverse(scope: UndoScope, token: string, entryIndex: number, inverse: UndoRedoCommandData) {
+    return (await this.accessReservedEntry(scope, token, entryIndex, inverse)).map(() => undefined);
+  }
+
+  private async accessReservedEntry(scope: UndoScope, token: string, entryIndex: number, inverse?: UndoRedoCommandData) {
     return this.enqueueScope(scope, async () => {
       const loaded = await this.loadState(scope);
       if (loaded.isErr()) return err(loaded.error);
@@ -656,7 +664,12 @@ export class KeyvUndoRedoStore implements IUndoRedoStore {
         offset -= count;
       }
       const raw = await this.keyv.get(this.entryKey(scope, sequence), { raw: true });
-      return this.decodeEntryValue(scope, raw?.value);
+      if (!inverse) return this.decodeEntryValue(scope, raw?.value);
+      const previous = await this.decodeStoredEntryValue(raw?.value);
+      if (previous.isErr()) return err(previous.error);
+      const next = { ...previous.value, [reservation.mode === 'undo' ? 'redoCommand' : 'undoCommand']: inverse };
+      await this.persistValue(this.entryKey(scope, sequence), next, group.expiresAt ?? null);
+      return ok(this.attachScope(scope, next));
     });
   }
 

@@ -5,6 +5,16 @@ import type { IBaseErdTableNode, IBaseErdEdge } from '@teable/openapi';
 import { groupBy, keyBy } from 'lodash';
 import { baseDisplayName } from '../../utils/base-name';
 
+const parseJson = (raw: string | null) =>
+  raw ? (JSON.parse(raw) as { lookupFieldId?: string }) : null;
+
+/** lookups and rollups keep it in lookupOptions; a conditional rollup keeps it in options */
+const lookupFieldIdOf = (field: Pick<Field, 'type' | 'options' | 'lookupOptions'>) =>
+  parseJson(field.lookupOptions)?.lookupFieldId ??
+  (field.type === FieldType.ConditionalRollup
+    ? parseJson(field.options)?.lookupFieldId
+    : undefined);
+
 @Injectable()
 export class BaseErdService {
   constructor(private readonly prismaService: PrismaService) {}
@@ -94,6 +104,7 @@ export class BaseErdService {
         options: true,
         isLookup: true,
         lookupLinkedFieldId: true,
+        lookupOptions: true,
       },
       orderBy: {
         order: 'asc',
@@ -126,6 +137,8 @@ export class BaseErdService {
           name: field.name,
           type: field.type as FieldType,
           isLookup: field.isLookup ?? undefined,
+          lookupLinkedFieldId: field.lookupLinkedFieldId ?? undefined,
+          lookupFieldId: lookupFieldIdOf(field),
         })),
       };
     });

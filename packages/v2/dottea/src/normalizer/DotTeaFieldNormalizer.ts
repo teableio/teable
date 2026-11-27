@@ -198,11 +198,16 @@ const referencesMissingConditionField = (
   if (!foreignFieldIds) return false;
   const filterSet = (condition.filter as { filterSet?: unknown[] }).filterSet;
   if (!Array.isArray(filterSet)) return false;
-  return filterSet.some((item) => {
-    if (!item || typeof item !== 'object' || Array.isArray(item)) return false;
-    const fieldId = (item as { fieldId?: unknown }).fieldId;
-    return typeof fieldId === 'string' && !foreignFieldIds.has(fieldId);
-  });
+  const pending = [...filterSet];
+  while (pending.length) {
+    const item = asRecord(pending.pop());
+    if (Array.isArray(item?.filterSet)) {
+      for (const child of item.filterSet) pending.push(child);
+    } else if (typeof item?.fieldId === 'string') {
+      if (!foreignFieldIds.has(item.fieldId)) return true;
+    }
+  }
+  return false;
 };
 
 const referencesMissingHostLinkField = (

@@ -28,6 +28,11 @@ vi.mock('../../../base/base-node/hooks', async (importOriginal) => ({
 vi.mock('@teable/ui-lib/shadcn/ui/sonner', () => ({
   toast: { error: toastError, success: vi.fn() },
 }));
+// The catalogue card itself is the template centre's; here only its cover matters.
+vi.mock('@/features/app/components/space/template/TemplateCard', () => ({
+  TemplateCard: ({ template }: { template: { cover?: { presignedUrl?: string } | null } }) =>
+    template.cover?.presignedUrl ? <img src={template.cover.presignedUrl} alt="" /> : null,
+}));
 vi.mock('@teable/sdk/components', () => ({ AttachmentManager: class {} }));
 vi.mock('next-i18next', () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
@@ -102,7 +107,7 @@ describe('PublishBaseDialog submission', () => {
     fireEvent.click(screen.getByText('open-publish'));
     // the form fills in from the template once it has loaded
     await waitFor(() =>
-      expect(screen.getByTitle('Class booking for yoga studios.')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Class booking for yoga studios.')).toBeInTheDocument()
     );
 
     await act(async () => {
@@ -124,15 +129,37 @@ describe('PublishBaseDialog submission', () => {
     publishInfo: { nodes: ['tableA'], includeData: true },
   };
 
-  it("waits for the host's terms before publishing, drawn by the publish button", async () => {
+  it("points at the host's terms when publishing before agreeing to them", async () => {
     getTemplateByBaseId.mockResolvedValue({ data: listed });
-    renderSubmission(() => ({ panel: <span>terms-panel</span>, blocked: true, agreed: false }));
+    const submission = renderSubmission(() => ({
+      panel: <span>terms-panel</span>,
+      blocked: true,
+      agreed: false,
+    }));
     fireEvent.click(screen.getByText('open-publish'));
     await waitFor(() =>
-      expect(screen.getByTitle('Class booking for yoga studios.')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Class booking for yoga studios.')).toBeInTheDocument()
     );
 
     expect(screen.getByText('terms-panel')).toBeInTheDocument();
+    const publish = screen.getByText('publishBase.submit').closest('button')!;
+    // Not greyed out: pressing it says what is missing instead of doing nothing.
+    expect(publish).toBeEnabled();
+    await act(async () => {
+      fireEvent.click(publish);
+    });
+    expect(screen.getByRole('alert')).toHaveTextContent('publishBase.agreeTermsFirst');
+    expect(submission.submit).not.toHaveBeenCalled();
+  });
+
+  it('waits while it is still unknown whether there are terms to agree to', async () => {
+    getTemplateByBaseId.mockResolvedValue({ data: listed });
+    renderSubmission(() => ({ panel: null, blocked: true, agreed: false }));
+    fireEvent.click(screen.getByText('open-publish'));
+    await waitFor(() =>
+      expect(screen.getByDisplayValue('Class booking for yoga studios.')).toBeInTheDocument()
+    );
+
     expect(screen.getByText('publishBase.submit').closest('button')).toBeDisabled();
   });
 
@@ -141,7 +168,7 @@ describe('PublishBaseDialog submission', () => {
     const submission = renderSubmission(() => ({ panel: null, blocked: false, agreed: true }));
     fireEvent.click(screen.getByText('open-publish'));
     await waitFor(() =>
-      expect(screen.getByTitle('Class booking for yoga studios.')).toBeInTheDocument()
+      expect(screen.getByDisplayValue('Class booking for yoga studios.')).toBeInTheDocument()
     );
 
     await act(async () => {

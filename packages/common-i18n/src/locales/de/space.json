@@ -220,27 +220,28 @@
   },
   "publishBase": {
     "title": "Im Vorlagenzentrum veröffentlichen",
-    "description": "Veröffentlichen Sie Ihr Projekt mit einem Klick im Vorlagenzentrum! Lassen Sie mehr Menschen Ihre Kreativität sehen, nutzen und remixen, und bauen Sie gemeinsam ein leistungsstärkeres Geschäft auf",
-    "configureTitle": "Vorlage einrichten",
-    "configureDescription": "Herausragende Vorlagen können im Vorlagenzentrum erscheinen",
+    "description": "Im Vorlagenzentrum veröffentlichen, damit andere Ihre Vorlage finden und nutzen können.",
+    "configureTitle": "Vorlage veröffentlichen",
+    "configureDescription": "Nach der Veröffentlichung lässt sich die Vorlage per Link teilen und installieren. Nach der Prüfung erscheint sie im Vorlagenzentrum.",
     "infoTitle": "Basisinformationen",
     "form": {
-      "title": "Titel",
+      "title": "Vorlagenname",
       "description": "Beschreibung",
       "changelog": "Versionshinweise",
       "changelogPlaceholder": "Beschreiben Sie die Änderungen für bestehende Installationen; wird in der Upgrade-Vorschau angezeigt",
-      "publishNode": "Knoten veröffentlichen",
+      "publishNode": "Enthält",
       "includeData": "Daten einschließen",
       "defaultActiveNode": "Standardmäßig aktiver Knoten",
-      "descriptionPlaceholder": "Beschreibung",
-      "titlePlaceholder": "Titel",
+      "descriptionPlaceholder": "Beschreiben Sie, welches Problem sie löst und wie man sie nutzt",
+      "titlePlaceholder": "z. B. Kundennachverfolgung",
       "versionTitle": "Versionsinhalt",
-      "addChangelog": "Versionshinweise hinzufügen"
+      "addChangelog": "Versionshinweise hinzufügen",
+      "cover": "Titelbild"
     },
     "publishToCommunity": "Im Vorlagenzentrum veröffentlichen",
     "publish": "Veröffentlichen",
-    "publishSuccess": "Veröffentlichung erfolgreich!",
-    "previewTips": "Zeigen Sie der Welt Ihre Arbeit",
+    "publishSuccess": "Vorlage veröffentlicht",
+    "previewTips": "Vorschau im Vorlagenzentrum",
     "update": "Aktualisieren",
     "submit": "Vorlage veröffentlichen",
     "review": {
@@ -254,23 +255,29 @@
         "trial": "Testlauf",
         "content": "Inhalt"
       },
+      "checkLine": {
+        "connectors": "Nicht unterstützt: {{providers}}",
+        "estimate": "{{runs}}/Monat"
+      },
       "checkMessage": {
         "connectors": "Kann hier nicht verbunden werden: {{providers}}",
         "privacy": "Datensätze sind enthalten; prüfen Sie sie auf personenbezogene Daten",
         "estimate": "Etwa {{runs}} Ausführungen pro Monat, mehr als die {{free}} des kostenlosen Plans",
         "trial": "Die Automatisierungen benötigen kein Konto; stellen Sie sicher, dass sie ohne eines laufen",
-        "content": "Noch nur Ihres: {{count}}",
-        "contentMarked": "Als Beispiel markiert: {{count}}"
+        "content": "Zu ersetzende persönliche Inhalte ({{count}})",
+        "contentMarked": "Als Beispiel markiert ({{count}})"
       },
       "withdraw": "Veröffentlichung aufheben",
-      "withdrawn": "Veröffentlichung aufgehoben.",
+      "withdrawn": "Veröffentlichung aufgehoben",
       "withdrawConfirmTitle": "Veröffentlichung dieser Vorlage aufheben?",
       "withdrawConfirmDescription": "Danach öffnet sich ihr Link nicht mehr und sie erscheint nicht mehr im Vorlagenzentrum. Installierte Kopien sind nicht betroffen, und Sie können sie später erneut veröffentlichen.",
       "live": "Veröffentlicht · v{{version}}",
-      "listed": "Im Vorlagenzentrum"
+      "listed": "Im Vorlagenzentrum",
+      "allVersions": "Alle Versionen ({{count}})",
+      "fewerVersions": "Weniger anzeigen"
     },
     "unPublish": "Veröffentlichung aufheben",
-    "unPublishSuccess": "Veröffentlichung des Projekts erfolgreich aufgehoben!",
+    "unPublishSuccess": "Nicht mehr gelistet",
     "unPublishConfirmTitle": "Veröffentlichung aufheben bestätigen",
     "unPublishConfirmDescription": "Sind Sie sicher, dass Sie die Veröffentlichung dieses Projekts aufheben möchten? Das Projekt wird nicht mehr im Vorlagenzentrum sichtbar sein.",
     "uploadCover": "Klicken, um Titelbild hochzuladen",
@@ -284,29 +291,44 @@
       "atLeastOneNode": "Bitte wählen Sie mindestens einen Knoten zur Veröffentlichung",
       "coverRequired": "Füge ein Titelbild hinzu"
     },
-    "urlCopied": "URL in die Zwischenablage kopiert!",
-    "urlCopiedForDiscord": "URL in die Zwischenablage kopiert! Sie können sie in Discord einfügen.",
+    "urlCopied": "Link kopiert",
+    "urlCopiedForDiscord": "Link kopiert. Fügen Sie ihn in Discord ein.",
     "featuredLabel": "Featured",
-    "featuredTip": "Offiziell als Featured ausgewählt. Ihre Vorlage wird mehr Aufmerksamkeit erhalten.",
-    "publishSuccessDescription": "Teilen Sie Ihre Arbeit mit der Welt",
+    "featuredTip": "Von Teable empfohlen. Ihre Vorlage erhält mehr Sichtbarkeit.",
+    "publishSuccessDescription": "Kopieren Sie den Link oder teilen Sie ihn in sozialen Netzwerken.",
     "shareWith": "Teilen mit",
     "unpublishedApps": {
-      "title": "Unveröffentlichte Apps erkannt",
-      "description": "Unveröffentlichte Apps können Fehler bei der Vorlagenvorschau verursachen. Veröffentlichen Sie sie jetzt oder fahren Sie trotzdem fort.",
-      "publishAll": "Alle veröffentlichen",
+      "title": "Einige Apps sind nicht veröffentlicht",
+      "description": "Nicht veröffentlichte Apps lassen sich in der Vorlagenvorschau möglicherweise nicht öffnen.",
+      "publishAll": "Alle Apps veröffentlichen",
       "publish": "Veröffentlichen",
       "published": "Veröffentlicht",
-      "publishing": "Veröffentlichen...",
+      "publishing": "Wird veröffentlicht…",
       "notPublished": "Nicht veröffentlicht",
       "publishFailed": "Veröffentlichung fehlgeschlagen",
       "publishFailedTip1": "Überprüfen Sie, ob die Quell-App erfolgreich veröffentlicht werden kann",
       "publishFailedTip2": "Versuchen Sie, diese Vorlage erneut zu veröffentlichen",
-      "ignoreAndContinue": "Ignorieren und fortfahren",
-      "goToFix": "Zur Behebung",
-      "redeploy": "Erneut bereitstellen",
+      "ignoreAndContinue": "Ohne Veröffentlichen fortfahren",
+      "goToFix": "App öffnen",
+      "redeploy": "Erneut veröffentlichen",
       "unnamedApp": "Unbenannte App"
     },
-    "submitVersion": "v{{version}} veröffentlichen"
+    "submitVersion": "v{{version}} veröffentlichen",
+    "agreeTermsFirst": "Stimme den Creator-Bedingungen zu, um zu veröffentlichen.",
+    "preview": {
+      "titleMissing": "Gib einen Vorlagennamen ein",
+      "descriptionMissing": "Füge eine Beschreibung hinzu"
+    },
+    "updateTemplate": "Vorlage aktualisieren",
+    "timeline": {
+      "versions": "Versionsverlauf",
+      "published": "Veröffentlicht"
+    },
+    "checksTitle": "Prüfungen vor dem Veröffentlichen",
+    "listing": {
+      "title": "Eintrag",
+      "separator": ", "
+    }
   },
   "dataDb": {
     "create": {
@@ -477,14 +499,14 @@
     "fromGoogleSheetDesc": "Eine Tabelle auswählen"
   },
   "templateProject": {
-    "make": "Als Vorlage erstellen",
-    "new": "Neues Vorlagenprojekt",
+    "make": "Vorlage erstellen",
+    "new": "Vorlagenprojekt erstellen",
     "plural": "Vorlagenprojekte",
     "projectsTab": "Projekte",
     "empty": "Noch keine Vorlagenprojekte",
     "trialCopy": "Testkopie",
     "wholeProject": "Alles im Projekt ({{count}})",
-    "sampleRecords": "Beispieldatensätze: {{count}}",
+    "sampleRecords": "Beispieldatensätze ({{count}})",
     "noRecords": "Keine Datensätze"
   }
 }

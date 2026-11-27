@@ -4,7 +4,6 @@ import { useBase } from '@teable/sdk/hooks';
 import { Spin } from '@teable/ui-lib';
 import {
   Button,
-  cn,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,7 +15,10 @@ import { AlertTriangle, Check, ExternalLink, Loader2, Rocket } from 'lucide-reac
 import Link from 'next/link';
 import { useTranslation } from 'next-i18next';
 import { useState, useEffect } from 'react';
+import { BaseNodeResourceIconMap } from '../../../base/base-node/hooks';
 import type { TreeItemData } from '../../../base/base-node/hooks';
+
+const AppIcon = BaseNodeResourceIconMap[BaseNodeResourceType.App];
 
 export interface IUnpublishedApp {
   nodeId: string;
@@ -116,109 +118,102 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px]">
-        <DialogHeader className="flex flex-row items-start gap-4 space-y-0 text-start">
-          <div className="flex size-10 shrink-0 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
-            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-500" />
+      <DialogContent className="max-w-[480px] gap-5">
+        <DialogHeader className="flex flex-row items-start gap-3 space-y-0 text-start">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full bg-warning/10">
+            <AlertTriangle className="size-5 text-warning" />
           </div>
-          <div className="flex flex-col gap-1.5 pt-0.5">
-            <DialogTitle className="leading-none">
+          <div className="flex min-w-0 flex-col gap-1">
+            <DialogTitle className="text-base leading-6">
               {t('publishBase.unpublishedApps.title')}
             </DialogTitle>
-            <DialogDescription className="text-sm leading-normal text-muted-foreground">
+            <DialogDescription className="text-sm text-muted-foreground">
               {t('publishBase.unpublishedApps.description')}
             </DialogDescription>
           </div>
         </DialogHeader>
 
-        <div className="my-4 flex max-h-[400px] flex-col gap-2 overflow-auto">
+        {/* One list, every line the same height whatever it is doing, so the dialog never moves. */}
+        <ul className="max-h-[400px] divide-y overflow-auto rounded-lg border">
           {apps.map((app) => {
             const node = treeItems[app.nodeId];
             const nodeName =
               node?.resourceMeta?.name || app.name || t('publishBase.unpublishedApps.unnamedApp');
 
             return (
-              <div
-                key={app.nodeId}
-                className={cn(
-                  'flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3',
-                  app.isPublished &&
-                    'border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950',
-                  app.error && 'border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950'
-                )}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-medium">{nodeName}</div>
-                  {app.error && <div className="truncate text-xs text-red-600">{app.error}</div>}
-                </div>
-                <div className="flex shrink-0 items-center gap-1">
+              <li key={app.nodeId} className="flex h-11 items-center gap-2 px-3">
+                <AppIcon className="size-4 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1 truncate text-sm">{nodeName}</span>
+                <div className="flex h-7 shrink-0 items-center gap-1.5 text-xs">
                   {app.isPublished ? (
-                    <div className="flex items-center gap-1 text-green-600">
+                    <span className="flex items-center gap-1 text-success">
                       <Check className="size-4 shrink-0" />
-                      <span className="text-xs">{t('publishBase.unpublishedApps.published')}</span>
-                    </div>
+                      {t('publishBase.unpublishedApps.published')}
+                    </span>
                   ) : app.isPublishing ? (
-                    <div className="flex items-center gap-1 text-muted-foreground">
+                    <span className="flex items-center gap-1 text-muted-foreground">
                       <Loader2 className="size-4 shrink-0 animate-spin" />
-                      <span className="text-xs">{t('publishBase.unpublishedApps.publishing')}</span>
-                    </div>
+                      {t('publishBase.unpublishedApps.publishing')}
+                    </span>
                   ) : app.error ? (
                     <>
+                      {/* The reason is kept on hover: a second line would grow the dialog. */}
+                      <span className="max-w-32 truncate text-destructive" title={app.error}>
+                        {app.error}
+                      </span>
                       {canPublish && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          onClick={() => handlePublishApp(app)}
-                          className="h-7 shrink-0 gap-1 px-2"
-                        >
+                        <Button size="xs" variant="outline" onClick={() => handlePublishApp(app)}>
                           <Rocket className="size-3 shrink-0" />
-                          <span className="truncate">
-                            {t('publishBase.unpublishedApps.redeploy')}
-                          </span>
+                          {t('publishBase.unpublishedApps.redeploy')}
                         </Button>
                       )}
                       {baseId && (
-                        <Button
-                          size="xs"
-                          variant="outline"
-                          className="h-7 shrink-0 gap-1 px-2"
-                          asChild
-                        >
+                        <Button size="xs" variant="outline" asChild>
                           <Link href={`/base/${baseId}/app/${app.resourceId}`} target="_blank">
                             <ExternalLink className="size-3 shrink-0" />
-                            <span className="truncate">
-                              {t('publishBase.unpublishedApps.goToFix')}
-                            </span>
+                            {t('publishBase.unpublishedApps.goToFix')}
                           </Link>
                         </Button>
                       )}
                     </>
                   ) : canPublish ? (
-                    <Button
-                      size="xs"
-                      variant="outline"
-                      onClick={() => handlePublishApp(app)}
-                      className="h-7 gap-1"
-                    >
+                    <Button size="xs" variant="outline" onClick={() => handlePublishApp(app)}>
                       <Rocket className="size-3" />
                       {t('publishBase.unpublishedApps.publish')}
                     </Button>
                   ) : (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-muted-foreground">
                       {t('publishBase.unpublishedApps.notPublished')}
                     </span>
                   )}
                 </div>
-              </div>
+              </li>
             );
           })}
-        </div>
+        </ul>
 
-        <DialogFooter className="flex-col gap-2 sm:flex-row">
-          {canPublish && (
+        {/* The main action ends the row: publishing them all, or going on once they all are. */}
+        <DialogFooter className="gap-2 sm:space-x-0">
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={somePublishing || isPublishingAll}
+          >
+            {t('common:actions.cancel')}
+          </Button>
+          <Button
+            onClick={onContinue}
+            disabled={somePublishing || isPublishingAll}
+            variant={allPublished ? 'default' : 'outline'}
+          >
+            {allPublished
+              ? t('common:actions.continue')
+              : t('publishBase.unpublishedApps.ignoreAndContinue')}
+          </Button>
+          {canPublish && !allPublished && (
             <Button
               onClick={handlePublishAllApps}
-              disabled={allPublished || somePublishing || isPublishingAll}
+              disabled={somePublishing || isPublishingAll}
               className="gap-1"
             >
               <Rocket className="size-4" />
@@ -226,24 +221,6 @@ export const UnpublishedAppsDialog = (props: IUnpublishedAppsDialogProps) => {
               {(somePublishing || isPublishingAll) && <Spin className="ms-1 size-4" />}
             </Button>
           )}
-          <div className="flex flex-1 justify-end gap-2">
-            <Button
-              variant="ghost"
-              onClick={() => onOpenChange(false)}
-              disabled={somePublishing || isPublishingAll}
-            >
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              onClick={onContinue}
-              disabled={somePublishing || isPublishingAll}
-              variant={allPublished ? 'default' : 'outline'}
-            >
-              {allPublished
-                ? t('common:actions.continue')
-                : t('publishBase.unpublishedApps.ignoreAndContinue')}
-            </Button>
-          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -261,8 +238,8 @@ export const getUnpublishedAppNodes = (
     const node = treeItems[nodeId];
     if (node && node.resourceType === BaseNodeResourceType.App) {
       const resourceMeta = node.resourceMeta as IBaseNodeAppResourceMeta;
-      // Check if app is not published (no publicUrl or no publishedVersion)
-      if (!resourceMeta?.publicUrl || !resourceMeta?.publishedVersion) {
+      // Not published: no public URL, or no published version (version 0 is a published one)
+      if (!resourceMeta?.publicUrl || typeof resourceMeta?.publishedVersion !== 'number') {
         unpublishedApps.push({
           nodeId,
           name: resourceMeta?.name || '',

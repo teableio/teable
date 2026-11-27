@@ -24,6 +24,7 @@ import type { ITableRepository, TableFindOneOptions } from '../ports/TableReposi
 import type { IUnitOfWorkOptions } from '../ports/UnitOfWork';
 import { DeleteViewCommand } from './DeleteViewCommand';
 import { DeleteViewHandler } from './DeleteViewHandler';
+import { createFieldOperationPluginRunner } from './fieldOperationPluginRunnerTestUtils';
 
 const baseId = BaseId.create(`bse${'a'.repeat(16)}`)._unsafeUnwrap();
 const tableId = (seed: string) => TableId.create(`tbl${seed.repeat(16)}`)._unsafeUnwrap();
@@ -217,7 +218,8 @@ const createHandler = (repository: FakeTableRepository) => {
     repository as unknown as ITableRepository,
     flow as unknown as TableUpdateFlow,
     domainWriteTransaction as unknown as IDomainWriteTransaction,
-    undoRedo
+    undoRedo,
+    createFieldOperationPluginRunner()
   );
   return { handler, flow, domainWriteTransaction };
 };
@@ -246,8 +248,12 @@ describe('DeleteViewHandler', () => {
     expect(domainWriteTransaction.options).toEqual({ scope: 'meta' });
     expect(repository.findOneOptions).toEqual([{ lock: 'forUpdate' }, { lock: 'forUpdate' }]);
     expect(flow.updatedTables).toHaveLength(2);
-    expect(domainWriteTransaction.published.some((event) => event instanceof ViewDeleted)).toBe(true);
-    expect(domainWriteTransaction.published.some((event) => event instanceof FieldUpdated)).toBe(true);
+    expect(domainWriteTransaction.published.some((event) => event instanceof ViewDeleted)).toBe(
+      true
+    );
+    expect(domainWriteTransaction.published.some((event) => event instanceof FieldUpdated)).toBe(
+      true
+    );
   });
 
   it('keeps deletion valid when an orphan foreign Table is missing', async () => {

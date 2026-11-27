@@ -35,12 +35,16 @@ import { AggregationQueryPostgres } from './aggregation-query/postgres/aggregati
 import type { BaseQueryAbstract } from './base-query/abstract';
 import { BaseQueryPostgres } from './base-query/base-query.postgres';
 import type { ICreateDatabaseColumnContext } from './create-database-column-query/create-database-column-field-visitor.interface';
-import { CreatePostgresDatabaseColumnFieldVisitor } from './create-database-column-query/create-database-column-field-visitor.postgres';
+import {
+  CreatePostgresDatabaseColumnFieldVisitor,
+  buildPostgresLinkForeignKeySchema,
+} from './create-database-column-query/create-database-column-field-visitor.postgres';
 import type {
   IAggregationQueryExtra,
   ICalendarDailyCollectionQueryProps,
   IDbProvider,
   IFilterQueryExtra,
+  ILinkForeignKeySchemaOptions,
   IRawQueryExecutor,
   ISortQueryExtra,
 } from './db.provider.interface';
@@ -399,6 +403,16 @@ WHERE con.contype = 'f'
       (visitor as CreatePostgresDatabaseColumnFieldVisitor | undefined)?.getSql() ?? [];
 
     return [...mainSqls, ...additionalSqls].filter(Boolean);
+  }
+
+  createLinkForeignKeySchema(
+    options: ILinkForeignKeySchemaOptions,
+    dbTableName: string,
+    foreignDbTableName: string
+  ): string[] {
+    return buildPostgresLinkForeignKeySchema(this.knex, options, dbTableName, foreignDbTableName)
+      .toSQL()
+      .map(({ sql }) => sql);
   }
 
   splitTableName(tableName: string): string[] {

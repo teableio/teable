@@ -51,6 +51,10 @@ export class NoopUndoRedoStore implements IUndoRedoStore {
     return err(domainError.conflict({ message: 'Undo/redo reservation does not exist' }));
   }
 
+  async replaceReservedInverse(): Promise<Result<void, DomainError>> {
+    return err(domainError.conflict({ message: 'Undo/redo reservation does not exist' }));
+  }
+
   async markProgress(
     _scope: UndoScope,
     _token: string,

@@ -32,7 +32,7 @@ export type FieldOperationTargetKind =
 export type FieldOperationPluginTarget = {
   readonly kind: FieldOperationTargetKind;
   readonly sourceTable: Table;
-  readonly sourceOperation: FieldOperationKind;
+  readonly sourceOperation: FieldOperationKind | 'deleteView' | 'restoreView';
 };
 
 export type FieldOperationPluginEnforce = 'pre' | 'post';

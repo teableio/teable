@@ -109,6 +109,8 @@ interface IBaseActionTrigger {
   showTrash?: boolean;
   showTemplate?: boolean;
   showPublish?: boolean;
+  /** Where the shell has a page for publishing (the chat-first shell's tab): opened instead of the dialog. */
+  onOpenPublish?: () => void;
   onRename?: () => void;
   onDelete?: (permanent?: boolean) => void;
   align?: 'center' | 'end' | 'start';
@@ -214,6 +216,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
     showTrash,
     showTemplate,
     showPublish,
+    onOpenPublish,
     onDelete,
     onRename,
     align = 'end',
@@ -626,7 +629,7 @@ export const BaseActionTrigger: React.FC<React.PropsWithChildren<IBaseActionTrig
           {showPublish && (
             <TemplateEntryItem
               baseId={base.id}
-              onPublish={() => setPublishOpen(true)}
+              onPublish={() => (onOpenPublish ? onOpenPublish() : setPublishOpen(true))}
               onMakeTemplate={() => setMakeTemplateOpen(true)}
             />
           )}

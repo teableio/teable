@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { generateAttachmentId } from '@teable/core';
 import { Link, Plus } from '@teable/icons';
-import type { ITemplateCoverRo, INotifyVo, IPublishBaseRo, IGetBaseVo } from '@teable/openapi';
+import type {
+  ITemplateCoverRo,
+  INotifyVo,
+  IPublishBaseRo,
+  IGetBaseVo,
+  ITemplateVo,
+} from '@teable/openapi';
 import {
   getBaseNodeTree,
   getTemplateByBaseId,
@@ -15,7 +21,8 @@ import {
 } from '@teable/openapi';
 import { AttachmentManager } from '@teable/sdk/components';
 import { ReactQueryKeys } from '@teable/sdk/config';
-import { Spin, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@teable/ui-lib';
+import { SessionContext } from '@teable/sdk/context';
+import { Spin } from '@teable/ui-lib';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -42,13 +49,15 @@ import {
 import { toast } from '@teable/ui-lib/shadcn/ui/sonner';
 import confetti from 'canvas-confetti';
 import { noop } from 'lodash';
-import { Camera, Send, Copy, ExternalLink } from 'lucide-react';
+import { Camera, ChevronLeft, Copy, ExternalLink, Send } from 'lucide-react';
 import { useTranslation } from 'next-i18next';
 import { useState, useRef, useEffect, useMemo, useCallback, useContext } from 'react';
 import {
   TemplateHostContext,
   useTemplateSubmitTerms,
+  type ITemplateSubmitTerms,
 } from '@/features/app/components/space/template/host-context';
+import { TemplateCard } from '@/features/app/components/space/template/TemplateCard';
 import { useIsCloud } from '@/features/app/hooks/useIsCloud';
 import { useOrigin } from '@/features/app/hooks/useOrigin';
 import { useShortLink } from '@/features/app/hooks/useShortLink';
@@ -58,6 +67,9 @@ import { buildTreeItems, filterAutoHiddenFolders, ROOT_ID } from '../../../base/
 import { useAppPublishContext } from './AppPublishContext';
 import { normalizeCheckedItems } from './node-tree-check';
 import { NodeSelect } from './NodeSelect';
+import { usePublishDraft } from './publish-draft';
+import { PublishTimelinePage } from './PublishVersionTimeline';
+import type { IPublishTimelineProps } from './PublishVersionTimeline';
 import {
   IncludeDataSwitch,
   PublishScopeField,
@@ -87,7 +99,15 @@ interface IPublishBaseDialogProps {
   base: IGetBaseVo;
   children?: React.ReactNode;
   onClose: () => void;
+  /**
+   * `dialog` (default): a dialog, the preview beside the form. `page`: a page of its own, the
+   * template's versions on one line with the next one's checklist (the chat-first shell's
+   * publish tab).
+   */
+  variant?: 'dialog' | 'page';
   closeOnSuccess?: boolean;
+  /** A page shown in place of the project's nodes (the classic shell): the way back to them. */
+  onBack?: () => void;
   // Controlled mode, for callers that must not mount the dialog inside a dropdown menu
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -98,11 +118,29 @@ const useControllableOpen = (open?: boolean, onOpenChange?: (open: boolean) => v
   return [open ?? innerOpen, onOpenChange ?? setInnerOpen] as const;
 };
 
+/**
+ * A page is open for as long as it is shown: what would close the dialog (publishing, fixing a
+ * finding, editing the guide) leaves it where it is.
+ */
+const usePublishOpen = (
+  page: boolean,
+  open?: boolean,
+  onOpenChange?: (open: boolean) => void
+): readonly [boolean, (open: boolean) => void] => {
+  const [dialogOpen, setDialogOpen] = useControllableOpen(open, onOpenChange);
+  return page ? [true, noop] : [dialogOpen, setDialogOpen];
+};
+
+/** Publish's icon, a spinner while it publishes, so the button keeps its width. */
+const PublishIcon = ({ loading }: { loading: boolean }) =>
+  loading ? <Spin className="size-4" /> : <Send />;
+
 export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const { base, children, onClose, closeOnSuccess = false } = props;
   const { t } = useTranslation(['space', 'common']);
   const baseId = base.id;
-  const [open, setOpen] = useControllableOpen(props.open, props.onOpenChange);
+  const isPage = props.variant === 'page';
+  const [open, setOpen] = usePublishOpen(isPage, props.open, props.onOpenChange);
   // Read by id rather than from the page, so the dialog can publish a project other than the open one.
   const { data: tree, isLoading: treeLoading } = useQuery({
     queryKey: ReactQueryKeys.baseNodeTree(baseId),
@@ -125,7 +163,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const appPublishContext = useAppPublishContext();
   const host = useContext(TemplateHostContext);
   const { submission } = host;
+  // Who publishes it, for the preview's third line; absent where no session is provided.
+  const sessionUser = useContext(SessionContext)?.user;
   const terms = useTemplateSubmitTerms(open && Boolean(submission));
+  const termsNudge = useTermsNudge(terms, open);
 
   const queryClient = useQueryClient();
 
@@ -146,11 +187,15 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   );
 
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-  const [title, setTitle] = useState(base.name ?? '');
-  const [description, setDescription] = useState<string | undefined>('');
-  const [changelog, setChangelog] = useState('');
-  const [changelogOpen, setChangelogOpen] = useState(false);
-  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>();
+  // The page keeps what was typed or uploaded until it is published; the dialog starts afresh.
+  const draft = usePublishDraft(isPage, baseId, base.name ?? '');
+  const keepDraft = draft.keep;
+  const [title, setTitle] = useState(draft.initial.title);
+  const [description, setDescription] = useState<string | undefined>(draft.initial.description);
+  const [changelog, setChangelog] = useState(draft.initial.changelog);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | undefined>(
+    draft.initial.cover?.presignedUrl
+  );
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadedCover, setUploadedCover] = useState<
@@ -159,7 +204,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         name: string;
       })
     | null
-  >(null);
+  >(draft.initial.cover);
   const [includeData, setIncludeData] = useState(true);
   const [defaultActiveNodeId, setDefaultActiveNodeId] = useState<string | null | undefined>(null);
   const uploadRef = useRef<HTMLInputElement>(null);
@@ -172,14 +217,14 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   const [unpublishedApps, setUnpublishedApps] = useState<IUnpublishedApp[]>([]);
   const [externalApps, setExternalApps] = useState<IUnpublishedApp[] | undefined>(undefined);
 
-  const { data: templateDetail } = useQuery({
+  const { data: templateDetail, isLoading: templateLoading } = useQuery({
     queryKey: ['template-by-base', baseId],
     staleTime: 0,
     refetchOnWindowFocus: false,
     queryFn: () => getTemplateByBaseId(baseId).then((res) => res.data),
     enabled: open,
   });
-  const isTemplatePublished = templateDetail?.isPublished;
+  const live = isTemplateLive(templateDetail);
   // A template project goes out whole, with the sample records it holds.
   const project = useTemplateProjectPublish({
     baseId,
@@ -188,7 +233,6 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   });
   const publishedNodeIds = publishScopeOf(project.isTemplateProject, allNodeIds, selectedNodeIds);
   const shipsRecords = publishScopeOf(project.isTemplateProject, true, includeData);
-  const isTemplateFeatured = templateDetail?.featured ?? false;
   const savedCoverUrl = templateDetail?.cover?.presignedUrl || undefined;
   const origin = useOrigin();
 
@@ -206,8 +250,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   useEffect(() => {
     if (!templateDetail) return;
 
-    setTitle(templateDetail?.name || base.name || '');
-    setDescription(templateDetail?.description);
+    // What the author has typed and not yet published wins over what was published last.
+    const unpublished = draft.read();
+    setTitle(unpublished.title ?? (templateDetail?.name || base.name || ''));
+    setDescription(unpublished.description ?? templateDetail?.description);
     // only update with server data when no manual upload of image
     if (!uploadedCover) {
       setScreenshotUrl(savedCoverUrl);
@@ -223,7 +269,7 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
         templateDetail?.snapshot?.baseId
       )
     );
-  }, [templateDetail, base.name, uploadedCover, origin, savedCoverUrl]);
+  }, [templateDetail, base.name, uploadedCover, origin, savedCoverUrl, draft]);
 
   // Seed the selection from saved nodes once per template response; base-node refreshes
   // must not overwrite what the user has (un)checked since
@@ -331,8 +377,11 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     onSuccess: (data) => {
       // after publish success, clear the uploaded cover, use server data next time
       setUploadedCover(null);
-      // Close the publish dialog and show success dialog
+      draft.clear();
+      // Close the publish dialog and show success dialog; on the page, leave the next version's
+      // notes blank.
       setOpen(false);
+      setChangelog('');
       setSuccessDialogOpen(true);
       // Published either way: a submission goes live the moment it is made.
       fireConfetti();
@@ -419,12 +468,10 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
       UploadType.Template,
       {
         successCallback: (_, result: INotifyVo) => {
+          const cover = { ...result, id: attachmentId, name: fileName };
           setScreenshotUrl(result.presignedUrl);
-          setUploadedCover({
-            ...result,
-            id: attachmentId,
-            name: fileName,
-          });
+          setUploadedCover(cover);
+          keepDraft({ cover });
           setIsUploading(false);
           toast.success(t('publishBase.uploadSuccess'), { id: toastId });
         },
@@ -513,245 +560,289 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
     publishMutate({ title, description: description || '' });
   }, [title, description, publishMutate]);
 
+  // The form, the catalogue preview, where the listing stands and the publish bar: drawn as a
+  // dialog with the preview beside the form, or laid out on the page's version line.
+  const cardFields = (
+    <>
+      <input
+        ref={uploadRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileSelect}
+      />
+      <ListingFields
+        page={isPage}
+        coverRequired={Boolean(submission)}
+        cover={
+          <CoverPicker
+            screenshotUrl={screenshotUrl}
+            isUploading={isUploading}
+            uploadProgress={uploadProgress}
+            onPick={handleUploadClick}
+          />
+        }
+        title={title}
+        onTitleChange={(value) => {
+          setTitle(value);
+          keepDraft({ title: value });
+        }}
+        description={description ?? ''}
+        onDescriptionChange={(value) => {
+          setDescription(value);
+          keepDraft({ description: value });
+        }}
+      />
+    </>
+  );
+  const scopeFields = (
+    <>
+      {/* A template project ships all of itself, so only where it opens is left to choose. */}
+      <div className={cn('grid gap-4', !project.isTemplateProject && 'sm:grid-cols-2')}>
+        {!project.isTemplateProject && (
+          <div className="flex flex-col gap-2">
+            <Label className="leading-5">{t('publishBase.form.publishNode')}</Label>
+            <PublishScopeField
+              wholeProject={false}
+              count={resourceCount}
+              records={project.records}
+              checkedItems={selectedNodeIds}
+              onCheckedItemsChange={setSelectedNodeIds}
+              totalNodeCount={allNodeIds.length}
+            />
+          </div>
+        )}
+        <div className="flex flex-col gap-2">
+          <Label className="leading-5">{t('publishBase.form.defaultActiveNode')}</Label>
+          <NodeSelect
+            className="bg-background"
+            nodeIds={publishedNodeIds}
+            value={defaultActiveNodeId || ''}
+            onChange={setDefaultActiveNodeId}
+          />
+        </div>
+      </div>
+      <IncludeDataSwitch
+        hidden={project.isTemplateProject}
+        checked={includeData}
+        onCheckedChange={setIncludeData}
+      />
+    </>
+  );
+  // Notes for whoever installed it: there is only someone to tell once a version is live.
+  const changeChangelog = (value: string) => {
+    setChangelog(value);
+    keepDraft({ changelog: value });
+  };
+  const changelogField = live && (
+    <TemplateChangelogField
+      template={templateDetail}
+      value={changelog}
+      onChange={changeChangelog}
+    />
+  );
+  const guideRow = submission?.renderGuideRow?.({
+    baseId,
+    includeData: shipsRecords,
+    close: () => setOpen(false),
+  });
+  const formFields = (
+    <>
+      {cardFields}
+      {scopeFields}
+      {changelogField}
+      {guideRow}
+    </>
+  );
+  // A submission is what a shared link previews: it needs a cover.
+  const hasCover = !submission || Boolean(uploadedCover || savedCoverUrl);
+  // The page's button waits for what the card still lacks, marked on its fields; the dialog says
+  // so when the button is pressed.
+  const waitsForListing = pageWaitsForListing({ page: isPage, title, description, hasCover });
+  // Everything the author sets is on the page's left; the side column only shows.
+  const listing = (
+    <>
+      {cardFields}
+      {scopeFields}
+    </>
+  );
+  // Each section of the side column: its heading outside, what it holds in a card under it.
+  const previewTemplate = previewTemplateOf({
+    template: templateDetail,
+    // A required field left empty says so where it would show, rather than leaving a gap.
+    title: title.trim() ? title : t('publishBase.preview.titleMissing'),
+    description: description?.trim() ? description : t('publishBase.preview.descriptionMissing'),
+    coverUrl: screenshotUrl,
+    user: sessionUser,
+  });
+  const previewCard = (
+    <section className="flex flex-col gap-2">
+      <h3 className="text-sm font-medium leading-5">{t('publishBase.previewTips')}</h3>
+      {/* A picture of the card, not one to open: it takes no clicks or focus. */}
+      <div className="rounded-lg border bg-background p-3" inert>
+        <ClientOnly>
+          <TemplateCard template={previewTemplate} size="sm" />
+        </ClientOnly>
+      </div>
+    </section>
+  );
+  const reviewPanel = (
+    <TemplateReviewPanel
+      template={templateDetail}
+      onWithdraw={withdrawMutate}
+      withdrawing={withdrawLoading}
+      shareUrl={displayShareUrl}
+    />
+  );
+  const legacyStatus = (
+    <>
+      {!submission && templateDetail?.isPublished && (
+        <div className="flex h-9 items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
+          <Link className="size-4 shrink-0" />
+          <div className="grow truncate text-sm text-muted-foreground">{displayShareUrl}</div>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-full w-9 shrink-0 rounded-none border-s p-0"
+            aria-label={t('common:actions.copyLink')}
+            title={t('common:actions.copyLink')}
+            onClick={handleCopyUrl}
+          >
+            <Copy className="size-4" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="h-full w-9 shrink-0 rounded-none border-s p-0"
+            aria-label={t('common:actions.openLink')}
+            title={t('common:actions.openLink')}
+            onClick={() => window.open(displayShareUrl, '_blank')}
+          >
+            <ExternalLink className="size-4" />
+          </Button>
+        </div>
+      )}
+      {!submission && templateDetail?.isPublished && (
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button
+              size="sm"
+              variant="outline"
+              className="self-start text-destructive"
+              disabled={unpublishTemplateLoading}
+            >
+              {t('publishBase.unPublish')}
+              {unpublishTemplateLoading && <Spin className="size-4" />}
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t('publishBase.unPublishConfirmTitle')}</AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('publishBase.unPublishConfirmDescription')}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => unpublishTemplateMutate()}
+              >
+                {t('common:actions.confirm')}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
+    </>
+  );
+  const statusPanels = (
+    <>
+      {project.checks}
+      {legacyStatus}
+    </>
+  );
+  const termsBar = (
+    <>
+      {terms.panel && (
+        <div
+          ref={termsNudge.ref}
+          className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:me-auto"
+        >
+          {terms.panel}
+          {termsNudge.showHint && (
+            <span role="alert" className="text-xs text-destructive">
+              {t('publishBase.agreeTermsFirst')}
+            </span>
+          )}
+        </div>
+      )}
+    </>
+  );
+  // Unagreed terms don't grey the button out: pressing it says what is missing.
+  const publishButton = (
+    <Button
+      onClick={() => termsNudge.guard(handlePublishClick)}
+      disabled={publishLoading || project.blocked || termsNudge.waiting || waitsForListing}
+    >
+      <PublishIcon loading={publishLoading} />
+      {publishLabel}
+    </Button>
+  );
+  const header = (
+    <PublishHeading
+      page={isPage}
+      title={project.title}
+      description={project.description}
+      onBack={props.onBack}
+    />
+  );
+
+  const slots = {
+    header,
+    formFields,
+    previewCard,
+    reviewPanel,
+    statusPanels,
+    termsBar,
+    publishButton,
+  };
+
   return (
     <BaseNodeContext.Provider value={nodeContext}>
-      <Dialog open={open} onOpenChange={setOpen}>
-        {children && <DialogTrigger asChild>{children}</DialogTrigger>}
-        <DialogContent className="flex max-h-[90vh] max-w-[1080px] flex-col gap-0 overflow-hidden p-0">
-          <DialogHeader className="border-b px-6 py-4 text-start">
-            <DialogTitle>{project.title}</DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              {project.description}
-            </DialogDescription>
-          </DialogHeader>
-          {/* Side by side from md up; on a narrow screen the preview column goes below the form,
-              which would otherwise be squeezed to a few characters, and the two scroll as one. */}
-          <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
-            <div className="flex min-w-0 flex-1 flex-col gap-6 px-6 py-5 md:overflow-y-auto">
-              <section className="flex flex-col gap-3">
-                <div className="text-sm font-semibold">{t('publishBase.infoTitle')}</div>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('publishBase.form.title')}
-                  </Label>
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder={t('publishBase.form.titlePlaceholder')}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label className="text-xs text-muted-foreground">
-                    {t('publishBase.form.description')}
-                  </Label>
-                  <Textarea
-                    className="min-h-16 resize-y"
-                    value={description}
-                    onChange={(e) => setDescription(e.target.value)}
-                    placeholder={t('publishBase.form.descriptionPlaceholder')}
-                  />
-                </div>
-              </section>
-
-              <section className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold">{t('publishBase.form.versionTitle')}</div>
-                  {submission && templateDetail && !changelogOpen && !changelog && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      className="h-auto p-0 text-xs"
-                      onClick={() => setChangelogOpen(true)}
-                    >
-                      {t('publishBase.form.addChangelog')}
-                    </Button>
-                  )}
-                </div>
-                {(changelogOpen || changelog) && (
-                  <TemplateChangelogField
-                    template={templateDetail}
-                    value={changelog}
-                    onChange={setChangelog}
-                    focusOnMount={changelogOpen}
-                  />
-                )}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      {t('publishBase.form.publishNode')}
-                    </Label>
-                    <PublishScopeField
-                      wholeProject={project.isTemplateProject}
-                      count={resourceCount}
-                      records={project.records}
-                      checkedItems={selectedNodeIds}
-                      onCheckedItemsChange={setSelectedNodeIds}
-                      totalNodeCount={allNodeIds.length}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label className="text-xs text-muted-foreground">
-                      {t('publishBase.form.defaultActiveNode')}
-                    </Label>
-                    <NodeSelect
-                      nodeIds={publishedNodeIds}
-                      value={defaultActiveNodeId || ''}
-                      onChange={setDefaultActiveNodeId}
-                    />
-                  </div>
-                </div>
-                <IncludeDataSwitch
-                  hidden={project.isTemplateProject}
-                  checked={includeData}
-                  onCheckedChange={setIncludeData}
-                />
-                {submission?.renderGuideRow?.({
-                  baseId,
-                  includeData: shipsRecords,
-                  close: () => setOpen(false),
-                })}
-              </section>
-            </div>
-
-            <aside className="flex w-full shrink-0 flex-col gap-4 border-t bg-muted/40 p-5 md:w-[380px] md:overflow-y-auto md:border-s md:border-t-0">
-              <input
-                ref={uploadRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleFileSelect}
-              />
-              <div className="text-sm font-semibold">{t('publishBase.previewTips')}</div>
-              <div className="flex flex-col gap-2 rounded-lg border bg-background p-3">
-                <CoverPicker
-                  screenshotUrl={screenshotUrl}
-                  isUploading={isUploading}
-                  uploadProgress={uploadProgress}
-                  onPick={handleUploadClick}
-                  overlay={templateDetail ? host.renderCoverOverlay?.(templateDetail) : null}
-                />
-                <div className="flex items-center justify-between gap-2">
-                  <p
-                    className={cn(
-                      'truncate text-base font-medium',
-                      title ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {title || t('publishBase.form.titlePlaceholder')}
-                  </p>
-                  {/* Where a review lists templates, the panel below says so: shown once. */}
-                  {!submission && isTemplatePublished && isTemplateFeatured && (
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <span className="inline-flex shrink-0 items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
-                            {t('publishBase.featuredLabel')}
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent hideWhenDetached={true}>
-                          {t('publishBase.featuredTip')}
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  )}
-                </div>
-                <p
-                  className={cn(
-                    'line-clamp-2 text-sm',
-                    description ? 'text-muted-foreground' : 'text-foreground/50'
-                  )}
-                  title={description}
-                >
-                  {description || t('publishBase.form.descriptionPlaceholder')}
-                </p>
-                {templateDetail && host.renderCardFooter && (
-                  <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                    {host.renderCardFooter(templateDetail)}
-                  </div>
-                )}
-              </div>
-
-              <TemplateReviewPanel
-                template={templateDetail}
-                onWithdraw={withdrawMutate}
-                withdrawing={withdrawLoading}
-                shareUrl={displayShareUrl}
-              />
-              {project.checks}
-              {!submission && templateDetail?.isPublished && (
-                <div className="flex h-9 items-center gap-2 overflow-hidden rounded-md border bg-background ps-3">
-                  <Link className="size-4 shrink-0" />
-                  <div className="grow truncate text-sm text-muted-foreground">
-                    {displayShareUrl}
-                  </div>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-9 shrink-0 rounded-none border-s p-0"
-                    onClick={handleCopyUrl}
-                  >
-                    <Copy className="size-4" />
-                  </Button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="size-9 shrink-0 rounded-none border-s p-0"
-                    onClick={() => window.open(displayShareUrl, '_blank')}
-                  >
-                    <ExternalLink className="size-4" />
-                  </Button>
-                </div>
-              )}
-              {!submission && templateDetail?.isPublished && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="self-start text-destructive"
-                      disabled={unpublishTemplateLoading}
-                    >
-                      {t('publishBase.unPublish')}
-                      {unpublishTemplateLoading && <Spin className="size-4" />}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('publishBase.unPublishConfirmTitle')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t('publishBase.unPublishConfirmDescription')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('common:actions.cancel')}</AlertDialogCancel>
-                      <AlertDialogAction
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                        onClick={() => unpublishTemplateMutate()}
-                      >
-                        {t('common:actions.confirm')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </aside>
-          </div>
-          <DialogFooter className="border-t px-6 py-3">
-            {terms.panel && <div className="flex items-center sm:me-auto">{terms.panel}</div>}
-            <Button variant="outline" onClick={() => setOpen(false)}>
-              {t('common:actions.cancel')}
-            </Button>
-            <Button
-              onClick={handlePublishClick}
-              disabled={publishLoading || project.blocked || terms.blocked}
-            >
-              <Send className="size-4" />
-              {publishLabel}
-              {publishLoading && <Spin className="size-4" />}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <PublishFrame
+        page={isPage}
+        timeline={{
+          header,
+          loading: templateLoading,
+          pending: project.pending,
+          template: templateDetail,
+          listing,
+          listingSummary: {
+            title,
+            description,
+            coverUrl: screenshotUrl,
+            complete: !pageWaitsForListing({ page: true, title, description, hasCover }),
+          },
+          checks: project.rows,
+          guideRow,
+          changelogField,
+          termsBar,
+          publishButton,
+          reviewPanel,
+          liveActionsElsewhere: project.isTemplateProject,
+          extra: legacyStatus,
+          previewCard,
+          contents: project.contents,
+        }}
+        dialog={{
+          ...slots,
+          open,
+          onOpenChange: setOpen,
+          trigger: children,
+          cancelLabel: t('common:actions.cancel'),
+        }}
+      />
 
       <Dialog
         open={successDialogOpen}
@@ -774,9 +865,9 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
               </DialogHeader>
               <TemplateReviewPanel
                 className="px-6 pb-6"
+                showName
+                showHistory={false}
                 template={templateDetail}
-                onWithdraw={withdrawMutate}
-                withdrawing={withdrawLoading}
                 shareUrl={displayShareUrl}
               />
             </>
@@ -833,6 +924,22 @@ export const PublishBaseDialog = (props: IPublishBaseDialogProps) => {
   );
 };
 
+/**
+ * On the page, the card cannot go out yet: it has no name, no description, or no cover where one
+ * is needed. Never in the dialog, which says what is missing when its button is pressed.
+ */
+const pageWaitsForListing = ({
+  page,
+  title,
+  description,
+  hasCover,
+}: {
+  page: boolean;
+  title: string;
+  description: string | undefined;
+  hasCover: boolean;
+}) => page && (!title.trim() || !description?.trim() || !hasCover);
+
 const publishLabelFor = (
   t: ITranslate,
   reviewed: boolean,
@@ -843,70 +950,309 @@ const publishLabelFor = (
   return t('publishBase.submitVersion', { version: template.version + 1 });
 };
 
-interface ICoverProps {
+interface IPublishSlots {
+  header: React.ReactNode;
+  formFields: React.ReactNode;
+  previewCard: React.ReactNode;
+  /** Where the listing stands, its link and its share buttons, once there is one. */
+  reviewPanel: React.ReactNode;
+  statusPanels: React.ReactNode;
+  termsBar: React.ReactNode;
+  publishButton: React.ReactNode;
+}
+
+/**
+ * The publish dialog: side by side from md up, what is set on the left and how the catalogue will
+ * show it on the right. On a narrow screen the preview goes below the form and the two scroll as one.
+ */
+const PublishDialogFrame = ({
+  header,
+  formFields,
+  previewCard,
+  reviewPanel,
+  statusPanels,
+  termsBar,
+  publishButton,
+  open,
+  onOpenChange,
+  trigger,
+  cancelLabel,
+}: IPublishSlots & {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  trigger?: React.ReactNode;
+  cancelLabel: string;
+}) => (
+  <Dialog open={open} onOpenChange={onOpenChange}>
+    {trigger && <DialogTrigger asChild>{trigger}</DialogTrigger>}
+    <DialogContent className="flex max-h-[90vh] max-w-[1080px] flex-col gap-0 overflow-hidden p-0">
+      <DialogHeader className="border-b px-6 py-4 text-start">{header}</DialogHeader>
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto md:flex-row md:overflow-hidden">
+        <div className="flex min-w-0 flex-1 flex-col gap-5 px-6 py-5 md:overflow-y-auto">
+          {formFields}
+        </div>
+        <aside className="flex w-full shrink-0 flex-col gap-4 border-t bg-muted p-5 md:w-[380px] md:overflow-y-auto md:border-s md:border-t-0">
+          {previewCard}
+          {reviewPanel}
+          {statusPanels}
+        </aside>
+      </div>
+      <DialogFooter className="items-center border-t px-6 py-3">
+        {termsBar}
+        <Button variant="outline" onClick={() => onOpenChange(false)}>
+          {cancelLabel}
+        </Button>
+        {publishButton}
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
+);
+
+/**
+ * The publish form in its frame: the dialog everywhere but the chat-first shell's tab, which
+ * lays the same parts out on the template's version line.
+ */
+const PublishFrame = ({
+  page,
+  timeline,
+  dialog,
+}: {
+  page: boolean;
+  timeline: IPublishTimelineProps;
+  dialog: React.ComponentProps<typeof PublishDialogFrame>;
+}) => (page ? <PublishTimelinePage {...timeline} /> : <PublishDialogFrame {...dialog} />);
+
+const PublishBackButton = ({ onBack }: { onBack: () => void }) => {
+  const { t } = useTranslation('common');
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="-ms-2 shrink-0"
+      aria-label={t('actions.back')}
+      onClick={onBack}
+    >
+      <ChevronLeft className="size-4" />
+    </Button>
+  );
+};
+
+/** The title and what publishing does: the dialog's own, or a page's heading. */
+const PublishHeading = ({
+  page,
+  title,
+  description,
+  onBack,
+}: {
+  page: boolean;
+  title: React.ReactNode;
+  description: React.ReactNode;
+  onBack?: () => void;
+}) =>
+  page ? (
+    <div className="flex items-center gap-2">
+      {onBack && <PublishBackButton onBack={onBack} />}
+      <div className="flex min-w-0 flex-col gap-0.5">
+        <h1 className="text-base font-semibold">{title}</h1>
+        <p className="text-sm text-muted-foreground">{description}</p>
+      </div>
+    </div>
+  ) : (
+    <>
+      <DialogTitle>{title}</DialogTitle>
+      <DialogDescription className="text-sm text-muted-foreground">{description}</DialogDescription>
+    </>
+  );
+
+/** Pressing publish before agreeing to the terms points at them, instead of a greyed-out button. */
+const useTermsNudge = (terms: ITemplateSubmitTerms, open: boolean) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [nudged, setNudged] = useState(false);
+  useEffect(() => {
+    if (!open) setNudged(false);
+  }, [open]);
+  const pointable = terms.blocked && Boolean(terms.panel);
+  return {
+    ref,
+    showHint: nudged && terms.blocked,
+    // Still finding out whether there are terms at all: nothing to point at yet.
+    waiting: terms.blocked && !terms.panel,
+    guard: (publish: () => void) => {
+      if (!pointable) return publish();
+      setNudged(true);
+      ref.current?.querySelector<HTMLElement>('button, input')?.focus();
+    },
+  };
+};
+
+/**
+ * Drawn once in the browser: the publish page is also rendered on the server, which the card's
+ * own translations are not loaded for, and the preview only means anything as it is edited.
+ */
+const ClientOnly = ({ children }: { children: React.ReactNode }) => {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  return mounted ? children : null;
+};
+
+/**
+ * The card exactly as the template centre lists it, made of what is set now: no loading shapes
+ * for what is not filled in yet, and its maker and installs on the third line (the author and
+ * none before it is published).
+ */
+const previewTemplateOf = ({
+  template,
+  title,
+  description,
+  coverUrl,
+  user,
+}: {
+  template: ITemplateVo | null | undefined;
+  title: string;
+  description: string | undefined;
+  coverUrl: string | undefined;
+  user: { id: string; name: string; avatar?: string | null } | undefined;
+}): ITemplateVo =>
+  ({
+    ...template,
+    id: template?.id ?? '',
+    name: title,
+    description: description ?? '',
+    cover: coverUrl ? { presignedUrl: coverUrl } : null,
+    createdBy:
+      template?.createdBy ??
+      (user ? { id: user.id, name: user.name, avatar: user.avatar } : undefined),
+    usageCount: template?.usageCount ?? 0,
+    visitCount: template?.visitCount ?? 0,
+  }) as ITemplateVo;
+
+/**
+ * What the catalogue card is made of: the cover beside the words that go on it in the dialog;
+ * one under another on the page, under the checklist line they belong to.
+ */
+const ListingFields = ({
+  page,
+  coverRequired,
+  cover,
+  title,
+  onTitleChange,
+  description,
+  onDescriptionChange,
+}: {
+  page: boolean;
+  coverRequired: boolean;
+  cover: React.ReactNode;
+  title: string;
+  onTitleChange: (value: string) => void;
+  description: string;
+  onDescriptionChange: (value: string) => void;
+}) => {
+  const { t } = useTranslation('space');
+  return (
+    <div className={cn('flex flex-col gap-4', !page && 'sm:flex-row')}>
+      <div className={cn('flex shrink-0 flex-col gap-2', page ? 'w-64 max-w-full' : 'sm:w-44')}>
+        <Label className="leading-5">
+          {t('publishBase.form.cover')}
+          {coverRequired && <RequiredMark />}
+        </Label>
+        {cover}
+      </div>
+      <div className="flex min-w-0 flex-1 flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="publish-title" className="leading-5">
+            {t('publishBase.form.title')}
+            <RequiredMark />
+          </Label>
+          <Input
+            id="publish-title"
+            value={title}
+            onChange={(e) => onTitleChange(e.target.value)}
+            placeholder={t('publishBase.form.titlePlaceholder')}
+          />
+        </div>
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="publish-description" className="leading-5">
+            {t('publishBase.form.description')}
+            <RequiredMark />
+          </Label>
+          <Textarea
+            id="publish-description"
+            className="min-h-24 resize-y"
+            value={description}
+            onChange={(e) => onDescriptionChange(e.target.value)}
+            placeholder={t('publishBase.form.descriptionPlaceholder')}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/** Name, description and cover: a template can't go out without them. */
+const RequiredMark = () => (
+  <span className="ms-1 text-destructive" aria-hidden="true">
+    *
+  </span>
+);
+
+interface ICoverPickerProps {
   screenshotUrl: string | undefined;
   isUploading: boolean;
   uploadProgress: number;
   onPick: () => void;
-  overlay: React.ReactNode;
 }
 
-/** The cover as the catalogue card shows it, and the one place to pick it. */
-const CoverPicker = ({
-  screenshotUrl,
-  isUploading,
-  uploadProgress,
-  onPick,
-  overlay,
-}: ICoverProps) => {
+/** The one place to pick the cover, beside the words that go on the card. */
+const CoverPicker = ({ screenshotUrl, isUploading, uploadProgress, onPick }: ICoverPickerProps) => {
   const { t } = useTranslation('space');
-  // picking again while an upload runs would start a second one
-  const pickable = !isUploading;
+  // A cover whose image cannot be read shows as no picture, not as the browser's broken image.
+  const [failedUrl, setFailedUrl] = useState<string>();
+  const shown = Boolean(screenshotUrl) && failedUrl !== screenshotUrl;
   return (
-    <div
-      className={cn(
-        'group relative aspect-video overflow-hidden rounded-md bg-muted',
-        pickable && 'cursor-pointer'
-      )}
-      onClick={pickable ? onPick : undefined}
-      role="button"
+    <button
+      type="button"
+      // picking again while an upload runs would start a second one
+      disabled={isUploading}
+      id="publish-cover"
+      onClick={onPick}
       aria-label={t(screenshotUrl ? 'publishBase.changeCover' : 'publishBase.uploadCover')}
-      tabIndex={pickable ? 0 : -1}
-      aria-disabled={!pickable}
-      onKeyDown={(e) => {
-        if (pickable && (e.key === 'Enter' || e.key === ' ')) {
-          onPick();
-        }
-      }}
+      className={cn(
+        'group relative aspect-[16/10] w-full overflow-hidden rounded-md border bg-background text-muted-foreground transition-colors hover:border-primary/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default',
+        // Dashed is the empty drop target; a picture gets the plain edge the inputs have.
+        shown ? 'border-solid' : 'border-dashed'
+      )}
     >
-      {screenshotUrl && (
-        <img
-          src={screenshotUrl}
-          className="size-full object-cover"
-          alt="published project preview"
-        />
-      )}
-      {!screenshotUrl && pickable && (
-        <div className="flex size-full flex-col items-center justify-center gap-2 transition-colors hover:bg-black/5 dark:hover:bg-white/10">
-          <Plus className="size-8 text-muted-foreground" />
-          <span className="text-sm text-muted-foreground">{t('publishBase.uploadCover')}</span>
-        </div>
-      )}
-      {screenshotUrl && pickable && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
-          <div className="flex flex-col items-center gap-2">
-            <Camera className="size-8 text-white" />
-            <span className="text-sm text-white">{t('publishBase.changeCover')}</span>
-          </div>
-        </div>
+      {shown ? (
+        <>
+          <img
+            src={screenshotUrl}
+            className="size-full object-cover"
+            alt=""
+            onError={() => setFailedUrl(screenshotUrl)}
+          />
+          {!isUploading && (
+            // The dialog overlay's scrim, the same in light and dark: it lies over a picture. Laid
+            // out as the empty cover is, the icon above its label.
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
+              <Camera className="size-5" />
+              {t('publishBase.changeCover')}
+            </span>
+          )}
+        </>
+      ) : (
+        !isUploading && (
+          <span className="flex size-full flex-col items-center justify-center gap-1 text-xs">
+            {screenshotUrl ? <Camera className="size-5" /> : <Plus className="size-5" />}
+            {t(screenshotUrl ? 'publishBase.changeCover' : 'publishBase.uploadCover')}
+          </span>
+        )
       )}
       {isUploading && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-background/60">
-          <Spin className="size-8" />
-          <span className="text-sm text-muted-foreground">{uploadProgress}%</span>
-        </div>
+        <span className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-background/70 text-xs">
+          <Spin className="size-5" />
+          {uploadProgress}%
+        </span>
       )}
-      {overlay && <div className="absolute bottom-2 start-2">{overlay}</div>}
-    </div>
+    </button>
   );
 };

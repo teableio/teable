@@ -30,6 +30,7 @@ import { CustomHttpException } from '../../../custom.exception';
 import { DatabaseRouter } from '../../../global/database-router.service';
 import { DATA_KNEX } from '../../../global/knex/knex.module';
 import { V1EngineService } from '../../../tracing/decorators/v1-engine';
+import type { IOpsMap } from '../../../types/ops-map';
 import { handleDBValidationErrors } from '../../../utils/db-validation-error';
 import {
   majorFieldKeysChanged,
@@ -41,7 +42,6 @@ import { FieldCalculationService } from '../../calculation/field-calculation.ser
 import { LinkService } from '../../calculation/link.service';
 import type { ICellContext } from '../../calculation/utils/changes';
 import { formatChangesToOps } from '../../calculation/utils/changes';
-import type { IOpsMap } from '../../calculation/utils/compose-maps';
 import { composeOpMaps } from '../../calculation/utils/compose-maps';
 import { isLinkCellValue } from '../../calculation/utils/detect-link';
 import { CollaboratorService } from '../../collaborator/collaborator.service';

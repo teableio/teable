@@ -33,14 +33,27 @@ export const useTemplateProjectPublish = ({
     ? { title: t('publishBase.configureTitle'), description: t('publishBase.configureDescription') }
     : { title: t('publishBase.title'), description: t('publishBase.description') };
   if (!isTemplateProject) {
-    return { isTemplateProject, ...heading, records: undefined, blocked: false, checks: null };
+    return {
+      isTemplateProject,
+      // Whether it is a template project is not known yet: its checklist would change shape.
+      pending: Boolean(host) && open && info === undefined,
+      ...heading,
+      records: undefined,
+      blocked: false,
+      checks: null,
+      rows: undefined,
+      contents: null,
+    };
   }
   return {
     isTemplateProject,
+    pending: false,
     ...heading,
     records: submitState.records,
     blocked: submitState.blocked,
     checks: submitState.panel,
+    rows: submitState.rows,
+    contents: submitState.contents,
   };
 };
 

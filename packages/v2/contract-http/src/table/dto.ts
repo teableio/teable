@@ -512,7 +512,10 @@ const redactedFieldDtoSchema = baseFieldDtoSchema.extend({
 const redactedComputedFieldDtoSchema = z.discriminatedUnion('type', [
   redactedFieldDtoSchema.extend({ type: z.literal('formula'), isComputed: z.literal(true) }),
   redactedFieldDtoSchema.extend({ type: z.literal('rollup'), isComputed: z.literal(true) }),
-  redactedFieldDtoSchema.extend({ type: z.literal('conditionalRollup'), isComputed: z.literal(true) }),
+  redactedFieldDtoSchema.extend({
+    type: z.literal('conditionalRollup'),
+    isComputed: z.literal(true),
+  }),
 ]);
 
 const redactedLookupFieldDtoSchema = redactedFieldDtoSchema.extend({ isLookup: z.literal(true) });
@@ -1142,7 +1145,9 @@ class FieldToDtoVisitor implements IFieldVisitor<RegularFieldDto> {
     };
   }
 
-  private mapPublicLinkOptions(field: LinkField): Extract<RegularFieldDto, { type: 'link' }>['options'] {
+  private mapPublicLinkOptions(
+    field: LinkField
+  ): Extract<RegularFieldDto, { type: 'link' }>['options'] {
     const config = field.config();
     return {
       ...(config.baseId() ? { baseId: config.baseId()!.toString() } : {}),

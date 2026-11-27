@@ -216,27 +216,28 @@
   },
   "publishBase": {
     "title": "テンプレートセンターに公開",
-    "description": "ワンクリックでテンプレートセンターにプロジェクトを公開！あなたの創造性をより多くの人に見てもらい、利用してもらい、Remixしてもらい、共により強力なビジネスを築きましょう。",
-    "configureTitle": "テンプレート情報を設定",
-    "configureDescription": "優れたテンプレートはテンプレートセンターに掲載されることがあります",
+    "description": "テンプレートセンターに公開して、ほかのユーザーがテンプレートを見つけて使えるようにします。",
+    "configureTitle": "テンプレートを公開",
+    "configureDescription": "公開後はリンクで共有・インストールできます。審査を通過するとテンプレートセンターに掲載されます。",
     "infoTitle": "基本情報",
     "form": {
-      "title": "タイトル",
+      "title": "テンプレート名",
       "description": "説明",
       "changelog": "リリースノート",
       "changelogPlaceholder": "既存のインストール向けに変更内容を説明してください。アップグレードのプレビューに表示されます",
-      "publishNode": "ノードを公開",
+      "publishNode": "含める内容",
       "includeData": "データを含める",
       "defaultActiveNode": "デフォルトのアクティブノード",
-      "descriptionPlaceholder": "アイデアを簡単に説明してください...",
-      "titlePlaceholder": "作品に名前を付ける...",
+      "descriptionPlaceholder": "解決できる課題と使い方を説明してください",
+      "titlePlaceholder": "例：顧客フォローアップ",
       "versionTitle": "バージョンの内容",
-      "addChangelog": "リリースノートを追加"
+      "addChangelog": "リリースノートを追加",
+      "cover": "カバー"
     },
     "publishToCommunity": "テンプレートセンターに公開",
     "publish": "公開",
-    "publishSuccess": "公開しました！",
-    "previewTips": "あなたの作品を世界に見せましょう",
+    "publishSuccess": "テンプレートを公開しました",
+    "previewTips": "テンプレートセンターでのプレビュー",
     "update": "更新",
     "submit": "テンプレートを公開",
     "review": {
@@ -250,23 +251,29 @@
         "trial": "試運転",
         "content": "内容"
       },
+      "checkLine": {
+        "connectors": "非対応：{{providers}}",
+        "estimate": "{{runs}}/月"
+      },
       "checkMessage": {
         "connectors": "ここでは接続できません：{{providers}}",
         "privacy": "レコードが含まれています。個人データが含まれていないか確認してください",
         "estimate": "月あたり約 {{runs}} 回の実行で、無料プランの {{free}} 回を超えます",
         "trial": "オートメーションはアカウントを必要としません。アカウントなしで実行できることを確認してください",
-        "content": "あなただけの内容が {{count}} 件残っています",
-        "contentMarked": "サンプルとして指定：{{count}} 件"
+        "content": "置き換えが必要な個人の内容（{{count}} 件）",
+        "contentMarked": "サンプルとして指定済み（{{count}} 件）"
       },
       "withdraw": "公開を取り消す",
-      "withdrawn": "公開を取り消しました。",
+      "withdrawn": "公開を取り消しました",
       "withdrawConfirmTitle": "公開を取り消しますか？",
       "withdrawConfirmDescription": "取り消すとテンプレートのリンクは開けなくなり、テンプレートセンターにも表示されなくなります。インストール済みのコピーには影響せず、あとで再公開できます。",
       "live": "公開中 · v{{version}}",
-      "listed": "テンプレートセンターに掲載中"
+      "listed": "テンプレートセンターに掲載中",
+      "allVersions": "すべてのバージョン（{{count}}）",
+      "fewerVersions": "閉じる"
     },
     "unPublish": "公開停止",
-    "unPublishSuccess": "プロジェクトの公開を停止しました！",
+    "unPublishSuccess": "掲載を停止しました",
     "unPublishConfirmTitle": "公開停止の確認",
     "unPublishConfirmDescription": "本当にこのプロジェクトの公開を停止しますか？テンプレートセンターに表示されなくなります。",
     "uploadCover": "クリックしてカバー画像をアップロード",
@@ -280,29 +287,44 @@
       "atLeastOneNode": "公開するノードを少なくとも1つ選択してください",
       "coverRequired": "カバー画像を追加してください"
     },
-    "urlCopied": "URLをクリップボードにコピーしました！",
-    "urlCopiedForDiscord": "URLをクリップボードにコピーしました！Discordに貼り付けることができます。",
+    "urlCopied": "リンクをコピーしました",
+    "urlCopiedForDiscord": "リンクをコピーしました。Discord に貼り付けてください。",
     "featuredLabel": "Featured",
-    "featuredTip": "公式Featuredに選出されました。より多くの露出と推奨を受けられます。",
-    "publishSuccessDescription": "あなたの作品を世界に共有しましょう",
+    "featuredTip": "Teable のおすすめに選ばれました。テンプレートがより多くの人に表示されます。",
+    "publishSuccessDescription": "リンクをコピーするか、SNS でシェアしてください。",
     "shareWith": "共有先",
     "unpublishedApps": {
-      "title": "未公開のアプリが検出されました",
-      "description": "未公開のアプリはテンプレートのプレビューに失敗する可能性があります。今すぐ公開するか続行してください。",
-      "publishAll": "すべて公開",
+      "title": "未公開のアプリがあります",
+      "description": "未公開のアプリは、テンプレートのプレビューで開けない場合があります。",
+      "publishAll": "すべてのアプリを公開",
       "publish": "公開",
       "published": "公開済み",
-      "publishing": "公開中...",
+      "publishing": "公開中…",
       "notPublished": "未公開",
       "publishFailed": "公開に失敗しました",
       "publishFailedTip1": "ソースアプリが正常に公開できるか確認してください",
       "publishFailedTip2": "このテンプレートを再公開してみてください",
-      "ignoreAndContinue": "無視して続行",
-      "goToFix": "修正へ移動",
-      "redeploy": "再デプロイ",
+      "ignoreAndContinue": "公開せずに続行",
+      "goToFix": "アプリを開く",
+      "redeploy": "再公開",
       "unnamedApp": "無名のアプリ"
     },
-    "submitVersion": "v{{version}} を公開"
+    "submitVersion": "v{{version}} を公開",
+    "agreeTermsFirst": "公開するにはクリエイター規約に同意してください。",
+    "preview": {
+      "titleMissing": "テンプレート名を入力してください",
+      "descriptionMissing": "説明を入力してください"
+    },
+    "updateTemplate": "テンプレートを更新",
+    "timeline": {
+      "versions": "バージョン履歴",
+      "published": "公開済み"
+    },
+    "checksTitle": "公開前のチェック",
+    "listing": {
+      "title": "掲載情報",
+      "separator": "、"
+    }
   },
   "dataDb": {
     "create": {
@@ -466,14 +488,14 @@
     "fromGoogleSheetDesc": "スプレッドシートを選択"
   },
   "templateProject": {
-    "make": "テンプレートにする",
-    "new": "新しいテンプレートプロジェクト",
+    "make": "テンプレートを作成",
+    "new": "テンプレートプロジェクトを作成",
     "plural": "テンプレートプロジェクト",
     "projectsTab": "プロジェクト",
     "empty": "テンプレートプロジェクトはまだありません",
     "trialCopy": "試用コピー",
     "wholeProject": "プロジェクト内のすべて（{{count}} 件）",
-    "sampleRecords": "サンプルレコード {{count}} 件",
+    "sampleRecords": "サンプルレコード（{{count}} 件）",
     "noRecords": "レコードなし"
   }
 }

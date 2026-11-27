@@ -7,6 +7,7 @@ import {
   FieldOpBuilder,
   getValidStatisticFunc,
   ViewType,
+  removeFilterConditionsByFieldIds,
 } from '@teable/core';
 import type {
   IFilterSet,
@@ -87,16 +88,8 @@ export class FieldViewSyncService {
       }
 
       const filterString = JSON.stringify(filter);
-      const filteredFieldIds = fieldIds.filter((id) => filterString?.includes(id));
-
-      if (filter != null && filteredFieldIds.length) {
-        let newFilter: IFilterSet | null = filter;
-        filteredFieldIds.forEach((id) => {
-          if (newFilter) {
-            newFilter = this.viewService.getDeletedFilterByFieldId(newFilter, id);
-          }
-        });
-        newOptions.filter = newFilter ? (newFilter?.filterSet?.length ? newFilter : null) : null;
+      if (filter != null && fieldIds.some((id) => filterString?.includes(id))) {
+        newOptions.filter = removeFilterConditionsByFieldIds(filter, deletedFieldIdSet);
         isOptionsChanged = true;
       }
 
@@ -419,9 +412,9 @@ export class FieldViewSyncService {
     if (
       (newField.type !== oldField.type && !isEqual(oldOperators, newOperators)) ||
       oldField.cellValueType !== newField.cellValueType ||
-      oldField?.isMultipleCellValue !== newField?.isMultipleCellValue
+      Boolean(oldField.isMultipleCellValue) !== Boolean(newField.isMultipleCellValue)
     ) {
-      return this.viewService.getDeletedFilterByFieldId(filter, fieldId);
+      return removeFilterConditionsByFieldIds(originalFilter, new Set([fieldId]));
     }
 
     // do nothing

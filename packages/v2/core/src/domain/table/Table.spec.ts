@@ -2428,48 +2428,86 @@ describe('Table.createRecordsStream', () => {
     };
   };
 
-  it.each(['sync', 'async'] as const)('%s import stream skips invalid required dates and keeps events aligned', async (mode) => {
-    const titleId = createFieldId('t')._unsafeUnwrap();
-    const dateId = createFieldId('d')._unsafeUnwrap();
-    const defaultId = createFieldId('f')._unsafeUnwrap();
-    const builder = Table.builder().withBaseId(createBaseId('s')._unsafeUnwrap())
-      .withName(TableName.create('Tolerant stream')._unsafeUnwrap());
-    builder.field().singleLineText().withId(titleId).withName(FieldName.create('Title')._unsafeUnwrap()).primary().done();
-    builder.field().date().withId(dateId).withName(FieldName.create('Date')._unsafeUnwrap())
-      .withNotNull(FieldNotNull.required()).done();
-    builder.field().singleLineText().withId(defaultId).withName(FieldName.create('Default')._unsafeUnwrap())
-      .withNotNull(FieldNotNull.required()).withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap()).done();
-    builder.view().defaultGrid().done();
-    const table = builder.build()._unsafeUnwrap();
-    const rows = ['2025-01-01', '+010000-01-01T00:00:00.000Z', '2025-01-03'].map((value, index) =>
-      new Map<string, unknown>([[titleId.toString(), `row ${index}`], [dateId.toString(), value]])
-    );
-    const invalidDates: number[] = [];
-    const invalidRows: number[] = [];
-    const options = {
-      typecast: true, batchSize: 1,
-      recordValidation: {
-        onInvalidDate: (index: number) => { invalidDates.push(index); },
-        onInvalidRecord: (index: number) => { invalidRows.push(index); },
-      },
-    };
-    const stream = mode === 'sync' ? table.createRecordsStream(rows, options) : table.createRecordsStreamAsync(
-      (async function* () { yield* rows; })(), options
-    );
-    const titles: unknown[] = [];
-    for await (const batch of stream) {
-      for (const record of batch._unsafeUnwrap()) {
-        titles.push(record.fields().get(titleId)?.toValue());
-        expect(record.fields().get(defaultId)?.toValue()).toBe('Default Title');
+  it.each(['sync', 'async'] as const)(
+    '%s import stream skips invalid required dates and keeps events aligned',
+    async (mode) => {
+      const titleId = createFieldId('t')._unsafeUnwrap();
+      const dateId = createFieldId('d')._unsafeUnwrap();
+      const defaultId = createFieldId('f')._unsafeUnwrap();
+      const builder = Table.builder()
+        .withBaseId(createBaseId('s')._unsafeUnwrap())
+        .withName(TableName.create('Tolerant stream')._unsafeUnwrap());
+      builder
+        .field()
+        .singleLineText()
+        .withId(titleId)
+        .withName(FieldName.create('Title')._unsafeUnwrap())
+        .primary()
+        .done();
+      builder
+        .field()
+        .date()
+        .withId(dateId)
+        .withName(FieldName.create('Date')._unsafeUnwrap())
+        .withNotNull(FieldNotNull.required())
+        .done();
+      builder
+        .field()
+        .singleLineText()
+        .withId(defaultId)
+        .withName(FieldName.create('Default')._unsafeUnwrap())
+        .withNotNull(FieldNotNull.required())
+        .withDefaultValue(TextDefaultValue.create('Default Title')._unsafeUnwrap())
+        .done();
+      builder.view().defaultGrid().done();
+      const table = builder.build()._unsafeUnwrap();
+      const rows = ['2025-01-01', '+010000-01-01T00:00:00.000Z', '2025-01-03'].map(
+        (value, index) =>
+          new Map<string, unknown>([
+            [titleId.toString(), `row ${index}`],
+            [dateId.toString(), value],
+          ])
+      );
+      const invalidDates: number[] = [];
+      const invalidRows: number[] = [];
+      const options = {
+        typecast: true,
+        batchSize: 1,
+        recordValidation: {
+          onInvalidDate: (index: number) => {
+            invalidDates.push(index);
+          },
+          onInvalidRecord: (index: number) => {
+            invalidRows.push(index);
+          },
+        },
+      };
+      const stream =
+        mode === 'sync'
+          ? table.createRecordsStream(rows, options)
+          : table.createRecordsStreamAsync(
+              (async function* () {
+                yield* rows;
+              })(),
+              options
+            );
+      const titles: unknown[] = [];
+      for await (const batch of stream) {
+        for (const record of batch._unsafeUnwrap()) {
+          titles.push(record.fields().get(titleId)?.toValue());
+          expect(record.fields().get(defaultId)?.toValue()).toBe('Default Title');
+        }
       }
+      expect(titles).toEqual(['row 0', 'row 2']);
+      expect(invalidDates).toEqual([1]);
+      expect(invalidRows).toEqual([1]);
+      expect(table.pullDomainEvents().map((event) => event.name.toString())).toEqual([
+        'TableCreated',
+        'RecordCreated',
+        'RecordCreated',
+      ]);
     }
-    expect(titles).toEqual(['row 0', 'row 2']);
-    expect(invalidDates).toEqual([1]);
-    expect(invalidRows).toEqual([1]);
-    expect(table.pullDomainEvents().map((event) => event.name.toString())).toEqual([
-      'TableCreated', 'RecordCreated', 'RecordCreated',
-    ]);
-  });
+  );
 
   it.each(['sync', 'async'] as const)(
     '%s stream can suppress standalone record events without losing table events or values',

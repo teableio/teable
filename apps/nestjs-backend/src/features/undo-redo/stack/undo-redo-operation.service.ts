@@ -7,6 +7,7 @@ import type { IUndoRedoOperation } from '../../../cache/types';
 import { OperationName } from '../../../cache/types';
 import { IThresholdConfig, ThresholdConfig } from '../../../configs/threshold.config';
 import { Events, IEventRawContext } from '../../../event-emitter/events';
+import type { IDeleteRecordsPayload } from '../../../event-emitter/events/delete-records-payload';
 import { DataDbClientManager } from '../../../global/data-db-client-manager.service';
 import { FieldOpenApiV2Service } from '../../field/open-api/field-open-api-v2.service';
 import { FieldOpenApiService } from '../../field/open-api/field-open-api.service';
@@ -30,10 +31,7 @@ import { CreateRecordsOperation } from '../operations/create-records.operation';
 import type { ICreateViewPayload } from '../operations/create-view.operation';
 import { CreateViewOperation } from '../operations/create-view.operation';
 import { DeleteFieldsOperation, IDeleteFieldsPayload } from '../operations/delete-fields.operation';
-import {
-  DeleteRecordsOperation,
-  IDeleteRecordsPayload,
-} from '../operations/delete-records.operation';
+import { DeleteRecordsOperation } from '../operations/delete-records.operation';
 import { IDeleteViewPayload, DeleteViewOperation } from '../operations/delete-view.operation';
 import {
   IPasteSelectionPayload,

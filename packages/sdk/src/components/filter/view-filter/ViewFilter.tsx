@@ -6,7 +6,7 @@ import {
 } from '@teable/core';
 import { isEqual } from 'lodash';
 import { useMemo, useRef, useState } from 'react';
-import { useDebounce, useUpdateEffect } from 'react-use';
+import { useDebounce, useUnmount, useUpdateEffect } from 'react-use';
 import { useTranslation } from '../../../context/app/i18n';
 import { useFields, useTableId, useViewId } from '../../../hooks';
 import { AdaptivePanel, useIsDrawerPanel } from '../../adaptive-panel';
@@ -27,7 +27,14 @@ export interface IViewFilterProps {
   responsive?: boolean;
 }
 
+// Grid views switch by a shallow route change, which keeps this component mounted. Keying the
+// editor by view keeps one view's draft and pending saves from leaking into the next view.
 export const ViewFilter = (props: IViewFilterProps) => {
+  const viewId = useViewId();
+  return <ViewFilterEditor key={viewId} {...props} />;
+};
+
+const ViewFilterEditor = (props: IViewFilterProps) => {
   const { contentHeader, filters, children, responsive, onChange } = props;
   const { t } = useTranslation();
   const isDrawer = useIsDrawerPanel(responsive);
@@ -58,15 +65,24 @@ export const ViewFilter = (props: IViewFilterProps) => {
   // This solves the race condition where: user adds item A -> user adds item B -> server responds with A only -> UI flickers
   const localEditVersionRef = useRef(0);
   const lastSyncedVersionRef = useRef(0);
+  const savesInFlightRef = useRef(0);
+  const hasUnsentEditRef = useRef(false);
+  // Filters sent since the last synced version, and whether a server update was turned away
+  // meanwhile: on settle that update is applied unless it is the echo of one of these saves.
+  const sentFiltersRef = useRef<IFilter[]>([]);
+  const skippedUpdateRef = useRef(false);
   const filtersRef = useRef(filters);
   filtersRef.current = filters;
 
   useUpdateEffect(() => {
     // Only accept server updates if no local edits are pending
     // This prevents stale server responses from overwriting optimistic updates
-    if (localEditVersionRef.current === lastSyncedVersionRef.current && !isEqual(filters, filter)) {
-      setFilter(filters);
+    if (localEditVersionRef.current !== lastSyncedVersionRef.current) {
+      // An update that lands before this editor's save is sent is older than that save.
+      if (savesInFlightRef.current) skippedUpdateRef.current = true;
+      return;
     }
+    if (!isEqual(filters, filter)) setFilter(filters);
   }, [filters]);
 
   const viewId = useViewId();
@@ -79,27 +95,48 @@ export const ViewFilter = (props: IViewFilterProps) => {
   const onChangeHandler = (value: IFilter) => {
     // Increment local edit version on every user change
     localEditVersionRef.current += 1;
+    hasUnsentEditRef.current = true;
     setFilter(value);
   };
 
+  // Switching views remounts this editor and cancels the debounce. The props still hold the
+  // previous view's onChange, so its last edit is saved to that view instead of being dropped.
+  useUnmount(() => {
+    if (hasUnsentEditRef.current) void Promise.resolve(onChange(filter)).catch(() => undefined);
+  });
+
   useDebounce(
     () => {
+      hasUnsentEditRef.current = false;
       const currentVersion = localEditVersionRef.current;
-      // A local edit that returns to the current prop still completes this version.
-      // Without this acknowledgement, every later collaborator update is rejected.
-      lastSyncedVersionRef.current = currentVersion;
-      if (isEqual(filter, filters)) return;
+      if (currentVersion === lastSyncedVersionRef.current) return;
+      // With no save in flight, `filters` is what the server holds, so an edit that returns to it
+      // needs no request. While a save is in flight the server is about to change, so send it.
+      if (!savesInFlightRef.current && isEqual(filter, filters)) {
+        lastSyncedVersionRef.current = currentVersion;
+        return;
+      }
 
-      const rollback = () => {
+      // The version counts as synced only once its save settles: until then an echo of an
+      // earlier save can still arrive and must not overwrite this edit.
+      const settle = (failed: boolean) => {
+        savesInFlightRef.current -= 1;
         if (localEditVersionRef.current !== currentVersion) return;
-        setFilter(filtersRef.current);
+        lastSyncedVersionRef.current = currentVersion;
+        const latest = filtersRef.current;
+        const missedUpdate =
+          skippedUpdateRef.current && !sentFiltersRef.current.some((sent) => isEqual(sent, latest));
+        skippedUpdateRef.current = false;
+        sentFiltersRef.current = [];
+        if (failed || missedUpdate) setFilter(latest);
       };
 
-      try {
-        void Promise.resolve(onChange(filter)).catch(rollback);
-      } catch {
-        rollback();
-      }
+      savesInFlightRef.current += 1;
+      sentFiltersRef.current.push(filter);
+      new Promise<void>((resolve) => resolve(onChange(filter))).then(
+        () => settle(false),
+        () => settle(true)
+      );
     },
     300,
     [filter]

@@ -66,7 +66,7 @@ export class TableSnapshotReadService {
     const visibleIds = await this.permissionService.getBaseShareVisibleResourceIds(baseId, 'table');
     const { projectionTableIds } = query;
     const tableIdsInScope = visibleIds
-      ? projectionTableIds?.filter((id) => visibleIds.has(id)) ?? [...visibleIds]
+      ? (projectionTableIds?.filter((id) => visibleIds.has(id)) ?? [...visibleIds])
       : projectionTableIds;
     const tables = await this.prismaService.txClient().tableMeta.findMany({
       where: {

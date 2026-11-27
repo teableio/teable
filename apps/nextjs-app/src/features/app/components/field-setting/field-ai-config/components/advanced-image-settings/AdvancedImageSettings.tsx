@@ -41,6 +41,7 @@ const sizeRatioLabels = [
   { label: '3:4', width: 3, height: 4 },
   { label: '16:9', width: 16, height: 9 },
   { label: '9:16', width: 9, height: 16 },
+  { label: '21:9', width: 21, height: 9 },
 ] as const;
 
 const sizeTierOrder: TSizeTier[] = ['standard', '2K', '4K'];

@@ -8,6 +8,7 @@
  */
 /* eslint-disable @typescript-eslint/naming-convention */
 
+import { listTableRecordsOkResponseSchema } from '@teable/v2-contract-http';
 import { ViewColumnMeta } from '@teable/v2-core';
 import { sql } from 'kysely';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
@@ -644,6 +645,81 @@ describe('[D01][S01] update-field: link property updates', () => {
     await ctx.deleteRecords(sourceTableId, [sourceRec.id]);
     await ctx.deleteRecords(foreignTableId, [foreignRec.id]);
     await ctx.deleteField({ tableId: sourceTableId, fieldId: linkField.id });
+  });
+
+  test('retains view and link candidate filters across plain text conversions', async () => {
+    const target = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Filtered candidates',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        { type: 'longText', name: 'Note' },
+        { type: 'number', name: 'Num' },
+        { type: 'singleSelect', name: 'Sel', options: ['Open', 'Closed'] },
+      ],
+      views: [{ type: 'grid' }],
+    });
+    const [name, note, num, sel] = target.fields;
+    const viewId = target.views[0]!.id;
+    const filter = {
+      conjunction: 'and' as const,
+      filterSet: [
+        { fieldId: note!.id, operator: 'isEmpty' as const, value: null },
+        { fieldId: num!.id, operator: 'isGreater' as const, value: 0 },
+        { fieldId: sel!.id, operator: 'is' as const, value: 'Open' },
+      ],
+    };
+    const source = await ctx.createTable({
+      baseId: ctx.baseId,
+      name: 'Candidate picker',
+      fields: [
+        { type: 'singleLineText', name: 'Name', isPrimary: true },
+        {
+          type: 'link',
+          name: 'Candidate',
+          options: {
+            foreignTableId: target.id,
+            lookupFieldId: name!.id,
+            relationship: 'manyMany',
+            isOneWay: true,
+            filter,
+          },
+        },
+      ],
+    });
+    try {
+      const linkId = source.fields[1]!.id;
+      const response = await fetch(`${ctx.baseUrl}/tables/updateViewFilter`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ tableId: target.id, viewId, filter }),
+      });
+      expect(response.status).toBe(200);
+      const otherConditions = { [num!.id]: 1, [sel!.id]: 'Open' };
+      const match = await ctx.createRecord(target.id, otherConditions);
+      await ctx.createRecord(target.id, { ...otherConditions, [note!.id]: 'written' });
+      await ctx.createRecord(target.id, { ...otherConditions, [num!.id]: 0 });
+      await ctx.createRecord(target.id, { ...otherConditions, [sel!.id]: 'Closed' });
+      const assertSelection = async () => {
+        const link = (await ctx.getTableById(source.id)).fields.find((f) => f.id === linkId);
+        expect(link?.options).toMatchObject({ filter });
+        const records = await ctx.listRecords(target.id, { viewId });
+        expect(records.map((record) => record.id)).toEqual([match.id]);
+        const params = new URLSearchParams({ tableId: target.id, filterLinkCellCandidate: linkId });
+        const result = await fetch(`${ctx.baseUrl}/tables/listRecords?${params}`);
+        expect(result.status).toBe(200);
+        const candidates = listTableRecordsOkResponseSchema.parse(await result.json());
+        expect(candidates.data.records.map((record) => record.id)).toEqual([match.id]);
+      };
+      await assertSelection();
+      for (const type of ['singleLineText', 'longText'] as const) {
+        await ctx.updateField({ tableId: target.id, fieldId: note!.id, field: { type } });
+        await assertSelection();
+      }
+    } finally {
+      await ctx.deleteTable(source.id);
+      await ctx.deleteTable(target.id);
+    }
   });
 
   test('should clean link filter after foreign filtering field is converted', async () => {

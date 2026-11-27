@@ -7,16 +7,17 @@
  * default. Development and tests set NO secrets — they run on the same
  * fallbacks a zero-config instance uses (so the boot warning shows on every
  * dev boot, by design). enforceSecretsPolicy() warns loudly (but does not
- * block boot) when required env vars are missing, printing the pin
- * instructions declared here; only half a key/iv pair refuses to boot.
+ * block boot) when required env vars are missing, printing what to set and,
+ * for a deployment that already has data, the `keepReadable` lines declared
+ * here; only half a key/iv pair refuses to boot.
  *
  * `legacyDefault` is the PUBLIC value that used to be hardcoded in source (it
  * lives in git history, so printing it is harmless). It serves three purposes:
  * it is the last-resort fallback that lets a zero-config instance boot, the
- * boot warning teaches existing deployments to pin it, and the guard warns
- * loudly when an instance explicitly runs on it. Secrets whose previous
- * effective value was NOT a public constant use `pinInstruction` instead —
- * never print derived key material.
+ * refusal on half a key/iv pair names it as the value the missing half has
+ * been running on, and the guard warns loudly when an instance explicitly runs
+ * on it. Secrets whose previous effective value was NOT a public constant use
+ * `pinInstruction` there instead — never print derived key material.
  */
 
 /**
@@ -43,6 +44,14 @@ export interface ISecretSpec {
   legacyDefault?: string;
   /** printed in the boot error when the previous value is not a public constant */
   pinInstruction?: string;
+  /**
+   * What a deployment that has been running without SECRET_KEY adds next to a private one,
+   * so that what this secret stored or sent under its public value stays readable: `line`
+   * sets an _OLD variable, which only decrypts or verifies, and `note` says what it keeps.
+   * Absent where nothing is kept. A signing secret whose old value is public is cut over,
+   * and the access-token and mail pairs keep their old literals for decryption themselves.
+   */
+  keepReadable?: { line: string; note: string };
   /**
    * Still read so the data stored under it stays readable, but superseded: a new
    * deployment should not set it, and an existing one can remove it once a key
@@ -90,8 +99,10 @@ export const SECRET_SPECS = {
     // it: what was stored under it is kept readable through an _OLD var next to a private
     // SECRET_KEY.
     legacyDefault: 'defaultSecretKey',
-    pinInstruction:
-      "generate one: `openssl rand -base64 32`. Existing deployments that stored EE app env variables or AI provider keys WITHOUT SECRET_KEY set: add BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD='defaultSecretKey' next to the new SECRET_KEY so they stay readable (it only decrypts). It can go once System Admin → Key rotation has re-encrypted them; an instance without that page keeps it.",
+    keepReadable: {
+      line: "BACKEND_STORED_CREDENTIAL_ENCRYPTION_SECRET_OLD='defaultSecretKey'",
+      note: 'app env variables, AI provider keys and other credentials stored so far',
+    },
   },
   jwtSecret: {
     envKey: 'BACKEND_JWT_SECRET',
@@ -115,6 +126,10 @@ export const SECRET_SPECS = {
     fallbackEnvKeys: ['SECRET_KEY'],
     usedFor: 'signing invitation link codes (HMAC)',
     legacyDefault: 'defaultSecretKey',
+    keepReadable: {
+      line: "BACKEND_INVITATION_SECRET_OLD='defaultSecretKey'",
+      note: 'optional: invitation links already sent',
+    },
   },
   // The one root of what is encrypted in the database: third-party credentials, AI provider
   // keys, EE app env variables, BYODB URLs in the authenticated format, and the HMAC key of
@@ -238,8 +253,10 @@ export const SECRET_SPECS = {
   // The legacy BYODB pair keeps its historical resolution chain (dedicated var, then the
   // access-token pair, then sha256(SECRET_KEY ?? a public literal), where key == iv when
   // SECRET_KEY is set) — see data-db-url-secret.ts. The previous effective value depends on
-  // the deployment's own env, so the boot warning teaches how to compute it and never
-  // prints derived key material.
+  // the deployment's own env, so the refusal on half a pair teaches how to compute it and
+  // never prints derived key material. With none of those vars set the pair has been the
+  // derivation of a public literal: that value is as public as a legacyDefault, and it is
+  // what keepReadable carries.
   // fallbackEnvKeys only tell the policy which vars keep the effective value
   // off the public literals; nothing resolves these specs via resolveSecret.
   dataDbUrlEncryptionKey: {
@@ -249,6 +266,10 @@ export const SECRET_SPECS = {
     deprecated: true,
     pinInstruction:
       "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_KEY if it was set, otherwise compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY ?? 'teable-data-db-url-secret').digest('hex').slice(0,16))\"`.",
+    keepReadable: {
+      line: "BACKEND_DATA_DB_URL_ENCRYPTION_KEY_OLD='ed333d03ac334ea2'",
+      note: 'only with BYODB database connections',
+    },
   },
   dataDbUrlEncryptionIv: {
     envKey: 'BACKEND_DATA_DB_URL_ENCRYPTION_IV',
@@ -257,6 +278,10 @@ export const SECRET_SPECS = {
     deprecated: true,
     pinInstruction:
       "previous effective value: your BACKEND_ACCESS_TOKEN_ENCRYPTION_IV if it was set; with SECRET_KEY set, compute `node -e \"console.log(require('crypto').createHash('sha256').update(process.env.SECRET_KEY).digest('hex').slice(0,16))\"` (key and iv share one derivation input — a historical quirk); with neither, the same command with 'teable-data-db-url-secret-iv' in place of process.env.SECRET_KEY.",
+    keepReadable: {
+      line: "BACKEND_DATA_DB_URL_ENCRYPTION_IV_OLD='3c50b81e61cb7f52'",
+      note: 'only with BYODB database connections',
+    },
   },
   // HKDF root of the authenticated BYODB URL format (AES-256-GCM, see data-db-url-secret.ts).
   // Superseded like envVariableSecret, with the same resolution. It shipped as that format's

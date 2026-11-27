@@ -42,7 +42,10 @@ import { TableUpdateResult } from '../../domain/table/TableMutator';
 import { ViewColumnMeta } from '../../domain/table/views/ViewColumnMeta';
 import type { ViewId } from '../../domain/table/views/ViewId';
 import { ViewQueryDefaults } from '../../domain/table/views/ViewQueryDefaults';
-import { ViewSourceFilter } from '../../domain/table/views/ViewSourceFilter';
+import {
+  canonicalViewSymbolOperator,
+  ViewSourceFilter,
+} from '../../domain/table/views/ViewSourceFilter';
 import * as ExecutionContextPort from '../../ports/ExecutionContext';
 import * as TableRepositoryPort from '../../ports/TableRepository';
 import { v2CoreTokens } from '../../ports/tokens';
@@ -614,7 +617,8 @@ export class FieldUpdateSideEffectService {
           const syncedSourceFilter = syncFilterByFieldChangesWithId(
             nextSourceFilter,
             fieldId,
-            plan
+            plan,
+            canonicalViewSymbolOperator
           );
           if (!isEquivalentFilter(nextSourceFilter, syncedSourceFilter)) {
             nextSourceFilter = syncedSourceFilter;

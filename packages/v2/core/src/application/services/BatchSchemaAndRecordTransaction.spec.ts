@@ -10,6 +10,7 @@ import { DeleteTableCommand } from '../../commands/DeleteTableCommand';
 import { DeleteTableHandler } from '../../commands/DeleteTableHandler';
 import { DeleteViewCommand } from '../../commands/DeleteViewCommand';
 import { DeleteViewHandler } from '../../commands/DeleteViewHandler';
+import { createFieldOperationPluginRunner } from '../../commands/fieldOperationPluginRunnerTestUtils';
 import { RestoreTableCommand } from '../../commands/RestoreTableCommand';
 import { RestoreTableHandler } from '../../commands/RestoreTableHandler';
 import { createTableOperationPluginRunner } from '../../commands/tableOperationPluginRunnerTestUtils';
@@ -671,7 +672,7 @@ describe('BatchSchemaAndRecordTransaction & same-tx schema/view projection dispa
         const deleteViewHandler = new DeleteViewHandler(tableRepo, flow, domainTx, {
           capture: vi.fn(() => ok({ id: 'viw' } as never)),
           appendDelete: vi.fn(async () => ok(undefined)),
-        } as unknown as ViewUndoRedoService);
+        } as unknown as ViewUndoRedoService, createFieldOperationPluginRunner());
 
         return {
           tableRepo,
@@ -865,7 +866,7 @@ describe('BatchSchemaAndRecordTransaction & same-tx schema/view projection dispa
       const deleteViewHandler = new DeleteViewHandler(tableRepo, flow, domainTx, {
         capture: vi.fn(() => ok({ id: 'viw' } as never)),
         appendDelete: vi.fn(async () => ok(undefined)),
-      } as unknown as ViewUndoRedoService);
+      } as unknown as ViewUndoRedoService, createFieldOperationPluginRunner());
 
       const createCmd = CreateTableCommand.create({
         baseId: baseIdStr,
