@@ -88,6 +88,7 @@ export class S3Storage implements StorageAdapter {
       forcePathStyle,
       internalForcePathStyle,
     } = this.config.s3;
+    const useIAMRole = this.config.provider === 's3' && this.config.s3.useIAMRole;
     this.checkConfig();
     this.httpAgent = new http.Agent({
       maxSockets,
@@ -106,16 +107,21 @@ export class S3Storage implements StorageAdapter {
           httpsAgent: this.httpsAgent,
         })
       : undefined;
+    const s3Credentials = useIAMRole
+      ? {}
+      : {
+          credentials: {
+            accessKeyId: accessKey,
+            secretAccessKey: secretKey,
+          },
+        };
     this.s3Client = new S3Client({
       ...s3ChecksumConfig,
       region,
       endpoint,
       forcePathStyle,
       requestHandler,
-      credentials: {
-        accessKeyId: accessKey,
-        secretAccessKey: secretKey,
-      },
+      ...s3Credentials,
     });
     // Reuse the same requestHandler (shared http/https agents) so the
     // maxSockets limit governs both public and internal endpoint traffic.
@@ -133,10 +139,7 @@ export class S3Storage implements StorageAdapter {
             endpoint: internalEndpoint ?? endpoint,
             forcePathStyle: internalPathStyle,
             requestHandler,
-            credentials: {
-              accessKeyId: accessKey,
-              secretAccessKey: secretKey,
-            },
+            ...s3Credentials,
           })
         : this.s3Client;
     sendContentMd5ForDeleteObjects(this.s3ClientPrivateNetwork);
@@ -149,10 +152,7 @@ export class S3Storage implements StorageAdapter {
           endpoint,
           bucketEndpoint: true,
           requestHandler,
-          credentials: {
-            accessKeyId: accessKey,
-            secretAccessKey: secretKey,
-          },
+          ...s3Credentials,
         })
       : this.s3Client;
 
@@ -235,14 +235,15 @@ export class S3Storage implements StorageAdapter {
         },
       });
     }
-    if (!this.config.s3.accessKey) {
+    const useIAMRole = this.config.provider === 's3' && this.config.s3.useIAMRole;
+    if (!useIAMRole && !this.config.s3.accessKey) {
       throw new CustomHttpException('S3 access key is required', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.attachment.s3AccessKeyRequired',
         },
       });
     }
-    if (!this.config.s3.secretKey) {
+    if (!useIAMRole && !this.config.s3.secretKey) {
       throw new CustomHttpException('S3 secret key is required', HttpErrorCode.VALIDATION_ERROR, {
         localization: {
           i18nKey: 'httpErrors.attachment.s3SecretKeyRequired',
