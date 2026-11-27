@@ -173,6 +173,140 @@ export class IntegrityQueryPostgres extends IntegrityQueryAbstract {
   }
 
   /**
+   * Atomically detect and fix InvalidLinkReference issues in a single SQL
+   * statement for PostgreSQL.
+   *
+   * Combines the detection query (find records where JSONB diverges from
+   * junction/FK source of truth) with the fix query (rebuild JSONB from
+   * junction/FK data) into one UPDATE ... WHERE __id IN (SELECT ...).
+   *
+   * This eliminates the window between detection and fix where concurrent
+   * writes can re-introduce desyncs — a known race condition under high
+   * write concurrency (see: https://github.com/teableio/teable/issues/2680).
+   */
+  override atomicFixLinks({
+    dbTableName,
+    foreignDbTableName,
+    fkHostTableName,
+    lookupDbFieldName,
+    selfKeyName,
+    foreignKeyName,
+    linkDbFieldName,
+    isMultiValue,
+  }: {
+    dbTableName: string;
+    foreignDbTableName: string;
+    fkHostTableName: string;
+    lookupDbFieldName: string;
+    selfKeyName: string;
+    foreignKeyName: string;
+    linkDbFieldName: string;
+    isMultiValue: boolean;
+  }): string | null {
+    if (isMultiValue) {
+      // Multi-value (ManyMany, OneMany): rebuild JSONB array from junction table
+      // Detection is inlined in the WHERE clause via count comparison
+      const detectionSubquery = this.knex
+        .select('sub.__id')
+        .from(`${dbTableName} as sub`)
+        .leftJoin(
+          this.knex(fkHostTableName)
+            .select({ id: selfKeyName })
+            .count('* as jc')
+            .whereNotNull(selfKeyName)
+            .groupBy(selfKeyName)
+            .as('jct'),
+          'sub.__id',
+          'jct.id'
+        )
+        .whereRaw(
+          `jsonb_array_length(COALESCE(sub."${linkDbFieldName}", '[]'::jsonb)) != COALESCE(jct.jc, 0)`
+        );
+
+      return this.knex(dbTableName)
+        .update({
+          [linkDbFieldName]: this.knex
+            .select(
+              this.knex.raw(
+                "jsonb_agg(jsonb_build_object('id', ??, 'title', ??) ORDER BY ??)",
+                [
+                  `fk.${foreignKeyName}`,
+                  `ft.${lookupDbFieldName}`,
+                  `fk.${foreignKeyName}`,
+                ]
+              )
+            )
+            .from(`${fkHostTableName} as fk`)
+            .join(`${foreignDbTableName} as ft`, `ft.__id`, `fk.${foreignKeyName}`)
+            .where('fk.' + selfKeyName, `${dbTableName}.__id`),
+        })
+        .whereIn('__id', detectionSubquery)
+        .toQuery();
+    }
+
+    if (fkHostTableName === dbTableName) {
+      // Single-value, FK in same table (ManyOne/OneOne): rebuild from FK column
+      const detectionSubquery = this.knex
+        .select('sub.__id')
+        .from(`${dbTableName} as sub`)
+        .where(function () {
+          this.whereRaw(`sub."${foreignKeyName}" IS NULL`)
+            .whereRaw(`sub."${linkDbFieldName}" IS NOT NULL`)
+            .orWhere(function () {
+              this.whereRaw(`sub."${linkDbFieldName}" IS NOT NULL`).andWhereRaw(
+                `(sub."${linkDbFieldName}"->>'id')::text != sub."${foreignKeyName}"::text`
+              );
+            });
+        });
+
+      return this.knex(dbTableName)
+        .update({
+          [linkDbFieldName]: this.knex.raw(
+            `CASE WHEN ?? IS NULL THEN NULL
+             ELSE jsonb_build_object('id', ??, 'title', (SELECT ?? FROM ?? WHERE __id = ??))
+             END`,
+            [foreignKeyName, foreignKeyName, lookupDbFieldName, foreignDbTableName, foreignKeyName]
+          ),
+        })
+        .whereIn('__id', detectionSubquery)
+        .toQuery();
+    }
+
+    // Single-value, FK in host table (OneOne cross-table): rebuild via join
+    const detectionSubquery = this.knex
+      .select('sub.__id')
+      .from(`${dbTableName} as sub`)
+      .leftJoin(`${fkHostTableName} as t2`, `t2.${selfKeyName}`, 'sub.__id')
+      .where(function () {
+        this.whereRaw(`t2."${foreignKeyName}" IS NULL`)
+          .whereRaw(`sub."${linkDbFieldName}" IS NOT NULL`)
+          .orWhere(function () {
+            this.whereRaw(`sub."${linkDbFieldName}" IS NOT NULL`).andWhereRaw(
+              `(sub."${linkDbFieldName}"->>'id')::text != t2."${foreignKeyName}"::text`
+            );
+          });
+      });
+
+    return this.knex(dbTableName)
+      .update({
+        [linkDbFieldName]: this.knex
+          .select(
+            this.knex.raw(
+              `CASE WHEN t2.?? IS NULL THEN NULL
+               ELSE jsonb_build_object('id', t2.??, 'title', t2.??)
+               END`,
+              [foreignKeyName, foreignKeyName, lookupDbFieldName]
+            )
+          )
+          .from(`${fkHostTableName} as t2`)
+          .where(`t2.${foreignKeyName}`, `${dbTableName}.__id`)
+          .limit(1),
+      })
+      .whereIn('__id', detectionSubquery)
+      .toQuery();
+  }
+
+  /**
    * Deprecated: Do NOT use in new code.
    * Link fields typically do not persist a display JSON column in Postgres;
    * their values are computed from junction tables or fk columns. This method
