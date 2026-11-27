@@ -576,7 +576,7 @@ export class Power extends NumericFunc {
   eval(params: TypedValue<number | null>[]): number | null {
     const value = params[0].value;
     if (value == null) return null;
-    const exponent = params[1]?.value || 1;
+    const exponent = params[1]?.value ?? 1;
     return Math.pow(value, exponent);
   }
 }
